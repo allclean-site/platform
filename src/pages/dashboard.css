@@ -1,0 +1,38 @@
+.dash { display: flex; flex-direction: column; gap: 20px; }
+.dash__kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.kpi { padding: 18px; display: flex; gap: 14px; align-items: center; }
+.kpi:hover { box-shadow: var(--e2); transform: translateY(-2px); }
+.kpi__icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-md); background: var(--accent-soft); color: var(--accent); flex: 0 0 auto; }
+.kpi__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kpi__meta > span { font-size: 13px; }
+.kpi__row { display: flex; align-items: baseline; gap: 10px; }
+.kpi__row b { font-size: 26px; font-family: var(--font-display); }
+.kpi__delta { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 600; }
+.kpi__delta.up { color: var(--success); }
+.kpi__delta.down { color: var(--danger); }
+
+.dash__grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; }
+.dash__cardhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.dash__cardhead h3 { font-size: 17px; }
+.dash__chart, .dash__leads { padding: 20px; }
+.spark { width: 100%; height: 130px; display: block; }
+.dash__hint { font-size: 12px; margin: 12px 0 0; }
+.dash__more { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 600; color: var(--accent); }
+
+.leads { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lead { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--r-md); transition: background var(--dur); }
+.lead:hover { background: var(--surface-2); }
+.lead__ava { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; flex: 0 0 auto; }
+.lead__body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.lead__body span { font-size: 13px; }
+.lead__side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.lead__time { font-size: 12px; }
+.lead__status { font-size: 11px; }
+.s-Новая { background: rgba(59,130,246,.14); color: var(--info); }
+.s-В\ работе { background: var(--accent-soft); color: var(--accent); }
+.s-Заказ { background: rgba(16,185,129,.14); color: var(--success); }
+
+@media (max-width: 1000px) {
+  .dash__kpis { grid-template-columns: repeat(2, 1fr); }
+  .dash__grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,26 @@
+/* Free-canvas (Zero-Block) editing affordances — ported from editor-v2, mapped to platform tokens. */
+
+.cv-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px;
+  background: var(--accent-soft); border: 1px solid var(--border); border-radius: 10px; margin: 0 0 16px; }
+.cv-toolbar__label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-right: 4px; }
+.cv-toolbar__btn { border: 1px solid var(--border); background: var(--surface); border-radius: 7px; padding: 5px 10px;
+  font-size: 13px; cursor: pointer; color: var(--text); }
+.cv-toolbar__btn:hover { border-color: var(--accent); color: var(--accent); }
+.cv-toolbar__btn:disabled { opacity: .5; cursor: default; }
+.cv-toolbar__btn--del { margin-left: auto; }
+
+.cv--editing { background-image: linear-gradient(var(--accent-soft) 1px, transparent 1px),
+  linear-gradient(90deg, var(--accent-soft) 1px, transparent 1px); background-size: 100% 58px, 8.333% 100%; }
+.cv-slot { outline: 1px dashed var(--accent-ring); outline-offset: -1px; cursor: pointer; position: relative; }
+.cv-slot:hover { outline-color: var(--accent); }
+.cv-slot.is-selected { outline: 2px solid var(--accent); }
+.cv-move { position: absolute; top: -11px; left: -1px; background: var(--accent); color: #fff; font-size: 11px;
+  line-height: 1; padding: 3px 5px; border-radius: 4px; cursor: grab; user-select: none; z-index: 2; }
+.cv-resize { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; background: var(--accent);
+  border: 2px solid #fff; border-radius: 50%; cursor: nwse-resize; z-index: 2; }
+
+/* Block selection outline in the block-model canvas */
+.blockwrap { position: relative; }
+.blk-select { outline: 2px solid transparent; outline-offset: -2px; cursor: pointer; transition: outline-color .1s; }
+.blk-select:hover { outline-color: var(--accent-ring); }
+.blk-select.is-selected { outline-color: var(--accent); }

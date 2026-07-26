@@ -1,0 +1,64 @@
+/* LeadGeniumCMS design tokens — see DESIGN_SYSTEM.md. Light + dark are both first-class. */
+
+:root,
+[data-theme="light"] {
+  --bg: #f5f6fb;
+  --surface: #ffffff;
+  --surface-2: #fbfbfe;
+  --text: #16181f;
+  --text-muted: #6b7280;
+  --border: #e7e8f1;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-soft: rgba(124, 58, 237, 0.1);
+  --accent-ring: rgba(124, 58, 237, 0.35);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-blur: 18px;
+  --e1: 0 2px 8px rgba(20, 22, 40, 0.06);
+  --e2: 0 8px 24px rgba(20, 22, 40, 0.08);
+  --e3: 0 16px 40px rgba(20, 22, 40, 0.12);
+  --grad: linear-gradient(135deg, #7c3aed, #a855f7);
+}
+
+[data-theme="dark"] {
+  --bg: #0b0c14;
+  --surface: #14151f;
+  --surface-2: #191b28;
+  --text: #e8e9f2;
+  --text-muted: #9aa0b4;
+  --border: #262838;
+  --accent: #8b5cf6;
+  --accent-hover: #7c3aed;
+  --accent-soft: rgba(139, 92, 246, 0.16);
+  --accent-ring: rgba(139, 92, 246, 0.45);
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+  --glass-bg: rgba(20, 21, 31, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 20px;
+  --e1: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --e2: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --e3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --grad: linear-gradient(135deg, #8b5cf6, #6366f1);
+}
+
+:root {
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --dur-slow: 240ms;
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --font-display: "General Sans", "Onest", system-ui, sans-serif;
+  --font-body: "Onest", system-ui, -apple-system, sans-serif;
+}

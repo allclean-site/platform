@@ -1,0 +1,14 @@
+# dependencies / build
+node_modules
+dist
+out
+.vercel
+
+# secrets — NEVER commit. service_role and other server keys live here locally.
+.env
+.env.*
+!.env.example
+
+# logs / os
+*.log
+.DS_Store

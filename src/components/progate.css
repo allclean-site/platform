@@ -1,0 +1,24 @@
+/* PRO gate — blurred teaser + centred upgrade plaque */
+.progate { position: relative; min-height: calc(100vh - 140px); overflow: hidden; border-radius: var(--r-lg); }
+.progate__behind { filter: blur(7px) saturate(.85); opacity: .55; pointer-events: none; user-select: none; }
+
+.progate__veil {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(120% 120% at 50% 35%, rgba(124, 58, 237, .10), transparent 70%);
+  backdrop-filter: blur(2px);
+}
+.progate__card {
+  width: min(460px, 100%); text-align: center; padding: 30px 28px;
+  border-radius: var(--r-lg); border: 1px solid var(--border);
+  box-shadow: 0 24px 70px rgba(15, 10, 35, .3);
+}
+.progate__badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .3px;
+  margin-bottom: 14px;
+}
+.progate__title { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: var(--text); }
+.progate__text { margin: 0 0 20px; font-size: 13.5px; line-height: 1.55; color: var(--text-muted); }
+.progate__actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.progate__actions .btn-primary,
+.progate__actions .btn-ghost { text-decoration: none; }
