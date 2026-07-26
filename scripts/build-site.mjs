@@ -95,11 +95,38 @@ function exportPageHtml(page, overrides, bp) {
 
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");
+const PROJECT = "allclean";
+
+// Instant publish: read the editor's saved edits from Supabase (source of truth). Falls back to a
+// local edits.json arg, then to the clean mirror. On Vercel, SUPABASE_URL + a key come from env.
+async function supabaseEdits() {
+  const URL = process.env.SUPABASE_URL, KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!URL || !KEY) return null;
+  try {
+    const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/site_overrides?select=page_id,overrides,breakpoints&project=eq.${PROJECT}`,
+      { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+    if (!r.ok) { console.log(`[build] Supabase edits skipped (HTTP ${r.status})`); return null; }
+    const rows = await r.json();
+    const overrides = {}, breakpoints = {};
+    for (const row of rows) {
+      if (row.overrides && Object.keys(row.overrides).length) overrides[row.page_id] = row.overrides;
+      if (row.breakpoints && Object.keys(row.breakpoints).length) breakpoints[row.page_id] = row.breakpoints;
+    }
+    console.log(`[build] Supabase edits: ${rows.length} page(s)`);
+    return { overrides, breakpoints };
+  } catch (e) {
+    console.log("[build] Supabase edits skipped:", e.message);
+    return null;
+  }
+}
 
 async function main() {
   const editsPath = process.argv[2];
   let edits = { overrides: {}, breakpoints: {} };
-  if (editsPath && existsSync(editsPath)) {
+  const dbEdits = await supabaseEdits();
+  if (dbEdits) {
+    edits = dbEdits;
+  } else if (editsPath && existsSync(editsPath)) {
     edits = JSON.parse(await readFile(editsPath, "utf8"));
     console.log(`[build] edits from ${editsPath}`);
   } else {
