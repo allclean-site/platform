@@ -100,7 +100,10 @@ const PROJECT = "allclean";
 // Instant publish: read the editor's saved edits from Supabase (source of truth). Falls back to a
 // local edits.json arg, then to the clean mirror. On Vercel, SUPABASE_URL + a key come from env.
 async function supabaseEdits() {
-  const URL = process.env.SUPABASE_URL, KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  // Accept both the platform names and the existing Astro/Vercel names (PUBLIC_SUPABASE_*) so the
+  // client project's current env works with no new variables.
+  const URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
+  const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.PUBLIC_SUPABASE_ANON;
   if (!URL || !KEY) return null;
   try {
     const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/site_overrides?select=page_id,overrides,breakpoints&project=eq.${PROJECT}`,
