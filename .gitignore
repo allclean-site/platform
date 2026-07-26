@@ -12,3 +12,8 @@ out
 # logs / os
 *.log
 .DS_Store
+
+# tooling
+.gstack
+.astro
+.wrangler
