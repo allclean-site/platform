@@ -79,7 +79,7 @@ Rules:
       method: "POST",
       headers: { "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: "claude-haiku-4-5", max_tokens: 12000, system,
+        model: "claude-haiku-4-5-20251001", max_tokens: 12000, system,
         tools: [TOOL], tool_choice: { type: "tool", name: "emit_article" },
         messages: [{ role: "user", content: userMsg }],
       }),
