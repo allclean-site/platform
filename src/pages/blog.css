@@ -82,6 +82,13 @@
 .art-lang.is-empty { opacity: .55; }
 .art-lang__tag { font-size: 10px; font-weight: 500; color: var(--text-muted); text-transform: none; }
 .art-lang.is-active .art-lang__tag { color: var(--accent); opacity: .8; }
+/* Cover upload control */
+.art-cover { display: flex; align-items: center; gap: 12px; }
+.art-cover__img { width: 84px; height: 60px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--border); flex: 0 0 auto; }
+.art-cover__ph { width: 84px; height: 60px; display: grid; place-items: center; border-radius: var(--r-sm);
+  border: 1px dashed var(--border); color: var(--text-muted); background: var(--surface-2); flex: 0 0 auto; }
+.art-cover__acts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
 .art-locpill { font-size: 10px; font-weight: 700; letter-spacing: .3px; padding: 1px 6px; border-radius: 5px;
   border: 1px solid var(--border); color: var(--text-muted); background: var(--surface-2); }
 .art-locpill.on { color: var(--accent); border-color: rgba(124, 58, 237, .35); background: var(--accent-soft); }

@@ -6,11 +6,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, Eye, Search, Send, Image as ImageIcon, Languages, Loader2, X } from "lucide-react";
+import { ArrowLeft, Check, Eye, Search, Send, Image as ImageIcon, Languages, Loader2, X, Upload } from "lucide-react";
 import { getArticle, getGroup, upsertArticle, publishArticle, enrich, newCounterpart } from "../blog/store";
 import { markdownToHtml } from "../engine/blog/markdown";
 import { translateArticle, translateConfigured } from "../blog/translateClient";
 import { publishArticlesToSite } from "../blog/publishArticleClient";
+import { pickAndUploadImage } from "../blog/uploadClient";
 import { CheckCircle2, XCircle } from "lucide-react";
 import type { Article, Locale } from "../engine/blog/types";
 import "./blog.css";
@@ -40,6 +41,7 @@ export function ArticleEditor() {
   const [tab, setTab] = useState<"preview" | "seo">("preview");
   const [saved, setSaved] = useState(true);
   const [translating, setTranslating] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState("");
   const [showPub, setShowPub] = useState(false);
   const [pubState, setPubState] = useState<"idle" | "publishing" | "done" | "error">("idle");
@@ -62,6 +64,7 @@ export function ArticleEditor() {
 
   const set = (p: Partial<Article>) => setVers((v) => ({ ...v, [active]: { ...v[active], ...p } }));
   const setTags = (val: string) => set({ meta: { ...a.meta, tags: val.split(",").map((s) => s.trim()).filter(Boolean) } });
+  const uploadCover = async () => { setUploading(true); const { url } = await pickAndUploadImage(); if (url) set({ coverUrl: url }); setUploading(false); };
 
   const doTranslate = async () => {
     const s = vers[source];
@@ -125,9 +128,18 @@ export function ArticleEditor() {
             {active !== source && a.autoTranslated && <div className="art-ed__auto"><Languages size={13} /> Автоперевод — проверьте и при необходимости поправьте текст.</div>}
             <input className="art-ed__titlein" value={a.title} onChange={(e) => set({ title: e.target.value })} placeholder={active === source ? "Заголовок статьи" : "Появится после перевода"} />
             <div className="art-fld-row">
-              <label className="fld"><span><ImageIcon size={13} /> Обложка (URL)</span>
-                <input className="ci" value={a.coverUrl || ""} onChange={(e) => set({ coverUrl: e.target.value })} placeholder="https://…/cover.jpg" />
-              </label>
+              <div className="fld">
+                <span><ImageIcon size={13} /> Обложка</span>
+                <div className="art-cover">
+                  {a.coverUrl ? <img className="art-cover__img" src={a.coverUrl} alt="" /> : <div className="art-cover__ph"><ImageIcon size={20} /></div>}
+                  <div className="art-cover__acts">
+                    <button type="button" className="btn-ghost" onClick={uploadCover} disabled={uploading}>
+                      {uploading ? <><Loader2 size={14} className="art-spin" /> Загрузка…</> : <><Upload size={14} /> {a.coverUrl ? "Заменить фото" : "Загрузить фото"}</>}
+                    </button>
+                    {a.coverUrl && <button type="button" className="linklike" onClick={() => set({ coverUrl: "" })}>Убрать</button>}
+                  </div>
+                </div>
+              </div>
               <label className="fld"><span>Alt обложки (SEO)</span>
                 <input className="ci" value={a.coverAlt || ""} onChange={(e) => set({ coverAlt: e.target.value })} placeholder="Что на фото" />
               </label>

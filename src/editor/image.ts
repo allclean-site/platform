@@ -36,7 +36,7 @@ export const storageConfigured = (): boolean => !!storageCfg();
 const MAX_W = 1600; // downscale wide photos so uploads/data-URLs stay light
 
 /** Downscale an image File to a Blob (keeps aspect ratio; JPEG for photos, PNG for PNGs). */
-function downscale(file: File): Promise<{ blob: Blob; ext: string; type: string }> {
+export function downscale(file: File): Promise<{ blob: Blob; ext: string; type: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
