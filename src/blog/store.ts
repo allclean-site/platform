@@ -73,10 +73,28 @@ export function removeArticle(id: string): Article[] {
   return list;
 }
 
-export function newArticle(): Article {
+export function newArticle(locale: string = "ro"): Article {
   return {
-    id: uid(), group: uid(), locale: "ru", slug: "", title: "", body: "",
+    id: uid(), group: uid(), locale, slug: "", title: "", body: "",
     author: "", status: "draft", datePublished: nowISO(), dateModified: nowISO(), meta: {},
+    sourceLocale: locale,
+  };
+}
+
+/** Both locale versions of an article, keyed by locale (a bilingual group shares `group`). */
+export function getGroup(groupId: string): Record<string, Article> {
+  const out: Record<string, Article> = {};
+  for (const a of loadArticles()) if (a.group === groupId) out[a.locale] = a;
+  return out;
+}
+
+/** A fresh translation counterpart (same group, other locale), empty until translated. */
+export function newCounterpart(source: Article, locale: string): Article {
+  return {
+    id: uid(), group: source.group, locale, slug: "", title: "", body: "",
+    author: source.author, status: source.status, datePublished: source.datePublished, dateModified: nowISO(),
+    meta: {}, autoTranslated: true, sourceLocale: source.sourceLocale || source.locale,
+    coverUrl: source.coverUrl, coverAlt: source.coverAlt,
   };
 }
 
