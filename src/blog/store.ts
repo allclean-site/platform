@@ -13,6 +13,9 @@ import { markdownToText } from "../engine/blog/markdown";
 
 const KEY = "leadgenium:articles";
 const uid = () => "a" + Math.random().toString(36).slice(2, 9);
+// Article groups map to Supabase `articles.group_id` (a uuid) — generate a real uuid so a published
+// pair upserts cleanly on (group_id, locale).
+const newGroupId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uid());
 const nowISO = () => new Date().toISOString();
 
 function seed(): Article[] {
@@ -75,7 +78,7 @@ export function removeArticle(id: string): Article[] {
 
 export function newArticle(locale: string = "ro"): Article {
   return {
-    id: uid(), group: uid(), locale, slug: "", title: "", body: "",
+    id: uid(), group: newGroupId(), locale, slug: "", title: "", body: "",
     author: "", status: "draft", datePublished: nowISO(), dateModified: nowISO(), meta: {},
     sourceLocale: locale,
   };

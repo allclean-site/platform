@@ -123,6 +123,113 @@ async function supabaseEdits() {
   }
 }
 
+// ---- blog articles → pages (from Supabase `articles`) -------------------------------------------
+const RO_TEMPLATE = "blog__curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele";
+const RU_TEMPLATE = "ru__blog__generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya";
+const escHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escAttr = (s) => escHtml(s).replace(/"/g, "&quot;");
+
+/** Minimal Markdown → HTML (used only when the body is authored as Markdown; passes HTML through). */
+function mdToHtml(md) {
+  if (/<(p|h[1-6]|ul|ol|div|figure)[ >]/i.test(md)) return md; // already HTML
+  const inline = (s) => escHtml(s)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => `<a href="${u.replace(/^javascript:/i, "")}">${t}</a>`);
+  let html = "", list = null;
+  const close = () => { if (list) { html += `</${list}>`; list = null; } };
+  for (const raw of String(md || "").split(/\r?\n/)) {
+    const t = raw.trim();
+    if (!t) { close(); continue; }
+    let m;
+    if ((m = t.match(/^(#{1,6})\s+(.*)/))) { close(); const lv = Math.min(6, m[1].length); html += `<h${lv}>${inline(m[2])}</h${lv}>`; continue; }
+    if ((m = t.match(/^[-*]\s+(.*)/))) { if (list !== "ul") { close(); list = "ul"; html += "<ul>"; } html += `<li>${inline(m[1])}</li>`; continue; }
+    if ((m = t.match(/^\d+\.\s+(.*)/))) { if (list !== "ol") { close(); list = "ol"; html += "<ol>"; } html += `<li>${inline(m[1])}</li>`; continue; }
+    close(); html += `<p>${inline(t)}</p>`;
+  }
+  close();
+  return html;
+}
+
+const artUrl = (locale, slug) => (locale === "ro" ? `${SITE}/blog/${slug}` : `${SITE}/${locale}/blog/${slug}`);
+const artPath = (locale, slug) => (locale === "ro" ? `blog/${slug}/index.html` : `${locale}/blog/${slug}/index.html`);
+
+const D = "data-astro-cid-zcwx364o";
+function buildSec0(a, dateStr) {
+  const cover = a.cover_url ? `<div class="image-wrap_hero-article" ${D}><img src="${escAttr(a.cover_url)}" loading="eager" alt="${escAttr(a.cover_alt || a.title)}" sizes="100vw" class="image_cover" ${D}></div>` : "";
+  const faq = (a.meta && a.meta.faq) || [];
+  const faqTitle = a.locale === "ro" ? "Întrebări frecvente" : "Часто задаваемые вопросы";
+  const faqHtml = faq.length ? `<div class="wrap_6-center" ${D}><div class="wrap_faq-block" style="opacity:1" ${D}><div class="headline_faq-block" ${D}><h2 class="heading-style-h4 margin-0" ${D}>${escHtml(faqTitle)}</h2></div><div class="faq-block blog-faq" ${D}>${faq.map((f) => `<div class="expandable-single" ${D}><div class="expandable-top" ${D}><h3 class="heading-style-h6 margin-0" ${D}>${escHtml(f.question)}</h3></div><div class="expandable-content" ${D}><p>${escHtml(f.answer)}</p></div></div>`).join("")}</div></div></div>` : "";
+  return `<section class="section_hero-article" ${D}><div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${mdToHtml(a.body || "")}</div></div>${faqHtml}</div></div></div></section>`;
+}
+
+/** Rebuild the template <head> for this article (title/desc/canonical/og/hreflang/JSON-LD). */
+function buildHead(prefix, a, roSlug, ruSlug) {
+  const url = artUrl(a.locale, a.slug);
+  const title = a.seo_title || a.title;
+  const desc = a.seo_description || a.excerpt || "";
+  const roUrl = roSlug ? `${SITE}/blog/${roSlug}` : url;
+  const ruUrl = ruSlug ? `${SITE}/ru/blog/${ruSlug}` : url;
+  let h = prefix
+    .replace(/<title>[\s\S]*?<\/title>/, `<title>${escHtml(title)}</title>`)
+    .replace(/(name="description"\s+content=")[^"]*(")/, `$1${escAttr(desc)}$2`)
+    .replace(/(content=")[^"]*("\s+name="description")/, `$1${escAttr(desc)}$2`)
+    .replace(/(rel="canonical"\s+href=")[^"]*(")/, `$1${url}$2`)
+    .replace(/(og:title"\s+content=")[^"]*(")/, `$1${escAttr(title)}$2`)
+    .replace(/(og:description"\s+content=")[^"]*(")/, `$1${escAttr(desc)}$2`)
+    .replace(/(og:url"\s+content=")[^"]*(")/, `$1${url}$2`)
+    .replace(/(hreflang="ru-MD"\s+href=")[^"]*(")/, `$1${ruUrl}$2`)
+    .replace(/(hreflang="ro-MD"\s+href=")[^"]*(")/, `$1${roUrl}$2`)
+    .replace(/(hreflang="x-default"\s+href=")[^"]*(")/, `$1${roUrl}$2`)
+    .replace(/(<script type="application\/ld\+json"[^>]*>)[\s\S]*?(<\/script>)/, `$1${JSON.stringify(a.jsonld || {})}$2`);
+  if (a.cover_url) h = h.replace(/(og:image"\s+content=")[^"]*(")/, `$1${escAttr(a.cover_url)}$2`);
+  return h;
+}
+
+/** Fetch published articles from Supabase (anon read) grouped, then render new ones to pages. */
+async function generateArticles(written) {
+  const URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
+  const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.PUBLIC_SUPABASE_ANON;
+  const PROJECT_ID = "8878db57-c541-4502-bfa6-ae812dc3aefd";
+  let arts = [];
+  if (process.env.MOCK_ARTICLES) { arts = JSON.parse(process.env.MOCK_ARTICLES); } // test hook
+  else if (!URL || !KEY) { console.log("[build] blog: no Supabase creds — skipping article generation"); return []; }
+  else try {
+    const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/articles?select=group_id,locale,slug,title,excerpt,body,cover_url,seo_title,seo_description,meta,jsonld,created_at&project_id=eq.${PROJECT_ID}&status=eq.published`,
+      { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+    if (!r.ok) { console.log(`[build] blog: articles fetch HTTP ${r.status} — skipping`); return []; }
+    arts = await r.json();
+  } catch (e) { console.log("[build] blog: articles fetch failed:", e.message); return []; }
+
+  // group_id → { ro?, ru? } for hreflang pairing
+  const byGroup = new Map();
+  for (const a of arts) { const g = byGroup.get(a.group_id) || {}; g[a.locale] = a; byGroup.set(a.group_id, g); }
+
+  const roTpl = JSON.parse(await readFile(join(IMPORT, RO_TEMPLATE + ".json"), "utf8"));
+  const ruTpl = JSON.parse(await readFile(join(IMPORT, RU_TEMPLATE + ".json"), "utf8"));
+  const newUrls = [];
+  let made = 0, skipped = 0;
+  for (const a of arts) {
+    const path = artPath(a.locale, a.slug);
+    if (written.has(path)) { skipped++; continue; } // keep the original rich mirror page if it exists
+    const pair = byGroup.get(a.group_id) || {};
+    const tpl = a.locale === "ru" ? ruTpl : roTpl;
+    const dateStr = new Date(a.created_at || Date.now()).toLocaleDateString(a.locale === "ru" ? "ru-RU" : "ro-RO", { day: "numeric", month: "long", year: "numeric" });
+    const page = {
+      ...tpl,
+      prefix: buildHead(tpl.prefix, a, pair.ro?.slug, pair.ru?.slug),
+      blocks: tpl.blocks.map((b) => (b.content.region === "main" ? { ...b, content: { ...b.content, html: buildSec0(a, dateStr) } } : b)),
+    };
+    const doc = reassemble(page);
+    const dest = join(OUT, path);
+    await mkdir(dirname(dest), { recursive: true });
+    await writeFile(dest, doc);
+    written.add(path); newUrls.push(artUrl(a.locale, a.slug)); made++;
+  }
+  console.log(`[build] blog: ${arts.length} published articles — ${made} pages generated, ${skipped} kept from mirror`);
+  return newUrls;
+}
+
 async function main() {
   const editsPath = process.argv[2];
   let edits = { overrides: {}, breakpoints: {} };
@@ -141,15 +248,21 @@ async function main() {
   await mkdir(OUT, { recursive: true });
 
   let n = 0;
+  const written = new Set();
   for (const entry of idx.pages) {
     const page = JSON.parse(await readFile(join(IMPORT, entry.file + ".json"), "utf8"));
     const html = exportPageHtml(page, edits.overrides?.[page.id], edits.breakpoints?.[page.id]);
-    const dest = join(OUT, slugToFile(entry.slug));
+    const rel = slugToFile(entry.slug);
+    const dest = join(OUT, rel);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, html); // \n line endings, utf-8 — matches the mirror's bytes
+    written.add(rel);
     n++;
   }
   console.log(`[build] ${n} pages`);
+
+  // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept).
+  const articleUrls = await generateArticles(written);
 
   // assets: site-assets/* → out/ root (mirror references /images, /video, /fonts, /js, /logo.svg)
   for (const name of await readdir(ASSETS)) {
@@ -169,7 +282,8 @@ async function main() {
     const xdef = alts[idx.defaultLocale] ? `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${alts[idx.defaultLocale]}"/>` : "";
     return `<url><loc>${SITE}${p.slug}</loc>${links}${xdef}</url>`;
   }).join("");
-  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls}</urlset>\n`;
+  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u}</loc></url>`).join("");
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls}${artUrlsXml}</urlset>\n`;
   await writeFile(join(OUT, "sitemap.xml"), sitemap);
   await writeFile(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   console.log(`[build] sitemap.xml (${idx.pages.length} urls) + robots.txt`);

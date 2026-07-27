@@ -10,6 +10,8 @@ import { ArrowLeft, Check, Eye, Search, Send, Image as ImageIcon, Languages, Loa
 import { getArticle, getGroup, upsertArticle, publishArticle, enrich, newCounterpart } from "../blog/store";
 import { markdownToHtml } from "../engine/blog/markdown";
 import { translateArticle, translateConfigured } from "../blog/translateClient";
+import { publishArticlesToSite } from "../blog/publishArticleClient";
+import { CheckCircle2, XCircle } from "lucide-react";
 import type { Article, Locale } from "../engine/blog/types";
 import "./blog.css";
 
@@ -40,6 +42,8 @@ export function ArticleEditor() {
   const [translating, setTranslating] = useState(false);
   const [err, setErr] = useState("");
   const [showPub, setShowPub] = useState(false);
+  const [pubState, setPubState] = useState<"idle" | "publishing" | "done" | "error">("idle");
+  const [pubMsg, setPubMsg] = useState("");
   const t = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -75,7 +79,15 @@ export function ArticleEditor() {
     finally { setTranslating(false); }
   };
 
-  const doPublish = () => { Object.values(vers).forEach(publishArticle); setVers((v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, { ...x, status: "published" }]))); setShowPub(false); };
+  const doPublish = async () => {
+    setPubState("publishing"); setPubMsg("");
+    // Fill slug/excerpt/SEO, mark published locally, then push both versions to the live site.
+    const enriched = Object.values(vers).filter((v) => v.title?.trim()).map((v) => enrich({ ...v, status: "published" as const, datePublished: v.datePublished || new Date().toISOString() }));
+    enriched.forEach(publishArticle);
+    setVers((v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, { ...x, status: "published" as const }])));
+    const r = await publishArticlesToSite(enriched);
+    setPubState(r.ok ? "done" : "error"); setPubMsg(r.message);
+  };
 
   const status = vers[source]?.status || "draft";
   const bothReady = LOCALES.every((l) => vers[l]?.title?.trim());
@@ -177,14 +189,14 @@ export function ArticleEditor() {
       </div>
 
       {showPub && (
-        <PublishArticleDialog vers={vers} bothReady={bothReady} onPublish={doPublish} onClose={() => setShowPub(false)} />
+        <PublishArticleDialog vers={vers} bothReady={bothReady} pubState={pubState} pubMsg={pubMsg} onPublish={doPublish} onClose={() => { setShowPub(false); setPubState("idle"); setPubMsg(""); }} />
       )}
     </div>
   );
 }
 
 /** Side-by-side preview of both language versions before publishing. */
-function PublishArticleDialog({ vers, bothReady, onPublish, onClose }: { vers: Record<string, Article>; bothReady: boolean; onPublish: () => void; onClose: () => void }) {
+function PublishArticleDialog({ vers, bothReady, pubState, pubMsg, onPublish, onClose }: { vers: Record<string, Article>; bothReady: boolean; pubState: "idle" | "publishing" | "done" | "error"; pubMsg: string; onPublish: () => void; onClose: () => void }) {
   return (
     <div className="artpub__scrim" onClick={onClose}>
       <div className="artpub glass" onClick={(e) => e.stopPropagation()}>
@@ -212,10 +224,16 @@ function PublishArticleDialog({ vers, bothReady, onPublish, onClose }: { vers: R
           })}
         </div>
         <div className="artpub__foot">
-          {!bothReady && <span className="artpub__warn">Готова только одна версия — вторую переведите для двуязычной публикации.</span>}
+          {pubMsg
+            ? <span className={"artpub__result " + (pubState === "error" ? "is-err" : "is-ok")}>{pubState === "error" ? <XCircle size={15} /> : <CheckCircle2 size={15} />} {pubMsg}</span>
+            : !bothReady && <span className="artpub__warn">Готова только одна версия — вторую переведите для двуязычной публикации.</span>}
           <div className="artpub__actions">
-            <button className="btn-ghost" onClick={onClose}>Отмена</button>
-            <button className="btn-primary" onClick={onPublish}><Send size={15} /> Опубликовать обе версии</button>
+            <button className="btn-ghost" onClick={onClose}>{pubState === "done" ? "Закрыть" : "Отмена"}</button>
+            {pubState !== "done" && (
+              <button className="btn-primary" onClick={onPublish} disabled={pubState === "publishing"}>
+                {pubState === "publishing" ? <><Loader2 size={15} className="art-spin" /> Публикую…</> : <><Send size={15} /> Опубликовать обе версии</>}
+              </button>
+            )}
           </div>
         </div>
       </div>
