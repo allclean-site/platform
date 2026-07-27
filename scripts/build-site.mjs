@@ -208,6 +208,7 @@ async function generateArticles(written) {
   const roTpl = JSON.parse(await readFile(join(IMPORT, RO_TEMPLATE + ".json"), "utf8"));
   const ruTpl = JSON.parse(await readFile(join(IMPORT, RU_TEMPLATE + ".json"), "utf8"));
   const newUrls = [];
+  const newByLocale = { ro: [], ru: [] };
   let made = 0, skipped = 0;
   for (const a of arts) {
     const path = artPath(a.locale, a.slug);
@@ -224,10 +225,32 @@ async function generateArticles(written) {
     const dest = join(OUT, path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, doc);
-    written.add(path); newUrls.push(artUrl(a.locale, a.slug)); made++;
+    written.add(path); newUrls.push(artUrl(a.locale, a.slug));
+    (newByLocale[a.locale] || (newByLocale[a.locale] = [])).push(a);
+    made++;
   }
   console.log(`[build] blog: ${arts.length} published articles — ${made} pages generated, ${skipped} kept from mirror`);
-  return newUrls;
+  return { urls: newUrls, newByLocale };
+}
+
+/** A blog-index card matching the mirror's `.grid_blog` card markup. */
+function cardHtml(a, locale) {
+  const date = new Date(a.created_at || Date.now()).toLocaleDateString(locale === "ru" ? "ru-RU" : "ro-RO", { day: "numeric", month: "long", year: "numeric" });
+  const url = locale === "ro" ? `/blog/${a.slug}` : `/${locale}/blog/${a.slug}`;
+  const cta = locale === "ru" ? "Читать статью" : "Citește articolul";
+  const cover = a.cover_url ? `<div class="image-wrap_article"><img src="${escAttr(a.cover_url)}" loading="lazy" alt="${escAttr(a.cover_alt || a.title)}" class="image_cover"></div>` : "";
+  return `<div role="listitem" class="w-dyn-item"><a href="${url}" class="link_article w-inline-block">${cover}<div class="article-card_bottom-tile"><div class="text-wrap_article-card"><div class="text-size-small">${escHtml(date)}</div><div class="heading-style-h4">${escHtml(a.title)}</div></div><div button-tertiary="" class="cta_tertiary"><div>${escHtml(cta)}</div></div></div></a></div>`;
+}
+
+/** Inject new-article cards at the top of a blog index page's `.grid_blog` grid. */
+async function injectCards(indexRel, cards, locale) {
+  const file = join(OUT, indexRel);
+  if (!existsSync(file) || !cards.length) return;
+  let html = await readFile(file, "utf8");
+  const injected = cards.map((a) => cardHtml(a, locale)).join("");
+  html = html.replace(/(<div[^>]*class="[^"]*grid_blog[^"]*"[^>]*>)/, `$1${injected}`);
+  await writeFile(file, html);
+  console.log(`[build] blog: ${cards.length} card(s) added to ${indexRel}`);
 }
 
 async function main() {
@@ -261,8 +284,11 @@ async function main() {
   }
   console.log(`[build] ${n} pages`);
 
-  // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept).
-  const articleUrls = await generateArticles(written);
+  // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept)
+  // and add their cards to the /blog and /ru/blog index grids.
+  const { urls: articleUrls, newByLocale } = await generateArticles(written);
+  await injectCards("blog/index.html", newByLocale.ro || [], "ro");
+  await injectCards("ru/blog/index.html", newByLocale.ru || [], "ru");
 
   // assets: site-assets/* → out/ root (mirror references /images, /video, /fonts, /js, /logo.svg)
   for (const name of await readdir(ASSETS)) {

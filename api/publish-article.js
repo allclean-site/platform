@@ -11,7 +11,20 @@ const EDIT_KEY = process.env.EDIT_KEY;
 const PROJECT_ID = "8878db57-c541-4502-bfa6-ae812dc3aefd"; // allclean project in the client Supabase
 
 const SITE = "https://allclean.md";
+const INDEXNOW_KEY = "5a7bbce9d63a74005f4e33ec5e31389a"; // key file served at /<key>.txt (public/site-assets)
 const artUrl = (locale, slug) => (locale === "ro" ? `${SITE}/blog/${slug}` : `${SITE}/${locale}/blog/${slug}`);
+
+/** Ping IndexNow so Bing/Yandex re-crawl the new/updated article URLs immediately. */
+async function pingIndexNow(urls) {
+  if (!urls.length) return;
+  try {
+    await fetch("https://api.indexnow.org/indexnow", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ host: "allclean.md", key: INDEXNOW_KEY, keyLocation: `${SITE}/${INDEXNOW_KEY}.txt`, urlList: urls }),
+    });
+  } catch { /* best-effort */ }
+}
 
 function jsonLd(a) {
   const graph = [{
@@ -69,7 +82,10 @@ export default async function handler(req, res) {
   });
   if (!r.ok) return res.status(502).json({ error: "save failed: " + (await r.text()).slice(0, 300) });
 
+  const urls = rows.map((x) => artUrl(x.locale, x.slug));
+  await pingIndexNow(urls);
+
   let rebuild = false;
   if (DEPLOY_HOOK) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
-  return res.status(200).json({ ok: true, published: rows.length, urls: rows.map((x) => artUrl(x.locale, x.slug)), rebuild });
+  return res.status(200).json({ ok: true, published: rows.length, urls, rebuild });
 }
