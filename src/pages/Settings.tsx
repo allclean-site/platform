@@ -166,6 +166,7 @@ function DomainTab({ s, set }: { s: Settings; set: (p: Partial<Settings>) => voi
 function IntegrTab({ s, set }: { s: Settings; set: (p: Partial<Settings>) => void }) {
   const setI = (p: Partial<Settings["integrations"]>) => set({ integrations: { ...s.integrations, ...p } });
   const setSt = (p: Partial<Settings["storage"]>) => set({ storage: { ...s.storage, ...p } });
+  const setPub = (p: Partial<Settings["publish"]>) => set({ publish: { ...s.publish, ...p } });
   return (
     <div className="set-body">
       <h3 className="set-h">Интеграции</h3>
@@ -190,6 +191,18 @@ function IntegrTab({ s, set }: { s: Settings; set: (p: Partial<Settings>) => voi
         {s.storage.url && s.storage.anonKey
           ? <><Check size={14} /> Загрузка в бакет <b>{s.storage.bucket || "article-images"}</b> включена</>
           : <>Ключ не задан — загрузка идёт во встроенные data-URL (fallback)</>}
+      </div>
+
+      <h4 className="set-h4">Публикация (моментальная)</h4>
+      <p className="muted set-sub">Адрес обработчика публикации на сайте. Когда задан — в редакторе работает кнопка «Опубликовать на сайт» (правки уходят на сайт и он пересобирается). Пусто — доступно только скачивание пакета правок.</p>
+      <div className="set-grid2">
+        <label className="fld"><span>Адрес /api/publish</span><input className="ci" value={s.publish.endpoint} onChange={(e) => setPub({ endpoint: e.target.value })} placeholder="https://allclean.md/api/publish" /></label>
+        <label className="fld"><span>Ключ публикации (EDIT_KEY)</span><input className="ci" value={s.publish.editKey} onChange={(e) => setPub({ editKey: e.target.value })} placeholder="секрет, совпадает с EDIT_KEY на сервере" /></label>
+      </div>
+      <div className={"set-storage-status " + (s.publish.endpoint ? "is-on" : "is-off")}>
+        {s.publish.endpoint
+          ? <><Check size={14} /> Кнопка «Опубликовать на сайт» включена</>
+          : <>Адрес не задан — только скачивание пакета правок</>}
       </div>
     </div>
   );

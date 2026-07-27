@@ -13,6 +13,7 @@ import type { SiteIndex, ImportedPage } from "../editor/reassemble";
 import type { SiteOverrides } from "../editor/realStore";
 import type { SiteBp } from "../editor/bpStore";
 import { reportForPage, type PageReport } from "../editor/publish";
+import { publishConfigured, publishToSite } from "../editor/publishClient";
 
 export function PublishDialog({
   index, dataBase, overrides, bp, onDownload, onClose,
@@ -26,6 +27,16 @@ export function PublishDialog({
 }) {
   const [reports, setReports] = useState<PageReport[] | null>(null);
   const [progress, setProgress] = useState(0);
+  const [pubState, setPubState] = useState<"idle" | "publishing" | "done" | "error">("idle");
+  const [pubMsg, setPubMsg] = useState("");
+  const canPublish = publishConfigured();
+
+  const doPublish = async () => {
+    setPubState("publishing"); setPubMsg("");
+    const r = await publishToSite(overrides, bp);
+    setPubState(r.ok ? "done" : "error");
+    setPubMsg(r.message);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -109,16 +120,32 @@ export function PublishDialog({
             </div>
 
             <div className="pub__foot">
-              <p className="pub__note">
-                Скачивается <b>пакет правок</b> (edits.json). Сборка превращает его в готовый сайт с авто-SEO
-                (title, описания, Open Graph, JSON-LD, sitemap, IndexNow). <b>Выкладка на хостинг</b> — отдельный
-                шаг: подключите домен и хостинг в разделе <i>Настройки → Домен и хостинг</i>.
-              </p>
+              {canPublish ? (
+                <p className="pub__note">
+                  <b>Опубликовать на сайт</b> — правки сохраняются и сайт автоматически пересобирается с авто-SEO
+                  (title, описания, Open Graph, JSON-LD, sitemap, IndexNow). Обычно занимает 1–2 минуты.
+                </p>
+              ) : (
+                <p className="pub__note">
+                  Скачивается <b>пакет правок</b> (edits.json) для сборки. Чтобы публиковать <b>в один клик</b>,
+                  задайте адрес <i>/api/publish</i> в разделе <i>Настройки → Публикация</i>.
+                </p>
+              )}
+              {pubMsg && (
+                <p className={"pub__result " + (pubState === "error" ? "is-err" : "is-ok")}>
+                  {pubState === "error" ? <XCircle size={15} /> : <CheckCircle2 size={15} />} {pubMsg}
+                </p>
+              )}
               <div className="pub__actions">
                 <button className="pub__btn-ghost" onClick={onClose}>Закрыть</button>
-                <button className="pub__btn-primary" onClick={onDownload}>
-                  <Download size={15} /> Скачать пакет правок
+                <button className="pub__btn-ghost" onClick={onDownload}>
+                  <Download size={15} /> Скачать пакет
                 </button>
+                {canPublish && (
+                  <button className="pub__btn-primary" onClick={doPublish} disabled={pubState === "publishing"}>
+                    {pubState === "publishing" ? <><Loader2 size={15} className="pub__spin" /> Публикую…</> : <><Rocket size={15} /> Опубликовать на сайт</>}
+                  </button>
+                )}
               </div>
             </div>
           </>

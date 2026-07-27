@@ -20,6 +20,9 @@ export interface Settings {
   integrations: { gaId: string; gscVerified: boolean; telegramBot: string; pixel: string };
   /** Supabase Storage for image uploads (замена картинок). Empty anonKey → uploads fall back to inline data URLs. */
   storage: { url: string; anonKey: string; bucket: string };
+  /** Instant publish: the /api/publish endpoint on the deployed site + its edit key. Empty endpoint → the
+   *  Publish dialog only offers the edits.json download (no one-click go-live). */
+  publish: { endpoint: string; editKey: string };
   notif: Record<string, NotifRow>;
   team: TeamMember[];
   plan: string;
@@ -55,6 +58,7 @@ function defaults(): Settings {
     // Reuse AllClean's existing client Supabase project + its public `article-images` bucket; the
     // anon (publishable) key is pasted in Настройки → Интеграции to activate real uploads.
     storage: { url: "https://fnlgclkcbkmoailfdukt.supabase.co", anonKey: "", bucket: "article-images" },
+    publish: { endpoint: "https://allclean.md/api/publish", editKey: "" },
     notif: {
       lead: row(true, true),
       ticket: row(true, false),
