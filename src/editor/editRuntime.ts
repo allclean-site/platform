@@ -382,6 +382,14 @@ export const EDIT_RUNTIME = `
       if (dir.indexOf("s") >= 0) h = Math.max(16, startH + dh);
       if (dir.indexOf("n") >= 0) h = Math.max(16, startH - dh);
       if (dir.indexOf("e") >= 0 || dir.indexOf("w") >= 0){
+        // On phone/tablet, never let the box grow past the screen — otherwise it overflows the viewport
+        // and its resize handles land off-canvas where they can't be grabbed ("стенка исчезла").
+        if (curBp !== "desktop"){
+          var vpW = document.documentElement.clientWidth || 390;
+          var maxW = vpW - Math.max(0, r.left) - 6;
+          if (maxW < 40) maxW = vpW - 12;
+          if (w > maxW) w = maxW;
+        }
         setStyleProp(el, "width", Math.round(w) + "px");
         // Un-clamp: without these a flex/grid item is capped at its parent's size, so dragging WIDER
         // does nothing (the width is set but ignored). This makes the box actually grow.
