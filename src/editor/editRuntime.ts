@@ -358,9 +358,9 @@ export const EDIT_RUNTIME = `
   }
   function hideSelBox(){ if (selBox) selBox.style.display = "none"; }
   // Set a CSS prop on an element, routed to the current breakpoint (inline base OR @media rule).
-  function setStyleProp(el, prop, val){
+  function setStyleProp(el, prop, val, prio){
     var id = el.getAttribute("data-lg-id");
-    if (curBp === "desktop"){ el.style.setProperty(prop, val); }
+    if (curBp === "desktop"){ el.style.setProperty(prop, val, prio || ""); }
     else {
       var store = bp[curBp] || (bp[curBp] = {}), rec = store[id] || (store[id] = {});
       if (val === "") delete rec[prop]; else rec[prop] = val;
@@ -372,6 +372,19 @@ export const EDIT_RUNTIME = `
     var wblk = el.closest(W);
     if (curBp === "desktop"){ if (wblk) save(wblk.getAttribute("data-lg-block")); }
     else parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*");
+  }
+  // Remove EVERY constraint that stops a text box from being dragged wider than its current layout
+  // size. This is the hero-heading fix (heading_hero-home is a flex item its parent clamped)
+  // generalized to ALL text: flex-shrink un-clamps a flex item; max-width/min-width neutralize any cap
+  // -- and they're forced important so a foreign Webflow class (e.g. a .max-width-large rule setting
+  // max-width with !important, or a min-width class) can't silently win, which is why the box "just
+  // won't stretch" on some headings. NOTE: width itself is deliberately NOT important -- it must stay
+  // overridable by the per-device media rules (inline important would break tablet/mobile). On
+  // breakpoints these land in the media sheet (renderOverrides already forces important there).
+  function unclampWidth(el){
+    setStyleProp(el, "flex-shrink", "0", "important");
+    setStyleProp(el, "max-width", "none", "important");
+    setStyleProp(el, "min-width", "0", "important");
   }
   function startResize(e){
     e.preventDefault(); e.stopPropagation();
@@ -395,11 +408,9 @@ export const EDIT_RUNTIME = `
           if (w > maxW) w = maxW;
         }
         setStyleProp(el, "width", Math.round(w) + "px");
-        // Un-clamp: without these a flex/grid item is capped at its parent's size, so dragging WIDER
-        // does nothing (the width is set but ignored). This makes the box actually grow.
-        setStyleProp(el, "flex-shrink", "0"); setStyleProp(el, "max-width", "none");
+        unclampWidth(el);
       }
-      if (dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0){ setStyleProp(el, "height", Math.round(h) + "px"); setStyleProp(el, "flex-shrink", "0"); }
+      if (dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0){ setStyleProp(el, "height", Math.round(h) + "px"); setStyleProp(el, "flex-shrink", "0", "important"); }
       positionSelBox(el);
     }
     function up(){
@@ -513,7 +524,7 @@ export const EDIT_RUNTIME = `
     if (d.type === "lg-resize-mode"){
       var rm = findEl(d.blockId, d.el); if (!rm) return;
       var rr2 = rm.getBoundingClientRect();
-      setStyleProp(rm, "flex-shrink", "0"); setStyleProp(rm, "max-width", "none"); // un-clamp from flex/grid parent
+      unclampWidth(rm); // un-clamp from flex/grid parent + any max-width/min-width class
       if (d.mode === "hug"){ setStyleProp(rm, "width", "max-content"); setStyleProp(rm, "height", ""); }
       else if (d.mode === "fixw"){ setStyleProp(rm, "width", Math.round(rr2.width) + "px"); setStyleProp(rm, "height", ""); }
       else if (d.mode === "fixed"){ setStyleProp(rm, "width", Math.round(rr2.width) + "px"); setStyleProp(rm, "height", Math.round(rr2.height) + "px"); }
