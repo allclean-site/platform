@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw } from "lucide-react";
+import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw, ChevronDown } from "lucide-react";
 import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
 import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides } from "../editor/realStore";
@@ -66,6 +66,8 @@ export function SiteEditor() {
   const lastHtml = useRef<Record<string, string>>({});
   const lastEditAt = useRef(0); // for coalescing rapid typing into one undo entry
   const [histLen, setHistLen] = useState(0);
+  const [pagesOpen, setPagesOpen] = useState(true);   // collapsible left-panel sections
+  const [blocksOpen, setBlocksOpen] = useState(true);
 
   useEffect(() => { overrides.current = loadOverrides(TENANT, SITE); bpOverrides.current = loadBp(TENANT, SITE); }, [SITE]);
 
@@ -381,23 +383,34 @@ export function SiteEditor() {
 
       <div className="se__body">
         <aside className="se__panel glass">
-          <div className="se__section">Страницы · {index.pages.length}</div>
-          {index.locales.length > 1 && (
-            <div className="se__locales">
-              {index.locales.map((loc) => (
-                <button key={loc} className={"se__locale" + (locale === loc ? " is-active" : "")} onClick={() => setLocale(loc)}>{loc.toUpperCase()}</button>
-              ))}
-            </div>
+          <button className="se__section se__section--toggle" onClick={() => setPagesOpen((v) => !v)}>
+            <ChevronDown size={13} className={"se__chev" + (pagesOpen ? "" : " is-collapsed")} />
+            Страницы · {index.pages.length}
+          </button>
+          {pagesOpen && (
+            <>
+              {index.locales.length > 1 && (
+                <div className="se__locales">
+                  {index.locales.map((loc) => (
+                    <button key={loc} className={"se__locale" + (locale === loc ? " is-active" : "")} onClick={() => setLocale(loc)}>{loc.toUpperCase()}</button>
+                  ))}
+                </div>
+              )}
+              <ul className="se__pages">
+                {localePages.map((p) => (
+                  <li key={p.file} className={"se__page" + (activeFile === p.file ? " is-active" : "")} onClick={() => setActiveFile(p.file)}>
+                    <span className="se__page-name">{p.title.replace(/ [—|].*$/, "")}</span>
+                    <span className="se__page-slug">{p.slug}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
-          <ul className="se__pages">
-            {localePages.map((p) => (
-              <li key={p.file} className={"se__page" + (activeFile === p.file ? " is-active" : "")} onClick={() => setActiveFile(p.file)}>
-                <span className="se__page-name">{p.title.replace(/ [—|].*$/, "")}</span>
-                <span className="se__page-slug">{p.slug}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="se__section">Блоки{edit ? " · клик = к блоку" : ""}</div>
+          <button className="se__section se__section--toggle" onClick={() => setBlocksOpen((v) => !v)}>
+            <ChevronDown size={13} className={"se__chev" + (blocksOpen ? "" : " is-collapsed")} />
+            Блоки{edit ? " · клик = к блоку" : ""}
+          </button>
+          {blocksOpen && (
           <ul className="se__outline">
             {(activeEntry?.blocks ?? []).map((b) => {
               const removed = isRemoved(b.id);
@@ -421,6 +434,7 @@ export function SiteEditor() {
               );
             })}
           </ul>
+          )}
 
           {edit && selEl?.tree && selEl.tree.length > 0 && (
             <>

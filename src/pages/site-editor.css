@@ -33,6 +33,11 @@
 .se__section { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
   color: var(--text-muted); margin: 8px 4px 8px; }
 .se__section:first-child { margin-top: 0; }
+.se__section--toggle { display: flex; align-items: center; gap: 5px; width: 100%; border: 0; background: transparent;
+  font-family: inherit; cursor: pointer; text-align: left; padding: 4px; border-radius: var(--r-sm); }
+.se__section--toggle:hover { color: var(--text); background: var(--surface-2); }
+.se__chev { flex: none; transition: transform var(--dur) var(--ease); }
+.se__chev.is-collapsed { transform: rotate(-90deg); }
 .se__locales { display: flex; gap: 4px; margin: 0 0 10px; background: var(--surface-2); padding: 4px; border-radius: var(--r-md); }
 .se__locale { flex: 1; border: 0; background: transparent; padding: 6px; border-radius: var(--r-sm); font-size: 12px; font-weight: 700;
   color: var(--text-muted); cursor: pointer; }
