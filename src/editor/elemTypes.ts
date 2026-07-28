@@ -25,13 +25,18 @@ export interface LayerNode {
   children: LayerNode[];
 }
 
+/** One <option> of a form <select>, editable in the panel. */
+export interface SelectOption { value: string; label: string }
+
 export interface SelectedEl {
   type: "lg-elem-select";
   blockId: string;
   el: string;
-  kind: "text" | "link" | "image" | "container";
+  kind: "text" | "link" | "image" | "container" | "select";
   text: string;
   href: string;
+  /** For a <select>: its current options (edited in the panel → written back to the option elements). */
+  selectOptions?: SelectOption[] | null;
   /** true when a text/link field wraps child elements → panel hides "replace all text" (would flatten it). */
   structured?: boolean;
   crumbs: Crumb[];

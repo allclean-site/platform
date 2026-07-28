@@ -173,6 +173,7 @@ export const EDIT_RUNTIME = `
   }
   function kindOf(el){
     if (el.tagName==="IMG") return "image";
+    if (el.tagName==="SELECT") return "select";
     if (el.tagName==="A" || el.tagName==="BUTTON") return "link";
     // A contenteditable field is a TEXT unit even if it wraps word-divs/spans (structured heading).
     if (el.getAttribute("contenteditable")==="true") return "text";
@@ -441,6 +442,8 @@ export const EDIT_RUNTIME = `
       bpOver: bpKeysFor(el.getAttribute("data-lg-id")),
       hover: stateInfo(el.getAttribute("data-lg-id"), "hover"),
       active: stateInfo(el.getAttribute("data-lg-id"), "active"),
+      // For a <select> (e.g. the book-cleaning form dropdowns) send its options so the panel can edit them.
+      selectOptions: el.tagName==="SELECT" ? [].map.call(el.options, function(o){ return { value:o.value, label:(o.textContent||"").trim() }; }) : null,
       tree: w ? blockTree(w) : [],
       style: {
         fontSize: Math.round(fs), color: hex(cs.color),
@@ -533,6 +536,35 @@ export const EDIT_RUNTIME = `
       eh.style.display = d.hidden ? "none" : "";
       save(d.blockId);
       if (selected) select(selected); // refresh tree hidden flags
+      return;
+    }
+    // Delete a single element (not the whole section) — removes the node from the block html + saves.
+    if (d.type === "lg-elem-delete"){
+      var ed = findEl(d.blockId, d.el); if (!ed) return;
+      var wbd = ed.closest(W);
+      if (selected === ed){ selected = null; ed.classList.remove("lg-selected"); }
+      hideSelBox(); hideHover(); if (handle) handle.style.display = "none";
+      ed.parentNode && ed.parentNode.removeChild(ed);
+      if (wbd) save(wbd.getAttribute("data-lg-block"));
+      parent.postMessage({ type:"lg-elem-deleted", blockId:d.blockId, el:d.el }, "*");
+      return;
+    }
+    // Edit the options of a <select> (form dropdown): rebuild <option>s from the panel + save.
+    if (d.type === "lg-select-options"){
+      var so = findEl(d.blockId, d.el); if (!so || so.tagName !== "SELECT") return;
+      var prev = so.value;
+      while (so.firstChild) so.removeChild(so.firstChild);
+      (d.options || []).forEach(function(op){
+        var o = document.createElement("option");
+        var lbl = op.label != null ? op.label : (op.value || "");
+        o.value = op.value != null && op.value !== "" ? op.value : lbl; // value = label unless a distinct value was kept
+        o.textContent = lbl;
+        so.appendChild(o);
+      });
+      // keep the previously-selected value if it still exists
+      if (prev) so.value = prev;
+      var wso = so.closest(W); if (wso) save(wso.getAttribute("data-lg-block"));
+      if (selected === so) select(so); // refresh the panel's option list
       return;
     }
     // Figma text-box resize mode: hug (width:max-content) / fixed width (auto height) / fixed size.
@@ -703,6 +735,11 @@ export const EDIT_RUNTIME = `
       ".lg-rh--sw{bottom:calc(var(--hs,9px)/-2);left:calc(var(--hs,9px)/-2);cursor:nesw-resize;}" +
       ".lg-rh--w{top:calc(50% - var(--hs,9px)/2);left:calc(var(--hs,9px)/-2);cursor:ew-resize;}";
     document.head.appendChild(st);
+    // A <select> opens its native dropdown on mousedown — suppress that in edit mode so a click just
+    // SELECTS it (its options are edited in the panel instead).
+    document.addEventListener("mousedown", function(e){
+      if (e.target.closest && e.target.closest("select")) e.preventDefault();
+    }, true);
     // Select on click; block links/buttons from navigating while editing.
     document.addEventListener("click", function(e){
       var nav = e.target.closest && e.target.closest("a,button");

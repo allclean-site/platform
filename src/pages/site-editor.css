@@ -72,6 +72,27 @@
   background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); font: inherit; font-size: 13.5px;
   font-weight: 600; cursor: pointer; transition: all var(--dur) var(--ease); }
 .se__insp-del:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+.se__insp-actions { display: flex; flex-direction: column; gap: 8px; }
+.se__insp-actions .se__insp-del { margin-top: 0; }
+/* "delete element" is the softer, more common action → neutral until hover */
+.se__insp-del--el { border-color: var(--border); background: var(--surface-2); color: var(--text-muted); }
+
+/* Select-options editor (form dropdown choices) */
+.se__opts { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px; background: var(--surface-2); }
+.se__opts-h { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 9px; }
+.se__opt { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+.se__opt-in { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+.se__opt-in:focus { outline: none; border-color: var(--accent); }
+.se__opt-b { width: 28px; height: 30px; flex: none; display: grid; place-items: center; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--surface); color: var(--text-muted); cursor: pointer; }
+.se__opt-b:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.se__opt-b:disabled { opacity: .4; cursor: default; }
+.se__opt-b--del:hover { border-color: var(--danger); color: var(--danger); }
+.se__opt-add { display: flex; align-items: center; gap: 6px; width: 100%; justify-content: center; margin-top: 4px;
+  padding: 8px; border: 1px dashed var(--border); border-radius: var(--r-sm); background: transparent; color: var(--text-muted);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.se__opt-add:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Zoom controls */
 .se__zoom { display: flex; align-items: center; gap: 2px; background: var(--surface-2); padding: 4px; border-radius: var(--r-pill); }

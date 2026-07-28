@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw, ChevronDown } from "lucide-react";
+import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw, ChevronDown, Plus, ChevronUp, X } from "lucide-react";
 import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
 import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides } from "../editor/realStore";
@@ -16,7 +16,7 @@ import { pickImage } from "../editor/image";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
 import { PublishDialog } from "./PublishDialog";
-import type { ElStyle, SelectedEl, Breakpoint } from "../editor/elemTypes";
+import type { ElStyle, SelectedEl, Breakpoint, SelectOption } from "../editor/elemTypes";
 import "./site-editor.css";
 
 const DATA = "/import/allclean";
@@ -26,7 +26,7 @@ type Device = keyof typeof DEVICE_W;
 const TENANT = "tenant-allclean";
 const clampZoom = (z: number) => Math.min(2, Math.max(0.2, z));
 
-const KIND_LABEL: Record<SelectedEl["kind"], string> = { text: "Текст", link: "Кнопка / ссылка", image: "Изображение", container: "Контейнер" };
+const KIND_LABEL: Record<SelectedEl["kind"], string> = { text: "Текст", link: "Кнопка / ссылка", image: "Изображение", container: "Контейнер", select: "Список (выпадающий)" };
 
 /** Live text selection inside the iframe → drives the floating rich-text toolbar. */
 interface TextSel {
@@ -107,6 +107,7 @@ export function SiteEditor() {
       if (!d || typeof d !== "object") return;
       if (d.type === "lg-select") setSelected(d.id);
       else if (d.type === "lg-elem-select") { setSelEl(d as SelectedEl); setSelected(d.blockId); }
+      else if (d.type === "lg-elem-deleted") setSelEl(null);
       else if (d.type === "lg-text-sel") { setTextSel(d.rect ? (d as TextSel) : null); if (!d.rect) setLinkPop(null); }
       else if (d.type === "lg-ready") {
         // Iframe loaded → push this page's saved breakpoint rules + the active device into the runtime.
@@ -219,6 +220,17 @@ export function SiteEditor() {
   const vAlign = (value: "top" | "center" | "bottom") => {
     if (!selEl) return;
     frameRef.current?.contentWindow?.postMessage({ type: "lg-valign", blockId: selEl.blockId, el: selEl.el, value, breakpoint: device }, "*");
+  };
+  // Delete a single selected element (not the whole section).
+  const deleteEl = () => {
+    if (!selEl) return;
+    frameRef.current?.contentWindow?.postMessage({ type: "lg-elem-delete", blockId: selEl.blockId, el: selEl.el }, "*");
+  };
+  // Edit the options of a selected <select> (form dropdown) → write them back to the option elements.
+  const setSelectOptions = (options: { value: string; label: string }[]) => {
+    if (!selEl) return;
+    setSelEl({ ...selEl, selectOptions: options });
+    frameRef.current?.contentWindow?.postMessage({ type: "lg-select-options", blockId: selEl.blockId, el: selEl.el, options }, "*");
   };
   // Rich-text: apply a command to the highlighted part of the text.
   const textCmd = (cmd: string, value?: string, newTab?: boolean) =>
@@ -483,17 +495,28 @@ export function SiteEditor() {
                 </div>
               )}
               <ElementInspector sel={selEl} patch={patchEl} onReplaceImage={replaceImage} breakpoint={device as Breakpoint} onResetBp={resetBp} onState={patchState} onResetState={resetState} onResizeMode={resizeMode} onVAlign={vAlign} />
-              {edit && (() => {
-                const region = page?.blocks.find((pb) => pb.id === selEl.blockId)?.content.region;
-                if (region === "header" || region === "footer") return null;
-                const label = activeEntry?.blocks.find((b) => b.id === selEl.blockId)?.label;
-                return (
-                  <button className="se__insp-del" title="Удалить всю эту секцию (можно вернуть в списке «Блоки»)"
-                    onClick={() => deleteBlock(selEl.blockId)}>
-                    <Trash2 size={15} /> Удалить секцию{label ? ` «${label}»` : ""}
+              {edit && selEl.kind === "select" && selEl.selectOptions && (
+                <OptionsEditor options={selEl.selectOptions} onChange={setSelectOptions} />
+              )}
+              {edit && (
+                <div className="se__insp-actions">
+                  <button className="se__insp-del se__insp-del--el" title="Удалить только этот элемент"
+                    onClick={deleteEl}>
+                    <Trash2 size={15} /> Удалить элемент
                   </button>
-                );
-              })()}
+                  {(() => {
+                    const region = page?.blocks.find((pb) => pb.id === selEl.blockId)?.content.region;
+                    if (region === "header" || region === "footer") return null;
+                    const label = activeEntry?.blocks.find((b) => b.id === selEl.blockId)?.label;
+                    return (
+                      <button className="se__insp-del" title="Удалить всю эту секцию (можно вернуть в списке «Блоки»)"
+                        onClick={() => deleteBlock(selEl.blockId)}>
+                        <Trash2 size={15} /> Удалить секцию{label ? ` «${label}»` : ""}
+                      </button>
+                    );
+                  })()}
+                </div>
+              )}
             </>
           ) : (
             <div className="se__empty">
@@ -562,6 +585,34 @@ export function SiteEditor() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Edit the options of a form <select> (e.g. the book-cleaning dropdowns): rename / add / remove /
+ * reorder the answer choices. The visible label is also the submitted value, so what the client picks
+ * reads clearly in the CRM. */
+function OptionsEditor({ options, onChange }: { options: SelectOption[]; onChange: (o: SelectOption[]) => void }) {
+  const commit = (next: SelectOption[]) => onChange(next);
+  const rename = (i: number, label: string) => commit(options.map((o, j) => (j === i ? { value: label, label } : o)));
+  const remove = (i: number) => commit(options.filter((_, j) => j !== i));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir; if (j < 0 || j >= options.length) return;
+    const next = options.slice(); const t = next[i]; next[i] = next[j]; next[j] = t; commit(next);
+  };
+  const add = () => commit([...options, { value: "Новый вариант", label: "Новый вариант" }]);
+  return (
+    <div className="se__opts">
+      <div className="se__opts-h">Варианты ответа</div>
+      {options.map((o, i) => (
+        <div className="se__opt" key={i}>
+          <input className="se__opt-in" value={o.label} onChange={(e) => rename(i, e.target.value)} placeholder="Текст варианта" />
+          <button className="se__opt-b" title="Выше" onClick={() => move(i, -1)} disabled={i === 0}><ChevronUp size={14} /></button>
+          <button className="se__opt-b" title="Ниже" onClick={() => move(i, 1)} disabled={i === options.length - 1}><ChevronDown size={14} /></button>
+          <button className="se__opt-b se__opt-b--del" title="Удалить вариант" onClick={() => remove(i)}><X size={14} /></button>
+        </div>
+      ))}
+      <button className="se__opt-add" onClick={add}><Plus size={14} /> Добавить вариант</button>
     </div>
   );
 }
