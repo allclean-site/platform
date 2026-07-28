@@ -469,6 +469,17 @@ export function SiteEditor() {
                 </div>
               )}
               <ElementInspector sel={selEl} patch={patchEl} onReplaceImage={replaceImage} breakpoint={device as Breakpoint} onResetBp={resetBp} onState={patchState} onResetState={resetState} onResizeMode={resizeMode} onVAlign={vAlign} />
+              {edit && (() => {
+                const region = page?.blocks.find((pb) => pb.id === selEl.blockId)?.content.region;
+                if (region === "header" || region === "footer") return null;
+                const label = activeEntry?.blocks.find((b) => b.id === selEl.blockId)?.label;
+                return (
+                  <button className="se__insp-del" title="Удалить всю эту секцию (можно вернуть в списке «Блоки»)"
+                    onClick={() => deleteBlock(selEl.blockId)}>
+                    <Trash2 size={15} /> Удалить секцию{label ? ` «${label}»` : ""}
+                  </button>
+                );
+              })()}
             </>
           ) : (
             <div className="se__empty">

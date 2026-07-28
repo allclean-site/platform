@@ -61,6 +61,13 @@
 .se__block.is-removed .se__block-label { text-decoration: line-through; }
 .se__block.is-removed .se__block-btn { opacity: 1; color: var(--accent); }
 
+/* Delete-section button in the right inspector (shown when an element is selected) */
+.se__insp-del { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 14px;
+  padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); font: inherit; font-size: 13.5px;
+  font-weight: 600; cursor: pointer; transition: all var(--dur) var(--ease); }
+.se__insp-del:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+
 /* Zoom controls */
 .se__zoom { display: flex; align-items: center; gap: 2px; background: var(--surface-2); padding: 4px; border-radius: var(--r-pill); }
 .se__zoomval { min-width: 46px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; font-weight: 600;
