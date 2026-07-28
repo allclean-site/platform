@@ -6,14 +6,15 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, Eye, Search, Send, Image as ImageIcon, Languages, Loader2, X, Upload } from "lucide-react";
+import { ArrowLeft, Check, Eye, Search, Send, Image as ImageIcon, Languages, Loader2, X, Upload, Plus, HelpCircle, ListChecks, Trash2 } from "lucide-react";
 import { getArticle, getGroup, upsertArticle, publishArticle, enrich, newCounterpart } from "../blog/store";
 import { markdownToHtml } from "../engine/blog/markdown";
 import { translateArticle, translateConfigured } from "../blog/translateClient";
 import { publishArticlesToSite } from "../blog/publishArticleClient";
 import { pickAndUploadImage } from "../blog/uploadClient";
+import { ArticleBody } from "./ArticleBody";
 import { CheckCircle2, XCircle } from "lucide-react";
-import type { Article, Locale } from "../engine/blog/types";
+import type { Article, ArticleFaq, Locale } from "../engine/blog/types";
 import "./blog.css";
 
 const LOCALES: Locale[] = ["ro", "ru"];
@@ -64,6 +65,8 @@ export function ArticleEditor() {
 
   const set = (p: Partial<Article>) => setVers((v) => ({ ...v, [active]: { ...v[active], ...p } }));
   const setTags = (val: string) => set({ meta: { ...a.meta, tags: val.split(",").map((s) => s.trim()).filter(Boolean) } });
+  const setFaq = (faq: ArticleFaq[]) => set({ meta: { ...a.meta, faq } });
+  const setTakeaways = (takeaways: string[]) => set({ meta: { ...a.meta, takeaways } });
   const uploadCover = async () => { setUploading(true); const { url } = await pickAndUploadImage(); if (url) set({ coverUrl: url }); setUploading(false); };
 
   const doTranslate = async () => {
@@ -152,10 +155,13 @@ export function ArticleEditor() {
                 <input className="ci" value={(a.meta?.tags || []).join(", ")} onChange={(e) => setTags(e.target.value)} placeholder="Уборка, Советы" />
               </label>
             </div>
-            <label className="fld art-ed__bodyfld"><span>Текст (Markdown){active === source ? " · оригинал" : " · перевод"}</span>
-              <textarea className="ci art-ed__mark" value={a.body} onChange={(e) => set({ body: e.target.value })}
-                placeholder={active === source ? "## Подзаголовок\nАбзац текста. **Жирный**, [ссылка](https://…).\n\n- Пункт списка" : "Нажмите «Перевести и SEO», чтобы заполнить эту версию автоматически."} />
-            </label>
+            <div className="art-ed__bodyfld">
+              <span className="fld-label">Текст статьи{active === source ? " · оригинал" : " · перевод"}</span>
+              <ArticleBody key={active} value={a.body} onChange={(md) => set({ body: md })} />
+            </div>
+
+            <FaqEditor faq={a.meta?.faq || []} onChange={setFaq} />
+            <TakeawaysEditor items={a.meta?.takeaways || []} onChange={setTakeaways} />
           </div>
         ) : <div className="art-ed__form" />}
 
@@ -172,7 +178,21 @@ export function ArticleEditor() {
               {a?.coverUrl && <img className="art-prev__cover" src={a.coverUrl} alt={a.coverAlt || ""} />}
               <h1 className="art-prev__h1">{a?.title || "Заголовок статьи"}</h1>
               {a?.author && <div className="art-prev__byline">{a.author}</div>}
+              {a?.meta?.takeaways && a.meta.takeaways.length > 0 && (
+                <div className="art-prev__takeaways">
+                  <b>Коротко</b>
+                  <ul>{a.meta.takeaways.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                </div>
+              )}
               <div className="art-prev__body" dangerouslySetInnerHTML={{ __html: html || "<p class='muted'>Текст появится здесь…</p>" }} />
+              {a?.meta?.faq && a.meta.faq.length > 0 && (
+                <div className="art-prev__faq">
+                  <h2>{active === "ro" ? "Întrebări frecvente" : "Часто задаваемые вопросы"}</h2>
+                  {a.meta.faq.map((f, i) => (
+                    <div key={i} className="art-prev__faq-item"><h3>{f.question}</h3><p>{f.answer}</p></div>
+                  ))}
+                </div>
+              )}
             </article>
           ) : (
             <div className="art-seo">
@@ -204,6 +224,54 @@ export function ArticleEditor() {
         <PublishArticleDialog vers={vers} bothReady={bothReady} pubState={pubState} pubMsg={pubMsg} onPublish={doPublish} onClose={() => { setShowPub(false); setPubState("idle"); setPubMsg(""); }} />
       )}
     </div>
+  );
+}
+
+/** FAQ editor — Q/A pairs become the article's FAQ accordion + FAQPage JSON-LD on publish. */
+function FaqEditor({ faq, onChange }: { faq: ArticleFaq[]; onChange: (f: ArticleFaq[]) => void }) {
+  const set = (i: number, p: Partial<ArticleFaq>) => onChange(faq.map((f, j) => (j === i ? { ...f, ...p } : f)));
+  return (
+    <section className="art-extra">
+      <div className="art-extra__head">
+        <span className="art-extra__title"><HelpCircle size={15} /> Частые вопросы (FAQ)</span>
+        <button type="button" className="btn-ghost btn-ghost--sm" onClick={() => onChange([...faq, { question: "", answer: "" }])}>
+          <Plus size={14} /> Вопрос
+        </button>
+      </div>
+      {faq.length === 0 && <p className="art-extra__empty">Блок «вопрос-ответ» под статьёй. Улучшает SEO (FAQ-разметка) и помогает читателю.</p>}
+      <div className="art-extra__list">
+        {faq.map((f, i) => (
+          <div key={i} className="art-faq-item">
+            <div className="art-faq-item__row">
+              <input className="ci" value={f.question} placeholder="Вопрос" onChange={(e) => set(i, { question: e.target.value })} />
+              <button type="button" className="art-extra__del" title="Удалить" onClick={() => onChange(faq.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
+            </div>
+            <textarea className="ci ci--area" rows={2} value={f.answer} placeholder="Ответ" onChange={(e) => set(i, { answer: e.target.value })} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Takeaways ("Коротко") — bullet summary shown near the top of the article. */
+function TakeawaysEditor({ items, onChange }: { items: string[]; onChange: (t: string[]) => void }) {
+  return (
+    <section className="art-extra">
+      <div className="art-extra__head">
+        <span className="art-extra__title"><ListChecks size={15} /> Коротко (тезисы)</span>
+        <button type="button" className="btn-ghost btn-ghost--sm" onClick={() => onChange([...items, ""])}><Plus size={14} /> Тезис</button>
+      </div>
+      {items.length === 0 && <p className="art-extra__empty">Пара строк «самое главное» в начале статьи — читатели любят.</p>}
+      <div className="art-extra__list">
+        {items.map((t, i) => (
+          <div key={i} className="art-take-item">
+            <input className="ci" value={t} placeholder="Тезис" onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))} />
+            <button type="button" className="art-extra__del" title="Удалить" onClick={() => onChange(items.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

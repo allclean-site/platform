@@ -40,6 +40,21 @@ export function markdownToHtml(md: string): string {
     // blank line
     if (!line.trim()) { i++; continue; }
 
+    // standalone image → figure with caption (caption doubles as alt for SEO)
+    const img = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(line.trim());
+    if (img) {
+      const url = /^(https?:\/\/|\/|data:image\/)/i.test(img[2]) ? img[2] : "";
+      if (url) {
+        const cap = img[1].trim();
+        out.push(`<figure class="blog-figure"><img src="${esc(url)}" alt="${esc(cap)}" loading="lazy">${cap ? `<figcaption>${inline(esc(cap))}</figcaption>` : ""}</figure>`);
+      }
+      i++;
+      continue;
+    }
+
+    // horizontal rule
+    if (/^(---|\*\*\*|___)$/.test(line.trim())) { out.push("<hr>"); i++; continue; }
+
     // heading (## .. ####)
     const h = /^(#{2,4})\s+(.*)$/.exec(line);
     if (h) {
@@ -79,7 +94,8 @@ export function markdownToHtml(md: string): string {
     while (
       i < lines.length &&
       lines[i].trim() &&
-      !/^(#{2,4}\s|>|[-*]\s|\d+\.\s)/.test(lines[i])
+      !/^(#{2,4}\s|>|[-*]\s|\d+\.\s|!\[)/.test(lines[i].trim()) &&
+      !/^(---|\*\*\*|___)$/.test(lines[i].trim())
     ) { buf.push(lines[i]); i++; }
     out.push(`<p>${inline(esc(buf.join(" ")))}</p>`);
   }

@@ -142,6 +142,13 @@ function mdToHtml(md) {
     const t = raw.trim();
     if (!t) { close(); continue; }
     let m;
+    if ((m = t.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/))) {
+      close();
+      const u = /^(https?:\/\/|\/|data:image\/)/i.test(m[2]) ? m[2] : "";
+      if (u) { const cap = m[1].trim(); html += `<figure class="blog-figure"><img src="${escAttr(u)}" alt="${escAttr(cap)}" loading="lazy">${cap ? `<figcaption>${inline(cap)}</figcaption>` : ""}</figure>`; }
+      continue;
+    }
+    if (/^(---|\*\*\*|___)$/.test(t)) { close(); html += "<hr>"; continue; }
     if ((m = t.match(/^(#{1,6})\s+(.*)/))) { close(); const lv = Math.min(6, m[1].length); html += `<h${lv}>${inline(m[2])}</h${lv}>`; continue; }
     if ((m = t.match(/^[-*]\s+(.*)/))) { if (list !== "ul") { close(); list = "ul"; html += "<ul>"; } html += `<li>${inline(m[1])}</li>`; continue; }
     if ((m = t.match(/^\d+\.\s+(.*)/))) { if (list !== "ol") { close(); list = "ol"; html += "<ol>"; } html += `<li>${inline(m[1])}</li>`; continue; }
