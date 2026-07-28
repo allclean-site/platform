@@ -25,6 +25,7 @@ export interface Deal {
   createdAt: number;
   updatedAt: number;
   order: number;      // sort within a stage
+  leadId?: string;    // id of the source site_leads row (set for leads auto-imported from the site — dedupe key)
 }
 
 export const STAGES: Stage[] = [
@@ -109,6 +110,66 @@ export function newDeal(stage = "new"): Deal {
     id: uid(), title: "", contact: "", phone: "", amount: 0, currency: "MDL",
     stage, source: "Сайт", assignee: "", note: "", tags: [], createdAt: Date.now(), updatedAt: Date.now(), order: -1,
   };
+}
+
+/** A raw row from Supabase `site_leads` (schema is dynamic; these are the fields the site form sends). */
+export interface SiteLead {
+  id?: string | number;
+  name?: string | null;
+  phone?: string | null;
+  service?: string | null;
+  bedrooms?: string | null;
+  notes?: string | null;
+  locale?: string | null;
+  source_url?: string | null;
+  created_at?: string | null;
+  [k: string]: unknown;
+}
+
+/** Turn one site_leads row into a Deal in the "new" stage. */
+function leadToDeal(l: SiteLead, order: number): Deal {
+  const ts = l.created_at ? Date.parse(l.created_at) || Date.now() : Date.now();
+  const noteParts = [
+    l.bedrooms ? `Комнат/объём: ${l.bedrooms}` : "",
+    l.notes || "",
+    l.source_url ? `Страница: ${l.source_url}` : "",
+  ].filter(Boolean);
+  return {
+    id: uid(),
+    leadId: l.id != null ? String(l.id) : undefined,
+    title: (l.service || "Заявка с сайта").toString(),
+    contact: (l.name || "—").toString(),
+    phone: (l.phone || "").toString(),
+    amount: 0, // the current site form doesn't send the calculated price
+    currency: "MDL",
+    stage: "new",
+    source: "Сайт",
+    assignee: "",
+    note: noteParts.join("\n"),
+    tags: l.locale ? [String(l.locale).toUpperCase()] : [],
+    createdAt: ts,
+    updatedAt: ts,
+    order,
+  };
+}
+
+/**
+ * Merge site leads into the board: any lead whose id isn't already on a deal becomes a new "new"-stage
+ * deal (newest first). Existing deals (incl. their stage moves and edits) are untouched. Returns the
+ * updated list and how many were added.
+ */
+export function importSiteLeads(list: Deal[], leads: SiteLead[]): { list: Deal[]; added: number } {
+  const known = new Set(list.map((d) => d.leadId).filter(Boolean) as string[]);
+  const fresh = leads
+    .filter((l) => l.id != null && !known.has(String(l.id)))
+    .sort((a, b) => (Date.parse(b.created_at || "") || 0) - (Date.parse(a.created_at || "") || 0));
+  if (!fresh.length) return { list, added: 0 };
+  // New leads go to the TOP of "new"; bump existing new-stage orders down.
+  const bumped = list.map((d) => (d.stage === "new" ? { ...d, order: d.order + fresh.length } : d));
+  const added = fresh.map((l, i) => leadToDeal(l, i));
+  const out = [...added, ...bumped];
+  saveDeals(out);
+  return { list: out, added: added.length };
 }
 
 export const fmtMoney = (n: number) => Math.round(n).toLocaleString("ru-RU");

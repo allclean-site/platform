@@ -4,13 +4,14 @@
  * (contact, amount, source, note). Column headers show count + total sum; a top strip shows KPIs.
  */
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus, Phone, Trash2, X, User, Tag, Banknote, TrendingUp, Inbox, Trophy, MessageSquare, UserCheck,
+  Plus, Phone, Trash2, X, User, Tag, Banknote, TrendingUp, Inbox, Trophy, MessageSquare, UserCheck, RefreshCw,
 } from "lucide-react";
 import {
-  loadDeals, upsertDeal, removeDeal, moveDealToStage, newDeal, fmtMoney, phoneDigits, STAGES, SOURCES, type Deal, type Stage,
+  loadDeals, upsertDeal, removeDeal, moveDealToStage, newDeal, importSiteLeads, fmtMoney, phoneDigits, STAGES, SOURCES, type Deal, type Stage,
 } from "../crm/store";
+import { fetchSiteLeads, leadsConfigured } from "../crm/leadsClient";
 import { loadSettings, type TeamMember } from "../settings/store";
 import "./crm.css";
 
@@ -48,6 +49,23 @@ export function Crm() {
     };
   }, [deals]);
 
+  // Pull real leads from the site (Supabase site_leads via /api/leads) into the board.
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+  const canSync = leadsConfigured();
+  const syncLeads = async (silent = false) => {
+    if (syncing) return;
+    setSyncing(true); if (!silent) setSyncMsg("Загрузка…");
+    const r = await fetchSiteLeads();
+    if (!r.ok) { setSyncMsg(r.message); setSyncing(false); return; }
+    let addedN = 0;
+    setDeals((list) => { const { list: out, added } = importSiteLeads(list, r.leads || []); addedN = added; return out; });
+    setSyncMsg(addedN ? `Новых заявок: ${addedN}` : "Новых заявок нет");
+    setSyncing(false);
+  };
+  // Auto-pull once on open when configured (silent — no noisy message if nothing new).
+  useEffect(() => { if (canSync) syncLeads(true); /* eslint-disable-next-line */ }, []);
+
   const startNew = () => { setIsNew(true); setOpenId("__new__"); };
   const save = (d: Deal) => {
     setDeals((list) => upsertDeal(list, d.order < 0 ? { ...d, order: 0 } : d));
@@ -70,7 +88,15 @@ export function Crm() {
           <Kpi icon={Trophy} label="Выиграно" value={fmtMoney(kpis.won) + " MDL"} accent />
           <Kpi icon={TrendingUp} label="Конверсия" value={kpis.conv + "%"} />
         </div>
-        <button className="btn-primary crm__new" onClick={startNew}><Plus size={17} /> Новая сделка</button>
+        <div className="crm__actions">
+          {canSync && (
+            <button className="btn-ghost crm__sync" onClick={() => syncLeads(false)} disabled={syncing} title="Загрузить новые заявки с сайта">
+              <RefreshCw size={16} className={syncing ? "crm__spin" : ""} /> Заявки с сайта
+            </button>
+          )}
+          {syncMsg && <span className="crm__syncmsg">{syncMsg}</span>}
+          <button className="btn-primary crm__new" onClick={startNew}><Plus size={17} /> Новая сделка</button>
+        </div>
       </div>
 
       <div className="crm__board">
