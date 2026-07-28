@@ -559,6 +559,23 @@ export const EDIT_RUNTIME = `
             if (_col) d.style.alignItems = _v; else d.style.justify = _v;
           }
         }
+        // Heal LEGACY edits before applying: the old cascade wrote inline !important on descendants,
+        // which blocks @media overrides (inline !important can't be beaten by a stylesheet rule). On ANY
+        // edit touching a CASCADE prop, migrate the desktop value to the base stylesheet layer and clear
+        // the stuck inline — so a MOBILE tweak alone is enough to un-stick an already-published edit.
+        var healed = false;
+        decls(d.style).forEach(function(pv){
+          var prop = pv[0]; if (!CASCADE[prop]) return;
+          var kids = el.querySelectorAll("*"), stuck = false, val = el.style.getPropertyValue(prop);
+          for (var i=0;i<kids.length;i++){ if (kids[i].style.getPropertyValue(prop)){ stuck = true; if (!val) val = kids[i].style.getPropertyValue(prop); } }
+          if (stuck){
+            var bs = bp.base || (bp.base = {}), br = bs[elId] || (bs[elId] = {});
+            if (val && !br[prop]) br[prop] = val;
+            cascadeDesc(el, prop, "");
+            healed = true;
+          }
+        });
+        if (healed){ renderOverrides(); parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*"); contentChg = true; }
         if (bpMode){
           // Non-desktop: write generated @media rules, not inline. Base markup untouched.
           var store = bp[d.breakpoint] || (bp[d.breakpoint] = {});
