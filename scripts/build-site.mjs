@@ -40,12 +40,14 @@ function cleanHtml(html, keepIds) {
 function overridesCss(bp) {
   if (!bp) return "";
   let css = "";
+  // Specificity boost (mirror editRuntime): :not(#lgcmsx) → ID-level, beats Webflow class !important rules.
+  const B = ":not(#lgcmsx)";
   for (const [layer, sel] of [["hover", ":hover"], ["active", ":active"]]) {
     const els = bp[layer] || {};
     for (const id of Object.keys(els)) {
       let decl = "";
       for (const p of Object.keys(els[id])) if (els[id][p] !== "") decl += `${p}:${els[id][p]} !important;`;
-      if (decl) css += `[data-lg-id="${id}"]${sel}{${decl}}`;
+      if (decl) css += `[data-lg-id="${id}"]${B}${sel}{${decl}}`;
     }
   }
   // Base desktop cascade (no media query) → nested spans; before @media so tablet/mobile override it.
@@ -53,7 +55,7 @@ function overridesCss(bp) {
   for (const id of Object.keys(baseLayer)) {
     let bdecl = "";
     for (const p of Object.keys(baseLayer[id])) if (baseLayer[id][p] !== "") bdecl += `${p}:${baseLayer[id][p]} !important;`;
-    if (bdecl) css += `[data-lg-id="${id}"] *{${bdecl}}`;
+    if (bdecl) css += `[data-lg-id="${id}"] *${B}{${bdecl}}`;
   }
   for (const dev of ["tablet", "mobile"]) {
     const els = bp[dev] || {};
@@ -65,8 +67,8 @@ function overridesCss(bp) {
         decl += `${p}:${els[id][p]} !important;`;
         if (CASCADE[p]) cdecl += `${p}:${els[id][p]} !important;`;
       }
-      if (decl) body += `[data-lg-id="${id}"]{${decl}}`;
-      if (cdecl) body += `[data-lg-id="${id}"] *{${cdecl}}`;
+      if (decl) body += `[data-lg-id="${id}"]${B}{${decl}}`;
+      if (cdecl) body += `[data-lg-id="${id}"] *${B}{${cdecl}}`;
     }
     if (body) css += `@media ${MQ[dev]}{${body}}`;
   }

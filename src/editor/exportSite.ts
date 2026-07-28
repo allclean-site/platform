@@ -41,6 +41,9 @@ export function cleanHtml(html: string, keepIds?: Set<string>): string {
 export function overridesCss(pageBp?: PageBp): string {
   if (!pageBp) return "";
   let css = "";
+  // Specificity boost (see editRuntime): :not(#lgcmsx) lifts our rules to ID-level so they beat
+  // Webflow's class-based !important responsive rules — else mobile @media edits lose and don't apply.
+  const B = ":not(#lgcmsx)";
   // Hover + active rules first (base pseudo-states, no media query).
   for (const [layer, sel] of [["hover", ":hover"], ["active", ":active"]] as const) {
     const els = pageBp[layer] || {};
@@ -48,7 +51,7 @@ export function overridesCss(pageBp?: PageBp): string {
       const props = els[id];
       let decl = "";
       for (const p of Object.keys(props)) if (props[p] !== "") decl += `${p}:${props[p]} !important;`;
-      if (decl) css += `[data-lg-id="${id}"]${sel}{${decl}}`;
+      if (decl) css += `[data-lg-id="${id}"]${B}${sel}{${decl}}`;
     }
   }
   // Base desktop cascade (no media query): force inheritable props onto nested spans. Emitted BEFORE
@@ -58,7 +61,7 @@ export function overridesCss(pageBp?: PageBp): string {
     const props = baseLayer[id];
     let bdecl = "";
     for (const p of Object.keys(props)) if (props[p] !== "") bdecl += `${p}:${props[p]} !important;`;
-    if (bdecl) css += `[data-lg-id="${id}"] *{${bdecl}}`;
+    if (bdecl) css += `[data-lg-id="${id}"] *${B}{${bdecl}}`;
   }
   (["tablet", "mobile"] as const).forEach((dev) => {
     const elems = pageBp[dev] || {};
@@ -71,8 +74,8 @@ export function overridesCss(pageBp?: PageBp): string {
         decl += `${p}:${props[p]} !important;`;
         if (CASCADE[p]) cdecl += `${p}:${props[p]} !important;`;
       }
-      if (decl) body += `[data-lg-id="${id}"]{${decl}}`;
-      if (cdecl) body += `[data-lg-id="${id}"] *{${cdecl}}`;
+      if (decl) body += `[data-lg-id="${id}"]${B}{${decl}}`;
+      if (cdecl) body += `[data-lg-id="${id}"] *${B}{${cdecl}}`;
     }
     if (body) css += `@media ${MQ[dev]}{${body}}`;
   });
