@@ -138,12 +138,23 @@
 .btn-ghost--sm { padding: 5px 10px; font-size: 12px; }
 
 .abody { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding: 8px 4px 8px 0; }
-.ablk { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; }
-.ablk__gutter { position: relative; display: flex; gap: 2px; justify-content: flex-end; padding-top: 4px; opacity: 0; transition: opacity var(--dur) var(--ease); }
+.ablk { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: start; }
+.ablk__gutter { position: relative; display: flex; gap: 1px; justify-content: flex-end; padding-top: 4px; opacity: 0; transition: opacity var(--dur) var(--ease); }
 .ablk:hover .ablk__gutter, .ablk:focus-within .ablk__gutter { opacity: 1; }
-.ablk__add, .ablk__more { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px;
+.ablk__add, .ablk__grip { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px;
   background: transparent; color: var(--text-muted); cursor: pointer; }
-.ablk__add:hover, .ablk__more:hover { background: var(--surface-2); color: var(--accent); }
+.ablk__add:hover, .ablk__grip:hover { background: var(--surface-2); color: var(--accent); }
+.ablk__grip { cursor: grab; }
+.ablk__grip:active { cursor: grabbing; }
+.ablk.is-dragging { opacity: .4; }
+.ablk.is-drop-before::before, .ablk.is-drop-after::after {
+  content: ""; position: absolute; left: 48px; right: 0; height: 2px; background: var(--accent); border-radius: 2px; z-index: 5; }
+.ablk.is-drop-before::before { top: -1px; }
+.ablk.is-drop-after::after { bottom: -1px; }
+.abody__tail { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0 48px; padding: 7px 12px; border: 1px dashed var(--border);
+  border-radius: var(--r-md); background: transparent; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer;
+  transition: all var(--dur) var(--ease); align-self: flex-start; }
+.abody__tail:hover { border-color: var(--accent); color: var(--accent); }
 .ablk__menu { position: absolute; top: 28px; left: 8px; z-index: 30; padding: 6px; min-width: 190px; display: flex; flex-direction: column;
   gap: 1px; box-shadow: var(--e3); }
 .ablk__menu button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--r-sm);

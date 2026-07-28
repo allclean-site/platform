@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Plus, Type, Heading2, Heading3, List, ListOrdered, Quote, Image as ImageIcon, Minus,
-  ArrowUp, ArrowDown, Trash2, MoreVertical, Bold, Italic, Link2, Upload, Loader2, X,
+  ArrowUp, ArrowDown, Trash2, GripVertical, Bold, Italic, Link2, Upload, Loader2, X,
 } from "lucide-react";
 import {
   type Block, type BlockType, newBlock, mdToBlocks, blocksToMd, inlineMdToHtml, htmlToInlineMd,
@@ -41,6 +41,8 @@ export function ArticleBody({ value, onChange }: Props) {
   const pendingFocus = useRef<{ id: string; atStart?: boolean } | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);   // add-menu open under this block id ("top" = leading)
   const [actionsFor, setActionsFor] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropInfo, setDropInfo] = useState<{ id: string; pos: "before" | "after" } | null>(null);
 
   // External body changes (locale switch / translate) come with a component remount via key={locale};
   // this guard only re-syncs if a different value arrives without a remount.
@@ -87,7 +89,10 @@ export function ArticleBody({ value, onChange }: Props) {
     if (type === "img") {
       commit(next);
       const { url } = await pickAndUploadImage();
-      if (url) commit([...next.slice(0, at), { ...b, url }, ...next.slice(at + 1)]);
+      // After a photo, drop in an empty paragraph so the author can keep writing right below it.
+      const p = newBlock("p");
+      commit([...next.slice(0, at), { ...b, url: url || "" }, p, ...next.slice(at + 1)]);
+      pendingFocus.current = { id: p.id, atStart: true };
     } else if (type === "hr") {
       commit(next);
     } else {
@@ -95,6 +100,51 @@ export function ArticleBody({ value, onChange }: Props) {
       pendingFocus.current = { id: b.id, atStart: true };
     }
   };
+
+  // Append a paragraph at the very end (trailing click zone) — the reliable "add another paragraph".
+  const addTrailingParagraph = () => {
+    const p = newBlock("p");
+    commit([...blocks, p]);
+    pendingFocus.current = { id: p.id, atStart: true };
+  };
+
+  /* ---- drag to reorder blocks ---- */
+  // A ref holds the dragged id synchronously, so drop works regardless of state-render timing.
+  const dragRef = useRef<string | null>(null);
+  const dropPos = (e: React.DragEvent): "before" | "after" => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return e.clientY - rect.top < rect.height / 2 ? "before" : "after";
+  };
+  const onGripDragStart = (e: React.DragEvent, id: string) => {
+    setMenuFor(null); setActionsFor(null);
+    dragRef.current = id;
+    setDragId(id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id);
+  };
+  const onBlockDragOver = (e: React.DragEvent, id: string) => {
+    const dId = dragRef.current;
+    if (!dId || dId === id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const pos = dropPos(e);
+    setDropInfo((d) => (d?.id === id && d.pos === pos ? d : { id, pos }));
+  };
+  const onBlockDrop = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    const dId = dragRef.current;
+    const pos = dropPos(e);
+    dragRef.current = null;
+    setDragId(null); setDropInfo(null);
+    if (!dId || dId === id) return;
+    const moved = blocks.find((b) => b.id === dId);
+    if (!moved) return;
+    const rest = blocks.filter((b) => b.id !== dId);
+    let ti = rest.findIndex((b) => b.id === id);
+    if (pos === "after") ti += 1;
+    commit([...rest.slice(0, ti), moved, ...rest.slice(ti)]);
+  };
+  const onDragEnd = () => { dragRef.current = null; setDragId(null); setDropInfo(null); };
 
   const move = (id: string, dir: -1 | 1) => {
     const i = idx(id); const j = i + dir;
@@ -141,15 +191,20 @@ export function ArticleBody({ value, onChange }: Props) {
   return (
     <div className="abody" onClick={() => { setMenuFor(null); setActionsFor(null); }}>
       {blocks.map((b, i) => (
-        <div key={b.id} className="ablk" data-type={b.type}>
+        <div key={b.id}
+          className={"ablk" + (dragId === b.id ? " is-dragging" : "") + (dropInfo?.id === b.id ? " is-drop-" + dropInfo.pos : "")}
+          data-type={b.type}
+          onDragOver={(e) => onBlockDragOver(e, b.id)}
+          onDrop={(e) => onBlockDrop(e, b.id)}>
           <div className="ablk__gutter">
             <button type="button" className="ablk__add" title="Добавить блок"
               onClick={(e) => { e.stopPropagation(); setActionsFor(null); setMenuFor(menuFor === b.id ? null : b.id); }}>
               <Plus size={15} />
             </button>
-            <button type="button" className="ablk__more" title="Действия"
+            <button type="button" className="ablk__grip" title="Перетащить · действия" draggable
+              onDragStart={(e) => onGripDragStart(e, b.id)} onDragEnd={onDragEnd}
               onClick={(e) => { e.stopPropagation(); setMenuFor(null); setActionsFor(actionsFor === b.id ? null : b.id); }}>
-              <MoreVertical size={15} />
+              <GripVertical size={15} />
             </button>
             {menuFor === b.id && (
               <div className="ablk__menu card" onClick={(e) => e.stopPropagation()}>
@@ -194,6 +249,9 @@ export function ArticleBody({ value, onChange }: Props) {
           </div>
         </div>
       ))}
+      <button type="button" className="abody__tail" onClick={addTrailingParagraph}>
+        <Plus size={14} /> Добавить абзац
+      </button>
       <SelectionToolbar containerSel=".abody" />
     </div>
   );
