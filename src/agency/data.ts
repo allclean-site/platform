@@ -39,7 +39,21 @@ export interface AMember { id: string; name: string; email: string; role: "owner
 export type EventKind = "lead" | "publish" | "ticket" | "task" | "seo" | "client";
 export interface AEvent { id: string; at: string; clientId: string; kind: EventKind; text: string }
 
-const KEYS = { clients: "leadgenium:agency:clients", projects: "leadgenium:agency:projects", docs: "leadgenium:agency:docs", tasks: "leadgenium:agency:tasks", team: "leadgenium:agency:team", events: "leadgenium:agency:events" };
+export type LeadStatus = "new" | "in_work" | "done" | "lost";
+export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = { new: "Новая", in_work: "В работе", done: "Успешно", lost: "Отказ" };
+export interface Lead {
+  id: string; clientId: string; projectId?: string; name: string; phone: string; service: string;
+  kind: "calculator" | "form"; estimate?: string; at: string; status: LeadStatus; assigneeId?: string;
+}
+export type TicketStatus = "open" | "pending" | "closed";
+export const TICKET_STATUS_LABEL: Record<TicketStatus, string> = { open: "Открыт", pending: "Ждёт клиента", closed: "Закрыт" };
+export interface TicketMsg { from: "client" | "agent"; text: string; at: string }
+export interface Ticket {
+  id: string; clientId: string; projectId?: string; subject: string; category: string;
+  status: TicketStatus; assigneeId?: string; messages: TicketMsg[];
+}
+
+const KEYS = { clients: "leadgenium:agency:clients", projects: "leadgenium:agency:projects", docs: "leadgenium:agency:docs", tasks: "leadgenium:agency:tasks", team: "leadgenium:agency:team", events: "leadgenium:agency:events", leads: "leadgenium:agency:leads", tickets: "leadgenium:agency:tickets" };
 
 /* ---------------- seeds (read like a real, running agency during dev) ---------------- */
 
@@ -133,8 +147,37 @@ export const loadDocs = (): (DocItem & { clientId?: string })[] => {
   return load(KEYS.docs, () => withClient);
 };
 
+function seedLeads(): Lead[] {
+  return [
+    { id: "l1", clientId: "allclean", projectId: "allclean-site", name: "Андрей П.", phone: "+373 79 955 044", service: "Уборка квартир", kind: "calculator", estimate: "1 850 MDL", at: "2026-07-28T09:10:00", status: "new" },
+    { id: "l2", clientId: "verde-spa", projectId: "verde-site", name: "Elena R.", phone: "+40 720 111 222", service: "Запись на процедуру", kind: "form", at: "2026-07-28T08:30:00", status: "new" },
+    { id: "l3", clientId: "allclean", projectId: "allclean-site", name: "Мария Д.", phone: "+373 68 333 444", service: "Уборка после ремонта", kind: "form", at: "2026-07-27T14:05:00", status: "in_work", assigneeId: "u2" },
+    { id: "l4", clientId: "verde-spa", projectId: "verde-site", name: "Ion M.", phone: "+40 733 222 111", service: "Массаж", kind: "form", at: "2026-07-26T19:20:00", status: "done", assigneeId: "u2" },
+    { id: "l5", clientId: "allclean", projectId: "allclean-site", name: "Дмитрий Л.", phone: "+373 69 100 200", service: "Разовая уборка", kind: "calculator", estimate: "900 MDL", at: "2026-07-25T11:40:00", status: "lost" },
+  ];
+}
+function seedTickets(): Ticket[] {
+  return [
+    { id: "tk1", clientId: "dentalux", projectId: "dentalux-site", subject: "Не работает форма записи", category: "Сайт", status: "open", assigneeId: "u2",
+      messages: [{ from: "client", text: "Здравствуйте, форма на сайте не отправляется.", at: "2026-07-27T15:05:00" }] },
+    { id: "tk2", clientId: "dentalux", subject: "Когда будет готов сайт?", category: "Проект", status: "pending", assigneeId: "u2",
+      messages: [{ from: "client", text: "Подскажите сроки запуска.", at: "2026-07-26T10:00:00" }, { from: "agent", text: "На этой неделе подключаем домен, затем публикуем.", at: "2026-07-26T10:20:00" }] },
+    { id: "tk3", clientId: "allclean", projectId: "allclean-site", subject: "Заменить фото на главной", category: "Правки", status: "open", assigneeId: "u3",
+      messages: [{ from: "client", text: "Можно заменить баннер на новый?", at: "2026-07-28T08:00:00" }] },
+  ];
+}
+
+export const loadLeads = () => load(KEYS.leads, seedLeads);
+export const loadTickets = () => load(KEYS.tickets, seedTickets);
+export const saveTickets = (l: Ticket[]) => localStorage.setItem(KEYS.tickets, JSON.stringify(l));
+export const saveLeads = (l: Lead[]) => localStorage.setItem(KEYS.leads, JSON.stringify(l));
+
 export const projectsOf = (clientId: string) => loadProjects().filter((p) => p.clientId === clientId);
+export const docsOf = (clientId: string) => loadDocs().filter((d) => d.clientId === clientId);
+export const getAClient = (id: string) => loadAClients().find((c) => c.id === id);
+export const getProject = (id: string) => loadProjects().find((p) => p.id === id);
 export const memberName = (id?: string) => loadTeam().find((m) => m.id === id)?.name ?? "—";
+export const phoneDigits = (p: string) => (p || "").replace(/[^\d]/g, "");
 
 /* ---------------- Обзор derivations ---------------- */
 
@@ -177,3 +220,45 @@ export function overview() {
 
 export const clientName = (id: string) => loadAClients().find((c) => c.id === id)?.name ?? id;
 export const eur = (n: number) => n.toLocaleString("ru-RU");
+
+/* ---------------- mutations (mock; localStorage) ---------------- */
+const uid = (p: string) => p + Math.random().toString(36).slice(2, 8);
+const save = (key: string, v: unknown) => localStorage.setItem(key, JSON.stringify(v));
+
+export const saveAClients = (l: AClient[]) => save(KEYS.clients, l);
+export function addAClient(input: { name: string; company?: string; contact?: Partial<Contact> }): AClient {
+  const list = loadAClients();
+  const base = input.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "client";
+  let id = base, i = 2; while (list.some((c) => c.id === id)) id = `${base}-${i++}`;
+  const initials = input.name.replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || input.name.slice(0, 2).toUpperCase();
+  const accents = ["#537fdd", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4"];
+  const c: AClient = {
+    id, name: input.name.trim(), company: input.company?.trim() || undefined, initials, accent: accents[list.length % accents.length],
+    since: new Date().toISOString().slice(0, 10), managerId: "u1", plan: "free",
+    contacts: input.contact?.name ? [{ id: uid("c"), name: input.contact.name!, phone: input.contact.phone, email: input.contact.email, primary: true }] : [],
+  };
+  saveAClients([...list, c]);
+  return c;
+}
+export const removeAClient = (id: string) => { saveAClients(loadAClients().filter((c) => c.id !== id)); save(KEYS.projects, loadProjects().filter((p) => p.clientId !== id)); };
+
+export const saveProjects = (l: Project[]) => save(KEYS.projects, l);
+export function addProject(clientId: string, input: { title: string; type: ProjectType; priceTotal: number }): Project {
+  const p: Project = {
+    id: uid("pr"), clientId, title: input.title.trim(), type: input.type, summary: "", stage: "brief",
+    priceTotal: input.priceTotal || 0, pricePaid: 0, currency: "EUR",
+    health: { online: false, domainStatus: "pending" }, leads7d: 0, openTickets: 0, updatedAt: new Date().toISOString().slice(0, 10),
+  };
+  saveProjects([...loadProjects(), p]);
+  return p;
+}
+export const updateProject = (id: string, patch: Partial<Project>) => saveProjects(loadProjects().map((p) => (p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString().slice(0, 10) } : p)));
+
+export function addDoc(clientId: string, meta: { name: string; kind: DocItem["kind"]; sizeKB?: number; uploadedBy: string }): void {
+  const d = { id: uid("d"), clientId, name: meta.name, kind: meta.kind, sizeKB: meta.sizeKB, uploadedAt: new Date().toISOString().slice(0, 10), uploadedBy: meta.uploadedBy } as DocItem & { clientId: string };
+  save(KEYS.docs, [...loadDocs(), d]);
+}
+export const removeDoc = (id: string) => save(KEYS.docs, loadDocs().filter((d) => d.id !== id));
+
+export const saveTasks = (l: ATask[]) => save(KEYS.tasks, l);
+export const saveTeam = (l: AMember[]) => save(KEYS.team, l);

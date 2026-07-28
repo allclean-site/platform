@@ -15,8 +15,16 @@ import { ArticleEditor } from "../pages/ArticleEditor";
 import { Support } from "../pages/Support";
 import { Settings } from "../pages/Settings";
 import { Analytics } from "../pages/Analytics";
-import { Agency } from "../pages/Agency";
 import { AgencyHome } from "../pages/AgencyHome";
+import { Clients } from "../pages/Clients";
+import { ClientCard } from "../pages/ClientCard";
+import { ProjectPage } from "../pages/ProjectPage";
+import { AgencyLeads } from "../pages/AgencyLeads";
+import { AgencySupport } from "../pages/AgencySupport";
+import { AgencyTasks } from "../pages/AgencyTasks";
+import { AgencyTeam } from "../pages/AgencyTeam";
+import { AgencyBilling } from "../pages/AgencyBilling";
+import { AgencySettings } from "../pages/AgencySettings";
 import { ProGate } from "../components/ProGate";
 import { AuthProvider } from "../auth/AuthContext";
 import { AuthGate } from "../auth/AuthGate";
@@ -29,14 +37,15 @@ export default function App() {
         <Route path="/app" element={<AuthGate><Shell /></AuthGate>}>
           <Route index element={<Dashboard />} />
           <Route path="agency" element={<AgencyHome />} />
-          <Route path="agency/clients" element={<Agency />} />
-          <Route path="agency/clients/:clientId" element={<Placeholder title="Карточка клиента" note="Контакты, документы, проекты клиента." />} />
-          <Route path="agency/leads" element={<Placeholder title="Заявки" note="Сквозная лента лидов по всем клиентам." />} />
-          <Route path="agency/support" element={<Placeholder title="Поддержка" note="Единый инбокс тикетов всех клиентов." />} />
-          <Route path="agency/tasks" element={<Placeholder title="Задачи" note="Доска задач агентства по всем проектам." />} />
-          <Route path="agency/team" element={<Placeholder title="Команда" note="Сотрудники агентства, роли и привязки к клиентам." />} />
-          <Route path="agency/billing" element={<Placeholder title="Биллинг" note="Подписки, тарифы и выручка по клиентам." />} />
-          <Route path="agency/settings" element={<Placeholder title="Настройки агентства" note="Бренд, интеграции, суб-обработчики, шаблоны." />} />
+          <Route path="agency/clients" element={<Clients />} />
+          <Route path="agency/clients/:clientId" element={<ClientCard />} />
+          <Route path="agency/clients/:clientId/projects/:projectId" element={<ProjectPage />} />
+          <Route path="agency/leads" element={<AgencyLeads />} />
+          <Route path="agency/support" element={<AgencySupport />} />
+          <Route path="agency/tasks" element={<AgencyTasks />} />
+          <Route path="agency/team" element={<AgencyTeam />} />
+          <Route path="agency/billing" element={<AgencyBilling />} />
+          <Route path="agency/settings" element={<AgencySettings />} />
           <Route path="sites" element={<Sites />} />
         <Route path="sites/:siteId" element={<SiteEditor />} />
         <Route path="sites/:siteId/edit" element={<BlockEditor />} />
