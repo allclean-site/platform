@@ -26,6 +26,26 @@ export interface Deal {
   updatedAt: number;
   order: number;      // sort within a stage
   leadId?: string;    // id of the source site_leads row (set for leads auto-imported from the site — dedupe key)
+  lead?: LeadDetail;  // the full structured submission (calculator answers / form fields, price, comment, photos)
+}
+
+/** One answer / parameter from a submitted form or calculator. */
+export interface LeadField { label: string; value: string; }
+
+/**
+ * The complete submission behind a lead, normalized for display. Whatever the form sent, we show —
+ * a calculator lead carries the price estimate, every answer, the comment and photos; a plain contact
+ * form carries just its fields. This is the source-of-truth the client submitted (read-only in the UI).
+ */
+export interface LeadDetail {
+  kind: "calculator" | "form";
+  estimate?: string;      // price text as submitted, e.g. "1200 MDL"
+  fields: LeadField[];    // every answer / parameter, label → value
+  comment?: string;
+  photos: string[];       // public image URLs (calc-uploads bucket)
+  sourceUrl?: string;
+  locale?: string;
+  serviceSlug?: string;   // calculator slug, e.g. "apartments"
 }
 
 export const STAGES: Stage[] = [
@@ -126,30 +146,85 @@ export interface SiteLead {
   [k: string]: unknown;
 }
 
-/** Turn one site_leads row into a Deal in the "new" stage. */
+// Calculator slug → human service name (RU). Falls back to the raw slug for anything not listed, so a
+// new calculator still shows something sensible without a code change.
+const SERVICE_RU: Record<string, string> = {
+  apartments: "Уборка квартир и домов", office: "Уборка офисов", windows: "Мойка окон и фасадов",
+  "post-construction": "Уборка после ремонта", carpet: "Химчистка ковров", upholstery: "Химчистка мебели",
+  "floor-restoration": "Реставрация полов", retail: "Уборка магазинов", warehouse: "Уборка складов",
+  disinfection: "Дезинфекция",
+};
+
+/** Parse a price string like "1 200 MDL" / "1200 MDL" → 1200 (0 if none). */
+function priceNum(s?: string): number {
+  if (!s) return 0;
+  const digits = String(s).replace(/[^\d]/g, "");
+  return digits ? parseInt(digits, 10) : 0;
+}
+
+/**
+ * Normalize a raw site_leads row into a LeadDetail. The calculator packs everything into `notes` as a
+ * JSON string { selections, estimate, comment, photos }; a plain contact form sends `notes` as free text
+ * plus the service/bedrooms columns. We detect which and surface whatever is there.
+ */
+export function parseLead(l: SiteLead): LeadDetail {
+  const service = (l.service || "").toString();
+  const detail: LeadDetail = {
+    kind: "form", fields: [], photos: [],
+    sourceUrl: l.source_url ? String(l.source_url) : undefined,
+    locale: l.locale ? String(l.locale) : undefined,
+  };
+
+  let json: any = null;
+  if (typeof l.notes === "string" && l.notes.trim().startsWith("{")) {
+    try { const p = JSON.parse(l.notes); if (p && typeof p === "object") json = p; } catch { /* plain text */ }
+  }
+
+  if (json) {
+    detail.kind = "calculator";
+    if (json.estimate) detail.estimate = String(json.estimate);
+    if (json.comment) detail.comment = String(json.comment).trim() || undefined;
+    detail.photos = Array.isArray(json.photos) ? json.photos.map(String) : [];
+    const sel = json.selections && typeof json.selections === "object" ? json.selections : {};
+    for (const label of Object.keys(sel)) {
+      const v = sel[label];
+      const value = Array.isArray(v) ? v.join(", ") : v == null ? "" : String(v);
+      if (value !== "") detail.fields.push({ label, value });
+    }
+    const m = service.match(/:\s*(.+)$/); // "Калькулятор: apartments" → "apartments"
+    detail.serviceSlug = m ? m[1].trim() : undefined;
+  } else {
+    if (service) detail.fields.push({ label: "Услуга", value: service });
+    if (l.bedrooms) detail.fields.push({ label: "Комнат / объём", value: String(l.bedrooms) });
+    if (l.notes) detail.comment = String(l.notes).trim() || undefined;
+  }
+  return detail;
+}
+
+/** Turn one site_leads row into a Deal in the "new" stage, carrying the full structured submission. */
 function leadToDeal(l: SiteLead, order: number): Deal {
   const ts = l.created_at ? Date.parse(l.created_at) || Date.now() : Date.now();
-  const noteParts = [
-    l.bedrooms ? `Комнат/объём: ${l.bedrooms}` : "",
-    l.notes || "",
-    l.source_url ? `Страница: ${l.source_url}` : "",
-  ].filter(Boolean);
+  const detail = parseLead(l);
+  const title = detail.kind === "calculator"
+    ? (SERVICE_RU[detail.serviceSlug || ""] || detail.serviceSlug || "Заявка с калькулятора")
+    : ((l.service || "Заявка с сайта").toString());
   return {
     id: uid(),
     leadId: l.id != null ? String(l.id) : undefined,
-    title: (l.service || "Заявка с сайта").toString(),
+    title,
     contact: (l.name || "—").toString(),
     phone: (l.phone || "").toString(),
-    amount: 0, // the current site form doesn't send the calculated price
+    amount: priceNum(detail.estimate), // calculator price if present, else 0
     currency: "MDL",
     stage: "new",
     source: "Сайт",
     assignee: "",
-    note: noteParts.join("\n"),
-    tags: l.locale ? [String(l.locale).toUpperCase()] : [],
+    note: detail.comment || "",
+    tags: [detail.kind === "calculator" ? "Калькулятор" : "Форма", ...(l.locale ? [String(l.locale).toUpperCase()] : [])],
     createdAt: ts,
     updatedAt: ts,
     order,
+    lead: detail,
   };
 }
 

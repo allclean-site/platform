@@ -111,3 +111,39 @@
 @media (max-width: 720px) {
   .crm__kpis { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---- Lead submission card (what the client actually sent) ---- */
+.crm-lead { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-2);
+  padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.crm-lead__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.crm-lead__badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+  color: var(--accent); background: var(--accent-soft); padding: 4px 9px; border-radius: 999px; }
+.crm-lead__when { font-size: 12px; color: var(--text-muted); }
+.crm-lead__price { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r-md); background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+.crm-lead__price span { font-size: 12px; color: var(--text-muted); }
+.crm-lead__price b { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: -0.01em; }
+.crm-lead__fields { display: flex; flex-direction: column; gap: 1px; margin: 0;
+  border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--border); }
+.crm-lead__field { display: grid; grid-template-columns: 42% 58%; gap: 10px; padding: 8px 11px; background: var(--surface); }
+.crm-lead__field:nth-child(even) { background: var(--surface-2); }
+.crm-lead__field dt { font-size: 12.5px; color: var(--text-muted); margin: 0; }
+.crm-lead__field dd { font-size: 13px; color: var(--text); font-weight: 500; margin: 0; word-break: break-word; }
+.crm-lead__label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+.crm-lead__comment p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text); white-space: pre-wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 9px 11px; }
+.crm-lead__photos { display: flex; flex-wrap: wrap; gap: 8px; }
+.crm-lead__photo { width: 74px; height: 74px; border-radius: var(--r-md); overflow: hidden; padding: 0;
+  border: 1px solid var(--border); cursor: pointer; background: var(--surface); transition: transform .12s, border-color .12s; }
+.crm-lead__photo:hover { transform: scale(1.04); border-color: var(--accent); }
+.crm-lead__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.crm-lead__src { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); text-decoration: none; }
+.crm-lead__src:hover { color: var(--accent); }
+
+.crm-lightbox { position: fixed; inset: 0; z-index: 120; background: rgba(6, 8, 18, .82);
+  display: flex; align-items: center; justify-content: center; padding: 32px; backdrop-filter: blur(4px); }
+.crm-lightbox img { max-width: 92vw; max-height: 90vh; border-radius: var(--r-lg); box-shadow: var(--e3); cursor: default; }
+.crm-lightbox__x { position: absolute; top: 18px; right: 18px; width: 40px; height: 40px; border-radius: 50%;
+  border: 0; background: rgba(255, 255, 255, .14); color: #fff; cursor: pointer; display: grid; place-items: center; }
+.crm-lightbox__x:hover { background: rgba(255, 255, 255, .26); }

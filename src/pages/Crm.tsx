@@ -7,9 +7,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Phone, Trash2, X, User, Tag, Banknote, TrendingUp, Inbox, Trophy, MessageSquare, UserCheck, RefreshCw,
+  Calculator, FileText, Image as ImageIcon, ExternalLink,
 } from "lucide-react";
 import {
-  loadDeals, upsertDeal, removeDeal, moveDealToStage, newDeal, importSiteLeads, fmtMoney, phoneDigits, STAGES, SOURCES, type Deal, type Stage,
+  loadDeals, upsertDeal, removeDeal, moveDealToStage, newDeal, importSiteLeads, fmtMoney, phoneDigits, STAGES, SOURCES,
+  type Deal, type Stage, type LeadDetail,
 } from "../crm/store";
 import { fetchSiteLeads, leadsConfigured } from "../crm/leadsClient";
 import { loadSettings, type TeamMember } from "../settings/store";
@@ -53,14 +55,17 @@ export function Crm() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
   const canSync = leadsConfigured();
+  const dealsRef = useRef(deals);
+  useEffect(() => { dealsRef.current = deals; }, [deals]);
   const syncLeads = async (silent = false) => {
     if (syncing) return;
     setSyncing(true); if (!silent) setSyncMsg("Загрузка…");
     const r = await fetchSiteLeads();
     if (!r.ok) { setSyncMsg(r.message); setSyncing(false); return; }
-    let addedN = 0;
-    setDeals((list) => { const { list: out, added } = importSiteLeads(list, r.leads || []); addedN = added; return out; });
-    setSyncMsg(addedN ? `Новых заявок: ${addedN}` : "Новых заявок нет");
+    const { list: out, added } = importSiteLeads(dealsRef.current, r.leads || []);
+    dealsRef.current = out;
+    setDeals(out);
+    setSyncMsg(added ? `Новых заявок: ${added}` : "Новых заявок нет");
     setSyncing(false);
   };
   // Auto-pull once on open when configured (silent — no noisy message if nothing new).
@@ -198,6 +203,7 @@ function DealDrawer({ deal, isNew, team, onClose, onSave, onDelete }: { deal: De
   const set = (p: Partial<Deal>) => setD((x) => ({ ...x, ...p }));
   const stage = STAGES.find((s) => s.id === d.stage);
   const wa = phoneDigits(d.phone);
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   return (
     <>
@@ -208,6 +214,7 @@ function DealDrawer({ deal, isNew, team, onClose, onSave, onDelete }: { deal: De
           <button className="crm-drawer__x" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="crm-drawer__body">
+          {d.lead && <LeadSubmission detail={d.lead} createdAt={d.createdAt} onPhoto={setLightbox} />}
           <label className="fld"><span>Название сделки / услуга</span>
             <input className="ci" value={d.title} onChange={(e) => set({ title: e.target.value })} placeholder="Напр. Уборка квартиры, 60 м²" autoFocus={isNew} />
           </label>
@@ -268,7 +275,65 @@ function DealDrawer({ deal, isNew, team, onClose, onSave, onDelete }: { deal: De
           <button className="btn-primary" onClick={() => onSave(d)}>{isNew ? "Создать" : "Сохранить"}</button>
         </div>
       </aside>
+      {lightbox && (
+        <div className="crm-lightbox" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="Фото из заявки" onClick={(e) => e.stopPropagation()} />
+          <button className="crm-lightbox__x" onClick={() => setLightbox(null)} aria-label="Закрыть"><X size={22} /></button>
+        </div>
+      )}
     </>
+  );
+}
+
+/** Read-only card showing exactly what the client submitted through the site (calculator or form). */
+function LeadSubmission({ detail, createdAt, onPhoto }: { detail: LeadDetail; createdAt: number; onPhoto: (url: string) => void }) {
+  const when = new Date(createdAt).toLocaleString("ru-RU", { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" });
+  return (
+    <section className="crm-lead">
+      <div className="crm-lead__head">
+        <span className="crm-lead__badge">{detail.kind === "calculator" ? <><Calculator size={13} /> Заявка с калькулятора</> : <><FileText size={13} /> Заявка с формы</>}</span>
+        <span className="crm-lead__when">{when}</span>
+      </div>
+      {detail.estimate && (
+        <div className="crm-lead__price">
+          <span>Расчёт клиента</span>
+          <b>{detail.estimate}</b>
+        </div>
+      )}
+      {detail.fields.length > 0 && (
+        <dl className="crm-lead__fields">
+          {detail.fields.map((f, i) => (
+            <div className="crm-lead__field" key={i}>
+              <dt>{f.label}</dt>
+              <dd>{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {detail.comment && (
+        <div className="crm-lead__comment">
+          <span className="crm-lead__label">Комментарий клиента</span>
+          <p>{detail.comment}</p>
+        </div>
+      )}
+      {detail.photos.length > 0 && (
+        <div className="crm-lead__photos-wrap">
+          <span className="crm-lead__label"><ImageIcon size={13} /> Фото ({detail.photos.length})</span>
+          <div className="crm-lead__photos">
+            {detail.photos.map((url, i) => (
+              <button type="button" className="crm-lead__photo" key={i} onClick={() => onPhoto(url)} title="Открыть фото">
+                <img src={url} alt={`Фото ${i + 1} из заявки`} loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {detail.sourceUrl && (
+        <a className="crm-lead__src" href={detail.sourceUrl} target="_blank" rel="noopener">
+          <ExternalLink size={12} /> Страница заявки
+        </a>
+      )}
+    </section>
   );
 }
 
