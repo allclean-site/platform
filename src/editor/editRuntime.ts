@@ -104,7 +104,11 @@ export const EDIT_RUNTIME = `
         // !important is REQUIRED: base edits are inline styles, and only !important beats inline.
         for (var p in props){
           if (props[p] === "") continue;
-          decl += p+":"+props[p]+" !important;";
+          var pv2 = props[p];
+          // Never let a phone/tablet width overflow the viewport (even a stale wide value from an old
+          // resize) — min(X,100%) caps it to the container so its resize handles stay on-screen.
+          if (p === "width" && /px$/.test(pv2)) pv2 = "min("+pv2+",100%)";
+          decl += p+":"+pv2+" !important;";
           if (CASCADE[p]) cdecl += p+":"+props[p]+" !important;"; // also override nested spans
         }
         if (decl) body += '[data-lg-id="'+id+'"]'+B+'{'+decl+'}';

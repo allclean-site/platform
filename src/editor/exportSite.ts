@@ -71,7 +71,9 @@ export function overridesCss(pageBp?: PageBp): string {
       let decl = "", cdecl = "";
       for (const p of Object.keys(props)) {
         if (props[p] === "") continue;
-        decl += `${p}:${props[p]} !important;`;
+        // Cap phone/tablet width to the container so a stale wide value can't overflow the viewport.
+        const v = p === "width" && /px$/.test(props[p]) ? `min(${props[p]},100%)` : props[p];
+        decl += `${p}:${v} !important;`;
         if (CASCADE[p]) cdecl += `${p}:${props[p]} !important;`;
       }
       if (decl) body += `[data-lg-id="${id}"]${B}{${decl}}`;
