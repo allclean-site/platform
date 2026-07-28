@@ -51,6 +51,15 @@ export function overridesCss(pageBp?: PageBp): string {
       if (decl) css += `[data-lg-id="${id}"]${sel}{${decl}}`;
     }
   }
+  // Base desktop cascade (no media query): force inheritable props onto nested spans. Emitted BEFORE
+  // the @media blocks so tablet/mobile (later source order) override it.
+  const baseLayer = pageBp.base || {};
+  for (const id of Object.keys(baseLayer)) {
+    const props = baseLayer[id];
+    let bdecl = "";
+    for (const p of Object.keys(props)) if (props[p] !== "") bdecl += `${p}:${props[p]} !important;`;
+    if (bdecl) css += `[data-lg-id="${id}"] *{${bdecl}}`;
+  }
   (["tablet", "mobile"] as const).forEach((dev) => {
     const elems = pageBp[dev] || {};
     let body = "";
@@ -73,7 +82,7 @@ export function overridesCss(pageBp?: PageBp): string {
 /** Ids referenced by any override rule → they keep their data-lg-id on export. */
 function keptIds(pageBp?: PageBp): Set<string> {
   const s = new Set<string>();
-  if (pageBp) (["tablet", "mobile", "hover", "active"] as const).forEach((d) => Object.keys(pageBp[d] || {}).forEach((id) => s.add(id)));
+  if (pageBp) (["base", "tablet", "mobile", "hover", "active"] as const).forEach((d) => Object.keys(pageBp[d] || {}).forEach((id) => s.add(id)));
   return s;
 }
 

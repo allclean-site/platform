@@ -25,8 +25,12 @@ export const EDIT_RUNTIME = `
   // keyed to data-lg-id, so they only apply at that width and never touch the base markup.
   var curBp = "desktop";
   var curZoom = 1; // canvas scale — overlay handles are sized 1/zoom so they stay grabbable on screen
-  // Layers of generated overrides keyed to data-lg-id. tablet/mobile → @media rules; hover/active → :hover/:active rules.
-  var bp = { tablet:{}, mobile:{}, hover:{}, active:{} };   // layer -> { elId -> { cssProp -> value } }
+  // Layers of generated overrides keyed to data-lg-id.
+  //  base           → descendant cascade for DESKTOP inheritable props ([data-lg-id] * {…}, no media)
+  //  tablet/mobile  → @media rules   ·   hover/active → :hover/:active rules
+  // base is a STYLESHEET rule (not inline !important on descendants) so tablet/mobile @media rules —
+  // later in source order — can still override it. Inline !important could never be overridden.
+  var bp = { base:{}, tablet:{}, mobile:{}, hover:{}, active:{} };   // layer -> { elId -> { cssProp -> value } }
   var MQ = { tablet:"(max-width: 991px)", mobile:"(max-width: 479px)" };
   // ElStyle key -> CSS property. bold & weight both map to font-weight.
   var KEY2CSS = { fontSize:"font-size", color:"color", weight:"font-weight", bold:"font-weight",
@@ -80,6 +84,14 @@ export const EDIT_RUNTIME = `
         if (pdecl) css += '[data-lg-id="'+pid+'"]'+pair[1]+'{'+pdecl+'}';
       }
     });
+    // Base desktop cascade (no media query) → forces inheritable props onto nested spans at ALL widths.
+    // Emitted BEFORE the @media blocks so tablet/mobile (later source order, same specificity) win.
+    var baseLayer = bp.base || {};
+    for (var bid in baseLayer){
+      var bprops = baseLayer[bid], bdecl = "";
+      for (var bk in bprops){ if (bprops[bk] !== "") bdecl += bk+":"+bprops[bk]+" !important;"; }
+      if (bdecl) css += '[data-lg-id="'+bid+'"] *{'+bdecl+'}';
+    }
     // tablet first, then mobile, so mobile wins by source order at ≤479px (desktop-first cascade).
     ["tablet","mobile"].forEach(function(dev){
       var elems = bp[dev] || {}, body = "";
@@ -470,7 +482,7 @@ export const EDIT_RUNTIME = `
     if (d.type === "lg-device"){ curBp = d.breakpoint || "desktop"; if (selected) select(selected); return; }
     // Load persisted per-breakpoint rules and build the overrides stylesheet.
     if (d.type === "lg-bp-init"){
-      bp = { tablet:(d.rules&&d.rules.tablet)||{}, mobile:(d.rules&&d.rules.mobile)||{}, hover:(d.rules&&d.rules.hover)||{}, active:(d.rules&&d.rules.active)||{} };
+      bp = { base:(d.rules&&d.rules.base)||{}, tablet:(d.rules&&d.rules.tablet)||{}, mobile:(d.rules&&d.rules.mobile)||{}, hover:(d.rules&&d.rules.hover)||{}, active:(d.rules&&d.rules.active)||{} };
       renderOverrides(); if (selected) select(selected); return;
     }
     // Layers panel: hide/show an element (persisted as inline display:none in the block html).
@@ -535,6 +547,18 @@ export const EDIT_RUNTIME = `
       if (d.text != null){ if (kindOf(el)==="image") el.setAttribute("alt", d.text); else el.textContent = d.text; contentChg = true; }
       if (d.href != null && el.hasAttribute("href")){ el.setAttribute("href", d.href); contentChg = true; }
       if (d.style){
+        // Alignment on a FLEX container: text-align never moves flex children, so "Выравнивание" looks
+        // dead (e.g. the hero H1 is a flex row of word-divs). Map it to justify-content (row) /
+        // align-items (column) too, so alignment actually applies. Rides the normal style flow below.
+        if (d.style.align != null){
+          var _disp = getComputedStyle(el).display;
+          if (_disp === "flex" || _disp === "inline-flex"){
+            var _col = getComputedStyle(el).flexDirection.indexOf("column") === 0;
+            var _map = { left:"flex-start", center:"center", right:"flex-end", justify: _col ? "stretch" : "space-between" };
+            var _v = _map[d.style.align] || "";
+            if (_col) d.style.alignItems = _v; else d.style.justify = _v;
+          }
+        }
         if (bpMode){
           // Non-desktop: write generated @media rules, not inline. Base markup untouched.
           var store = bp[d.breakpoint] || (bp[d.breakpoint] = {});
@@ -544,12 +568,22 @@ export const EDIT_RUNTIME = `
           renderOverrides();
           parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*");
         } else {
-          // Desktop base: inline styles on the node (reversible, beats the foreign stylesheet).
+          // Desktop base: the ELEMENT gets an inline style (reversible, beats the foreign stylesheet).
+          // For inheritable props we ALSO force nested spans — but via the BASE stylesheet layer
+          // ([data-lg-id] *{…!important}), NOT inline !important, so tablet/mobile @media can override.
+          var baseChg = false;
           decls(d.style).forEach(function(pv){
             el.style.setProperty(pv[0], pv[1]);
-            if (CASCADE[pv[0]]) cascadeDesc(el, pv[0], pv[1]); // force nested spans too
+            if (CASCADE[pv[0]]){
+              cascadeDesc(el, pv[0], ""); // heal legacy edits: drop any inline !important left on descendants for this prop
+              var bstore = bp.base || (bp.base = {}), brec = bstore[elId] || (bstore[elId] = {});
+              if (pv[1] === "") delete brec[pv[0]]; else brec[pv[0]] = pv[1];
+              if (!Object.keys(brec).length) delete bstore[elId];
+              baseChg = true;
+            }
           });
           contentChg = true;
+          if (baseChg){ renderOverrides(); parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*"); }
         }
       }
       if (contentChg) save(d.blockId);

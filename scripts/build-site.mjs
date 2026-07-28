@@ -48,6 +48,13 @@ function overridesCss(bp) {
       if (decl) css += `[data-lg-id="${id}"]${sel}{${decl}}`;
     }
   }
+  // Base desktop cascade (no media query) → nested spans; before @media so tablet/mobile override it.
+  const baseLayer = bp.base || {};
+  for (const id of Object.keys(baseLayer)) {
+    let bdecl = "";
+    for (const p of Object.keys(baseLayer[id])) if (baseLayer[id][p] !== "") bdecl += `${p}:${baseLayer[id][p]} !important;`;
+    if (bdecl) css += `[data-lg-id="${id}"] *{${bdecl}}`;
+  }
   for (const dev of ["tablet", "mobile"]) {
     const els = bp[dev] || {};
     let body = "";
@@ -68,7 +75,7 @@ function overridesCss(bp) {
 
 function keptIds(bp) {
   const s = new Set();
-  if (bp) for (const d of ["tablet", "mobile", "hover", "active"]) Object.keys(bp[d] || {}).forEach((id) => s.add(id));
+  if (bp) for (const d of ["base", "tablet", "mobile", "hover", "active"]) Object.keys(bp[d] || {}).forEach((id) => s.add(id));
   return s;
 }
 
@@ -200,13 +207,13 @@ async function generateArticles(written) {
   const PROJECT_ID = "8878db57-c541-4502-bfa6-ae812dc3aefd";
   let arts = [];
   if (process.env.MOCK_ARTICLES) { arts = JSON.parse(process.env.MOCK_ARTICLES); } // test hook
-  else if (!URL || !KEY) { console.log("[build] blog: no Supabase creds — skipping article generation"); return []; }
+  else if (!URL || !KEY) { console.log("[build] blog: no Supabase creds — skipping article generation"); return { urls: [], newByLocale: {} }; }
   else try {
     const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/articles?select=group_id,locale,slug,title,excerpt,body,cover_url,seo_title,seo_description,meta,jsonld,created_at&project_id=eq.${PROJECT_ID}&status=eq.published`,
       { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
-    if (!r.ok) { console.log(`[build] blog: articles fetch HTTP ${r.status} — skipping`); return []; }
+    if (!r.ok) { console.log(`[build] blog: articles fetch HTTP ${r.status} — skipping`); return { urls: [], newByLocale: {} }; }
     arts = await r.json();
-  } catch (e) { console.log("[build] blog: articles fetch failed:", e.message); return []; }
+  } catch (e) { console.log("[build] blog: articles fetch failed:", e.message); return { urls: [], newByLocale: {} }; }
 
   // group_id → { ro?, ru? } for hreflang pairing
   const byGroup = new Map();

@@ -10,13 +10,14 @@
 
 export type BpProps = Record<string, string>;        // cssProp -> value  e.g. { "font-size": "24px" }
 export type BpElems = Record<string, BpProps>;        // elementId (data-lg-id) -> props
-/** tablet/mobile → generated @media rules; hover/active → generated :hover / :active rules. All keyed to data-lg-id. */
-export interface PageBp { tablet: BpElems; mobile: BpElems; hover: BpElems; active: BpElems }
-export type SiteBp = Record<string, PageBp>;          // pageId -> { tablet, mobile, hover, active }
+/** base → desktop descendant cascade ([data-lg-id] *, no media); tablet/mobile → @media rules;
+ *  hover/active → :hover / :active rules. All keyed to data-lg-id. */
+export interface PageBp { base: BpElems; tablet: BpElems; mobile: BpElems; hover: BpElems; active: BpElems }
+export type SiteBp = Record<string, PageBp>;          // pageId -> { base, tablet, mobile, hover, active }
 
 const key = (tenant: string, site: string) => `editor-v2:real-bp:${tenant}:${site}`;
 
-export const emptyPageBp = (): PageBp => ({ tablet: {}, mobile: {}, hover: {}, active: {} });
+export const emptyPageBp = (): PageBp => ({ base: {}, tablet: {}, mobile: {}, hover: {}, active: {} });
 
 export function loadBp(tenant: string, site: string): SiteBp {
   try {
