@@ -399,14 +399,14 @@ export const EDIT_RUNTIME = `
       if (dir.indexOf("s") >= 0) h = Math.max(16, startH + dh);
       if (dir.indexOf("n") >= 0) h = Math.max(16, startH - dh);
       if (dir.indexOf("e") >= 0 || dir.indexOf("w") >= 0){
-        // On phone/tablet, never let the box grow past the screen — otherwise it overflows the viewport
-        // and its resize handles land off-canvas where they can't be grabbed ("стенка исчезла").
-        if (curBp !== "desktop"){
-          var vpW = document.documentElement.clientWidth || 390;
-          var maxW = vpW - Math.max(0, r.left) - 6;
-          if (maxW < 40) maxW = vpW - 12;
-          if (w > maxW) w = maxW;
-        }
+        // Never let the box grow past the frame edge — on ANY device. Otherwise it overflows the page
+        // and its resize handles land off the visible canvas where they can't be grabbed ("уходит за
+        // холст"). The frame width is the device viewport (desktop = the selected canvas width), so
+        // this still allows growing well beyond a narrow parent, just not off the page.
+        var vpW = document.documentElement.clientWidth || 390;
+        var maxW = vpW - Math.max(0, r.left) - 6;
+        if (maxW < 40) maxW = vpW - 12;
+        if (w > maxW) w = maxW;
         setStyleProp(el, "width", Math.round(w) + "px");
         unclampWidth(el);
       }
@@ -462,13 +462,26 @@ export const EDIT_RUNTIME = `
   // and those persist in localStorage overrides -> stale per-phrase outlines on reload. Clean the slate
   // here; stampIds/editableWithin below re-mark everything fresh.
   function cleanBlock(w){
-    var dirty = w.querySelectorAll(".lg-selected,[contenteditable],[spellcheck],[data-lg-el],[data-lg-id]");
+    // Also catch elements carrying a leaked inline outline / editor helper class even if they have
+    // none of the attrs above — old runtimes (incl. the Astro editor.js) left inline outline styles and
+    // stray selection classes baked into saved html -> "лишние обводки" on some elements after reload.
+    var dirty = w.querySelectorAll(
+      ".lg-selected,.lg-hoverbox,.lg-hovertag,.lg-handle,.lg-dropline,.lg-selbox," +
+      "[contenteditable],[spellcheck],[data-lg-el],[data-lg-id],[style*='outline'],[style*='Outline']");
     for (var i=0;i<dirty.length;i++){
       var e = dirty[i];
-      e.classList.remove("lg-selected");
+      e.classList.remove("lg-selected","lg-hoverbox","lg-hovertag","lg-handle","lg-dropline","lg-selbox");
       e.removeAttribute("contenteditable"); e.removeAttribute("spellcheck");
       e.removeAttribute("data-lg-el"); e.removeAttribute("data-lg-id");
+      // Outline is never a legitimate content style here — strip any leaked inline outline so old
+      // editor cruft self-heals on load (keeps every other inline style intact).
+      if (e.style){
+        e.style.removeProperty("outline"); e.style.removeProperty("outline-offset");
+        e.style.removeProperty("outline-width"); e.style.removeProperty("outline-style");
+        e.style.removeProperty("outline-color");
+      }
       if (e.getAttribute("class") === "") e.removeAttribute("class");
+      if (e.getAttribute("style") === "") e.removeAttribute("style");
     }
   }
   function wire(w){
