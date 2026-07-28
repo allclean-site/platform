@@ -46,11 +46,15 @@ button { font-family: inherit; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent-hover); background-clip: padding-box; }
 ::-webkit-scrollbar-corner { background: transparent; }
 
+/* Liquid glass: gradient fill + diagonal specular sheen (top-left light streak) + backdrop blur with
+   raised saturation (so the moving aurora glows THROUGH the glass) + a bright top rim + colored float
+   shadow. This reads as real glass with depth, not a flat blurred panel. */
 .glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-  border: 1px solid var(--glass-border);
+  background: var(--glass-sheen), var(--glass-fill);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-brd);
+  box-shadow: var(--glass-shadow);
 }
 
 /* Buttons */
@@ -67,10 +71,11 @@ button { font-family: inherit; }
 .btn--lg { padding: 14px 26px; font-size: 16px; }
 .btn--sm { padding: 7px 12px; font-size: 13px; }
 
-/* Card — frosted glass panel over the aurora backdrop */
-.card { background: var(--panel-bg); backdrop-filter: blur(var(--panel-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--panel-blur)) saturate(140%);
-  border: 1px solid var(--panel-border); border-radius: var(--r-lg); box-shadow: var(--e1);
+/* Card — liquid-glass content panel (a touch more opaque than .glass for dense-content readability) */
+.card { background: var(--glass-sheen), var(--panel-fill);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-brd); border-radius: var(--r-lg); box-shadow: var(--glass-shadow);
   transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease); }
 
 /* Icon button */
