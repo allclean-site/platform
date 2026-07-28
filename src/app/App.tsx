@@ -15,16 +15,20 @@ import { ArticleEditor } from "../pages/ArticleEditor";
 import { Support } from "../pages/Support";
 import { Settings } from "../pages/Settings";
 import { Analytics } from "../pages/Analytics";
+import { Agency } from "../pages/Agency";
 import { ProGate } from "../components/ProGate";
-import { Gate } from "./Gate";
+import { AuthProvider } from "../auth/AuthContext";
+import { AuthGate } from "../auth/AuthGate";
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/app" element={<Gate><Shell /></Gate>}>
-        <Route index element={<Dashboard />} />
-        <Route path="sites" element={<Sites />} />
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/app" element={<AuthGate><Shell /></AuthGate>}>
+          <Route index element={<Dashboard />} />
+          <Route path="agency" element={<Agency />} />
+          <Route path="sites" element={<Sites />} />
         <Route path="sites/:siteId" element={<SiteEditor />} />
         <Route path="sites/:siteId/edit" element={<BlockEditor />} />
         <Route path="blog" element={<Blog />} />
@@ -35,8 +39,9 @@ export default function App() {
         <Route path="analytics" element={<ProGate><Analytics /></ProGate>} />
         <Route path="support" element={<Support />} />
         <Route path="settings" element={<Settings />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }
