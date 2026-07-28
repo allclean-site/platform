@@ -28,9 +28,9 @@
   --panel-border: rgba(255, 255, 255, 0.9);
   --panel-blur: 14px;
   /* animated aurora blobs */
-  --blob-a: rgba(124, 58, 237, 0.30);
-  --blob-b: rgba(217, 70, 239, 0.20);
-  --blob-c: rgba(59, 130, 246, 0.16);
+  --blob-a: rgba(124, 58, 237, 0.38);
+  --blob-b: rgba(217, 70, 239, 0.28);
+  --blob-c: rgba(99, 102, 241, 0.26);
 }
 
 [data-theme="dark"] {
@@ -58,9 +58,9 @@
   --panel-bg: rgba(21, 22, 33, 0.60);
   --panel-border: rgba(255, 255, 255, 0.08);
   --panel-blur: 16px;
-  --blob-a: rgba(139, 92, 246, 0.34);
-  --blob-b: rgba(168, 85, 247, 0.26);
-  --blob-c: rgba(99, 102, 241, 0.26);
+  --blob-a: rgba(139, 92, 246, 0.55);
+  --blob-b: rgba(192, 90, 240, 0.42);
+  --blob-c: rgba(99, 102, 241, 0.48);
 }
 
 :root {
