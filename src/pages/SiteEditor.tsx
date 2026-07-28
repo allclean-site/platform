@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket } from "lucide-react";
+import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw } from "lucide-react";
 import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
 import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides } from "../editor/realStore";
@@ -81,10 +81,12 @@ export function SiteEditor() {
       .catch((e) => setErr(String(e)));
   }, []);
 
-  useEffect(() => {
-    if (!activeFile) return;
+  // Load (or reload) a page from the read-only base + apply the current overrides. Reused by delete/
+  // restore so structural changes re-render the canvas from the base + edits.
+  const loadPage = useCallback((file: string | null) => {
+    if (!file) return;
     setSelected(null);
-    fetch(`${DATA}/${activeFile}.json`)
+    fetch(`${DATA}/${file}.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`page ${r.status}`))))
       .then((p: ImportedPage) => {
         const blocks = applyOverrides(p.blocks, overrides.current[p.id]);
@@ -93,7 +95,9 @@ export function SiteEditor() {
         setPage({ ...p, blocks });
       })
       .catch((e) => setErr(String(e)));
-  }, [activeFile]);
+  }, []);
+
+  useEffect(() => { loadPage(activeFile); }, [activeFile, loadPage]);
 
   useEffect(() => {
     function onMsg(e: MessageEvent) {
@@ -296,6 +300,30 @@ export function SiteEditor() {
     canvasRef.current.scrollTo({ top: Math.max(0, top * zoom - 24), behavior: "smooth" });
   };
 
+  // Section delete/restore. A removed section is stored as an EMPTY-STRING override for its block —
+  // it renders nothing in the editor and is applied (→ empty) by the publish build, so it flows through
+  // the existing overrides pipeline with no schema change. Restore just drops the override (back to base).
+  const isRemoved = (blockId: string) => page != null && overrides.current[page.id]?.[blockId] === "";
+
+  const deleteBlock = (blockId: string) => {
+    if (!page) return;
+    if (!window.confirm("Удалить эту секцию? Её можно вернуть кнопкой ↩ в списке блоков.")) return;
+    (overrides.current[page.id] ??= {})[blockId] = "";
+    saveOverrides(TENANT, SITE, overrides.current);
+    if (selected === blockId) { setSelected(null); setSelEl(null); }
+    setSaveState("saved");
+    loadPage(activeFile);
+  };
+
+  const restoreBlock = (blockId: string) => {
+    if (!page) return;
+    const po = overrides.current[page.id];
+    if (po) { delete po[blockId]; if (!Object.keys(po).length) delete overrides.current[page.id]; }
+    saveOverrides(TENANT, SITE, overrides.current);
+    setSaveState("saved");
+    loadPage(activeFile);
+  };
+
   const exportEdits = () => {
     // Both edit layers: content overrides (per-block html) + breakpoint overrides (@media rules).
     const payload = { overrides: overrides.current, breakpoints: bpOverrides.current };
@@ -371,12 +399,27 @@ export function SiteEditor() {
           </ul>
           <div className="se__section">Блоки{edit ? " · клик = к блоку" : ""}</div>
           <ul className="se__outline">
-            {(activeEntry?.blocks ?? []).map((b) => (
-              <li key={b.id} className={"se__block" + (selected === b.id ? " is-selected" : "")} onClick={() => scrollToBlock(b.id)}>
-                <span>{b.label}</span>
-                {overrides.current[page?.id ?? ""]?.[b.id] != null && <span className="se__dot" />}
-              </li>
-            ))}
+            {(activeEntry?.blocks ?? []).map((b) => {
+              const removed = isRemoved(b.id);
+              const region = page?.blocks.find((pb) => pb.id === b.id)?.content.region;
+              const canDelete = edit && region !== "header" && region !== "footer";
+              const edited = !removed && overrides.current[page?.id ?? ""]?.[b.id] != null;
+              return (
+                <li key={b.id}
+                  className={"se__block" + (selected === b.id ? " is-selected" : "") + (removed ? " is-removed" : "")}
+                  onClick={() => !removed && scrollToBlock(b.id)}>
+                  <span className="se__block-label">{b.label}{removed ? " · удалён" : ""}</span>
+                  {edited && <span className="se__dot" title="изменён" />}
+                  {removed ? (
+                    <button className="se__block-btn" title="Вернуть секцию"
+                      onClick={(e) => { e.stopPropagation(); restoreBlock(b.id); }}><RotateCcw size={14} /></button>
+                  ) : canDelete ? (
+                    <button className="se__block-btn se__block-btn--del" title="Удалить секцию"
+                      onClick={(e) => { e.stopPropagation(); deleteBlock(b.id); }}><Trash2 size={14} /></button>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
 
           {edit && selEl?.tree && selEl.tree.length > 0 && (

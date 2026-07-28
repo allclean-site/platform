@@ -46,10 +46,19 @@
 .se__page-name { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .se__page-slug { font-size: 11.5px; color: var(--text-muted); }
 .se__outline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.se__block { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--r-sm);
-  font-size: 13px; font-weight: 500; border: 1px solid transparent; }
+.se__block { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: var(--r-sm);
+  font-size: 13px; font-weight: 500; border: 1px solid transparent; cursor: pointer; }
 .se__block.is-selected { background: var(--accent-soft); color: var(--accent); }
-.se__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: auto; }
+.se__block-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.se__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+.se__block-btn { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border: 0; border-radius: 6px;
+  background: transparent; color: var(--text-muted); cursor: pointer; opacity: 0; transition: opacity var(--dur) var(--ease); }
+.se__block:hover .se__block-btn, .se__block.is-selected .se__block-btn { opacity: 1; }
+.se__block-btn:hover { background: var(--surface-2); }
+.se__block-btn--del:hover { color: var(--danger); }
+.se__block.is-removed { opacity: .65; cursor: default; }
+.se__block.is-removed .se__block-label { text-decoration: line-through; }
+.se__block.is-removed .se__block-btn { opacity: 1; color: var(--accent); }
 
 /* Zoom controls */
 .se__zoom { display: flex; align-items: center; gap: 2px; background: var(--surface-2); padding: 4px; border-radius: var(--r-pill); }
