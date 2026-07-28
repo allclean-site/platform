@@ -42,8 +42,7 @@
   font-weight: 700; letter-spacing: -0.02em; padding: 6px 2px; border-bottom: 2px solid var(--border); }
 .art-ed__titlein:focus { outline: none; border-color: var(--accent); }
 .art-fld-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.art-ed__bodyfld { flex: 1; min-height: 0; }
-.art-ed__mark { flex: 1; min-height: 320px; resize: none; font-family: ui-monospace, "SF Mono", monospace; font-size: 13.5px; line-height: 1.6; }
+.art-ed__bodyfld { display: flex; flex-direction: column; gap: 6px; }
 
 /* Preview */
 .art-ed__preview { align-self: stretch; display: flex; flex-direction: column; min-height: 0; background: var(--surface);

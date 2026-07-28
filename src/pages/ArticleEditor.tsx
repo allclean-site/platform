@@ -34,11 +34,13 @@ export function ArticleEditor() {
     const g = getGroup(a.group);
     return Object.keys(g).length ? g : { [a.locale]: a };
   });
-  // Source = the language the author wrote in. New articles set sourceLocale; older ones fall back to
-  // their own locale so they open on the version that actually has content.
+  // Open on the version the author actually wrote (an original with content), else whatever exists.
   const first = Object.values(vers)[0];
-  const source: Locale = (first?.sourceLocale as Locale) || (first?.locale as Locale) || "ro";
-  const [active, setActive] = useState<Locale>(source);
+  const [active, setActive] = useState<Locale>(() => {
+    const orig = LOCALES.find((l) => vers[l]?.title?.trim() && !vers[l]?.autoTranslated);
+    const any = LOCALES.find((l) => vers[l]?.title?.trim());
+    return orig || any || (first?.locale as Locale) || "ro";
+  });
   const [tab, setTab] = useState<"preview" | "seo">("preview");
   const [saved, setSaved] = useState(true);
   const [translating, setTranslating] = useState(false);
@@ -69,17 +71,30 @@ export function ArticleEditor() {
   const setTakeaways = (takeaways: string[]) => set({ meta: { ...a.meta, takeaways } });
   const uploadCover = async () => { setUploading(true); const { url } = await pickAndUploadImage(); if (url) set({ coverUrl: url }); setUploading(false); };
 
+  // Switch language tab. If that version doesn't exist yet, create a blank linked one so the author can
+  // write the original in EITHER language (RU or RO) — translation is optional and directional.
+  const switchTo = (l: Locale) => {
+    if (!vers[l]) {
+      const base = Object.values(vers)[0];
+      const blank: Article = { ...newCounterpart(base, l), autoTranslated: false, title: "", body: "", excerpt: "", seoTitle: "", seoDescription: "", meta: {}, sourceLocale: l };
+      setVers((v) => ({ ...v, [l]: blank }));
+    }
+    setActive(l);
+  };
+
   const doTranslate = async () => {
-    const s = vers[source];
-    if (!s?.title?.trim() || !s?.body?.trim()) { setErr("Заполните заголовок и текст оригинала перед переводом."); setActive(source); return; }
+    // Translate FROM the language you're editing now → the other one (direction follows the active tab).
+    const from = active;
+    const s = vers[from];
+    if (!s?.title?.trim() || !s?.body?.trim()) { setErr("Заполните заголовок и текст на текущем языке перед переводом."); return; }
     setErr(""); setTranslating(true);
     try {
-      const tl = other(source);
-      const r = await translateArticle(s.title, s.body, source, tl);
-      const src2: Article = { ...s, slug: s.slug || r.source.slug, excerpt: r.source.excerpt, seoTitle: s.seoTitle || r.source.seo_title, seoDescription: s.seoDescription || r.source.seo_description, meta: { faq: r.source.faq, takeaways: r.source.takeaways, tags: r.source.tags } };
+      const tl = other(from);
+      const r = await translateArticle(s.title, s.body, from, tl);
+      const src2: Article = { ...s, autoTranslated: false, sourceLocale: from, slug: s.slug || r.source.slug, excerpt: r.source.excerpt, seoTitle: s.seoTitle || r.source.seo_title, seoDescription: s.seoDescription || r.source.seo_description, meta: { faq: r.source.faq, takeaways: r.source.takeaways, tags: r.source.tags } };
       const base = vers[tl] || newCounterpart(s, tl);
-      const tgt: Article = { ...base, title: r.target.title, body: r.target.body, slug: r.target.slug, excerpt: r.target.excerpt, seoTitle: r.target.seo_title, seoDescription: r.target.seo_description, meta: { faq: r.target.faq, takeaways: r.target.takeaways, tags: r.target.tags }, autoTranslated: true, sourceLocale: source };
-      setVers((v) => ({ ...v, [source]: src2, [tl]: tgt }));
+      const tgt: Article = { ...base, title: r.target.title, body: r.target.body, slug: r.target.slug, excerpt: r.target.excerpt, seoTitle: r.target.seo_title, seoDescription: r.target.seo_description, meta: { faq: r.target.faq, takeaways: r.target.takeaways, tags: r.target.tags }, autoTranslated: true, sourceLocale: from };
+      setVers((v) => ({ ...v, [from]: src2, [tl]: tgt }));
       setActive(tl);
     } catch (e: any) { setErr(String(e?.message || e)); }
     finally { setTranslating(false); }
@@ -95,7 +110,7 @@ export function ArticleEditor() {
     setPubState(r.ok ? "done" : "error"); setPubMsg(r.message);
   };
 
-  const status = vers[source]?.status || "draft";
+  const status = Object.values(vers).some((v) => v.status === "published") ? "published" : "draft";
   const bothReady = LOCALES.every((l) => vers[l]?.title?.trim());
 
   return (
@@ -107,17 +122,19 @@ export function ArticleEditor() {
         <div className="art-langs">
           {LOCALES.map((l) => {
             const v = vers[l];
-            const isSrc = l === source;
+            const hasContent = !!v?.title?.trim();
+            const tag = !v ? "нет" : (v.autoTranslated && hasContent) ? "перевод · авто" : hasContent ? "оригинал" : "пусто";
             return (
-              <button key={l} className={"art-lang" + (active === l ? " is-active" : "") + (!v?.title && !isSrc ? " is-empty" : "")} onClick={() => setActive(l)}>
+              <button key={l} className={"art-lang" + (active === l ? " is-active" : "") + (!hasContent ? " is-empty" : "")} onClick={() => switchTo(l)}>
                 {LOC_LABEL[l]}
-                <span className="art-lang__tag">{isSrc ? "оригинал" : v?.autoTranslated ? "перевод · авто" : v?.title ? "перевод" : "нет"}</span>
+                <span className="art-lang__tag">{tag}</span>
               </button>
             );
           })}
         </div>
-        <button className="btn-ghost art-ed__translate" onClick={doTranslate} disabled={translating}>
-          {translating ? <><Loader2 size={15} className="art-spin" /> Перевожу…</> : <><Languages size={15} /> Перевести и SEO</>}
+        <button className="btn-ghost art-ed__translate" onClick={doTranslate} disabled={translating}
+          title={`Перевести текущий текст (${LOC_LABEL[active]}) на ${LOC_LABEL[other(active)].toLowerCase()}`}>
+          {translating ? <><Loader2 size={15} className="art-spin" /> Перевожу…</> : <><Languages size={15} /> Перевести на {LOC_LABEL[other(active)].toLowerCase()}</>}
         </button>
         <span className="art-ed__save">{saved ? <><Check size={14} /> сохранено</> : "сохраняю…"}</span>
         <button className="btn-primary" onClick={() => setShowPub(true)}><Send size={15} /> Опубликовать</button>
@@ -128,8 +145,8 @@ export function ArticleEditor() {
       <div className="art-ed__body">
         {a ? (
           <div className="art-ed__form">
-            {active !== source && a.autoTranslated && <div className="art-ed__auto"><Languages size={13} /> Автоперевод — проверьте и при необходимости поправьте текст.</div>}
-            <input className="art-ed__titlein" value={a.title} onChange={(e) => set({ title: e.target.value })} placeholder={active === source ? "Заголовок статьи" : "Появится после перевода"} />
+            {a.autoTranslated && <div className="art-ed__auto"><Languages size={13} /> Автоперевод — проверьте и при необходимости поправьте текст.</div>}
+            <input className="art-ed__titlein" value={a.title} onChange={(e) => set({ title: e.target.value })} placeholder="Заголовок статьи" />
             <div className="art-fld-row">
               <div className="fld">
                 <span><ImageIcon size={13} /> Обложка</span>
@@ -156,7 +173,7 @@ export function ArticleEditor() {
               </label>
             </div>
             <div className="art-ed__bodyfld">
-              <span className="fld-label">Текст статьи{active === source ? " · оригинал" : " · перевод"}</span>
+              <span className="fld-label">Текст статьи{a.autoTranslated ? " · перевод" : " · оригинал"}</span>
               <ArticleBody key={active} value={a.body} onChange={(md) => set({ body: md })} />
             </div>
 
