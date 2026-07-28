@@ -5,7 +5,7 @@
  */
 
 import React, { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Users, FolderKanban, Inbox, LifeBuoy, Wallet, Rocket, TrendingUp, UserPlus, CheckSquare, AlertTriangle,
   Globe, ArrowRight, CircleDot,
@@ -47,7 +47,7 @@ export function AgencyHome() {
       <div className="ah__greet">
         <div>
           <h2 className="ah__h">{GREET()}, {session?.name?.split(" ")[0] ?? ""}</h2>
-          <p className="muted ah__date">{today}</p>
+          <p className="muted ah__date">Сводка по всем клиентам · {today}</p>
         </div>
         <button className="btn-primary" onClick={() => nav("/app/agency/clients")}>
           <Users size={16} /> Все клиенты
@@ -56,16 +56,19 @@ export function AgencyHome() {
 
       {/* KPI row */}
       <div className="ah__kpis">
-        <Kpi icon={Users} label="Клиентов" value={ov.kpis.clients} />
-        <Kpi icon={FolderKanban} label="Проектов" value={ov.kpis.projects} sub={`${ov.kpis.activeSites} онлайн`} />
-        <Kpi icon={Inbox} label="Заявок · 7 дней" value={ov.kpis.leads7d} accent />
-        <Kpi icon={LifeBuoy} label="Открытых тикетов" value={ov.kpis.openTickets} tone={ov.kpis.openTickets ? "warn" : undefined} />
+        <Kpi icon={Users} label="Клиентов" value={ov.kpis.clients} to={{ label: "Все клиенты", path: "/app/agency/clients" }} />
+        <Kpi icon={FolderKanban} label="Проектов" value={ov.kpis.projects} sub={`${ov.kpis.activeSites} онлайн`} to={{ label: "К клиентам", path: "/app/agency/clients" }} />
+        <Kpi icon={Inbox} label="Заявок · 7 дней" value={ov.kpis.leads7d} accent to={{ label: "Смотреть заявки", path: "/app/agency/leads" }} />
+        <Kpi icon={LifeBuoy} label="Открытых тикетов" value={ov.kpis.openTickets} tone={ov.kpis.openTickets ? "warn" : undefined} to={{ label: "Поддержка", path: "/app/agency/support" }} />
         <div className="card ah-kpi ah-kpi--money">
-          <div className="ah-kpi__icon"><Wallet size={19} /></div>
-          <div className="ah-kpi__meta">
-            <span className="muted">Оплачено / всего</span>
-            <b>{eur(ov.kpis.pricePaid)} / {eur(ov.kpis.priceTotal)} €</b>
+          <div className="ah-kpi__top">
+            <span className="ah-kpi__icon"><Wallet size={18} /></span>
+            <span className="ah-kpi__label">Оплачено / всего</span>
+          </div>
+          <div className="ah-kpi__val">{eur(ov.kpis.pricePaid)} / {eur(ov.kpis.priceTotal)} €</div>
+          <div className="ah-kpi__moneyfoot">
             <div className="ah-kpi__bar"><span style={{ width: `${paidPct}%` }} /></div>
+            <span className="muted">{paidPct}% оплачено</span>
           </div>
         </div>
       </div>
@@ -148,15 +151,15 @@ export function AgencyHome() {
   );
 }
 
-function Kpi({ icon: Icon, label, value, sub, accent, tone }: { icon: React.ElementType; label: string; value: number; sub?: string; accent?: boolean; tone?: "warn" }) {
+function Kpi({ icon: Icon, label, value, sub, to, accent, tone }: { icon: React.ElementType; label: string; value: number; sub?: string; to?: { label: string; path: string }; accent?: boolean; tone?: "warn" }) {
   return (
     <div className={"card ah-kpi" + (accent ? " ah-kpi--accent" : "")}>
-      <div className={"ah-kpi__icon" + (tone === "warn" ? " is-warn" : "")}><Icon size={19} /></div>
-      <div className="ah-kpi__meta">
-        <span className="muted">{label}</span>
-        <b>{value}</b>
-        {sub && <span className="ah-kpi__sub muted">{sub}</span>}
+      <div className="ah-kpi__top">
+        <span className={"ah-kpi__icon" + (tone === "warn" ? " is-warn" : "")}><Icon size={18} /></span>
+        <span className="ah-kpi__label">{label}</span>
       </div>
+      <div className="ah-kpi__val">{value}{sub && <em className="ah-kpi__sub">{sub}</em>}</div>
+      {to && <Link className="ah-kpi__foot" to={to.path}>{to.label} <ArrowRight size={14} /></Link>}
     </div>
   );
 }
