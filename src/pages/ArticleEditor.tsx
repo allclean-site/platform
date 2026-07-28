@@ -147,7 +147,7 @@ export function ArticleEditor() {
         {a ? (
           <div className="art-ed__form">
             {a.autoTranslated && <div className="art-ed__auto"><Languages size={13} /> Автоперевод — проверьте и при необходимости поправьте текст.</div>}
-            <input className="art-ed__titlein" value={a.title} onChange={(e) => set({ title: e.target.value })} placeholder="Заголовок статьи" />
+            <AutoTextarea className="art-ed__titlein" minRows={1} value={a.title} onChange={(e) => set({ title: e.target.value })} placeholder="Заголовок статьи" />
             <div className="art-fld-row">
               <div className="fld">
                 <span><ImageIcon size={13} /> Обложка</span>
