@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Globe, Newspaper, Calculator, Users, BarChart3, LifeBuoy, Settings, Bell, Search,
-  PanelLeft, ArrowLeft, LogOut,
+  PanelLeft, ArrowLeft, LogOut, Home, Inbox, ListChecks, UsersRound, Wallet,
 } from "lucide-react";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { Logo } from "../components/Logo";
@@ -24,13 +24,22 @@ const CLIENT_NAV = [
 ];
 
 const AGENCY_NAV = [
-  { to: "/app/agency", end: true, icon: Users, label: "Клиенты" },
+  { to: "/app/agency", end: true, icon: Home, label: "Обзор" },
+  { to: "/app/agency/clients", icon: Users, label: "Клиенты" },
+  { to: "/app/agency/leads", icon: Inbox, label: "Заявки" },
+  { to: "/app/agency/support", icon: LifeBuoy, label: "Поддержка" },
+  { to: "/app/agency/tasks", icon: ListChecks, label: "Задачи" },
+  { to: "/app/agency/team", icon: UsersRound, label: "Команда" },
+  { to: "/app/agency/billing", icon: Wallet, label: "Биллинг" },
+  { to: "/app/agency/settings", icon: Settings, label: "Настройки" },
 ];
 
 const TITLES: Record<string, string> = {
-  "/app": "Дашборд", "/app/agency": "Клиенты", "/app/sites": "Сайты", "/app/blog": "Блог",
-  "/app/calculators": "Калькуляторы", "/app/crm": "CRM", "/app/analytics": "Аналитика",
-  "/app/support": "Поддержка", "/app/settings": "Настройки",
+  "/app": "Дашборд", "/app/agency": "Обзор", "/app/agency/clients": "Клиенты", "/app/agency/leads": "Заявки",
+  "/app/agency/support": "Поддержка", "/app/agency/tasks": "Задачи", "/app/agency/team": "Команда",
+  "/app/agency/billing": "Биллинг", "/app/agency/settings": "Настройки агентства",
+  "/app/sites": "Сайты", "/app/blog": "Блог", "/app/calculators": "Калькуляторы", "/app/crm": "CRM",
+  "/app/analytics": "Аналитика", "/app/support": "Поддержка", "/app/settings": "Настройки",
 };
 
 export function Shell() {
