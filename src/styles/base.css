@@ -16,6 +16,15 @@ a { color: inherit; text-decoration: none; }
 button { font-family: inherit; }
 ::selection { background: var(--accent-soft); }
 
+/* Scrollbars — themed to the UI instead of the raw OS/browser look (WebKit + Firefox). */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--r-pill);
+  border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
 .glass {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(140%);

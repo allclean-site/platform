@@ -13,6 +13,7 @@ import { translateArticle, translateConfigured } from "../blog/translateClient";
 import { publishArticlesToSite } from "../blog/publishArticleClient";
 import { pickAndUploadImage } from "../blog/uploadClient";
 import { ArticleBody } from "./ArticleBody";
+import { AutoTextarea } from "../components/AutoTextarea";
 import { CheckCircle2, XCircle } from "lucide-react";
 import type { Article, ArticleFaq, Locale } from "../engine/blog/types";
 import "./blog.css";
@@ -223,7 +224,7 @@ export function ArticleEditor() {
                 <span className="art-seo__count">{(a?.seoTitle || a?.title || "").length}/60</span>
               </label>
               <label className="fld"><span>SEO-описание (description)</span>
-                <textarea className="ci ci--area" rows={3} value={a?.seoDescription || ""} onChange={(e) => set({ seoDescription: e.target.value })} placeholder={seo?.excerpt} />
+                <AutoTextarea className="ci ci--area" minRows={3} value={a?.seoDescription || ""} onChange={(e) => set({ seoDescription: e.target.value })} placeholder={seo?.excerpt} />
                 <span className="art-seo__count">{(a?.seoDescription || seo?.excerpt || "").length}/160</span>
               </label>
               <label className="fld"><span>URL (slug)</span>
@@ -263,7 +264,7 @@ function FaqEditor({ faq, onChange }: { faq: ArticleFaq[]; onChange: (f: Article
               <input className="ci" value={f.question} placeholder="Вопрос" onChange={(e) => set(i, { question: e.target.value })} />
               <button type="button" className="art-extra__del" title="Удалить" onClick={() => onChange(faq.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
             </div>
-            <textarea className="ci ci--area" rows={2} value={f.answer} placeholder="Ответ" onChange={(e) => set(i, { answer: e.target.value })} />
+            <AutoTextarea className="ci ci--area" minRows={2} value={f.answer} placeholder="Ответ" onChange={(e) => set(i, { answer: e.target.value })} />
           </div>
         ))}
       </div>
