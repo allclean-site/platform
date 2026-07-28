@@ -1,0 +1,59 @@
+.agency { display: flex; flex-direction: column; gap: 20px; }
+
+.agency__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.agency__h { font-size: 22px; margin-bottom: 3px; }
+
+/* KPI strip */
+.agency__kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.ag-kpi { display: flex; align-items: center; gap: 13px; padding: 16px 18px; }
+.ag-kpi__icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--r-md);
+  background: var(--accent-soft); color: var(--accent); flex: none; }
+.ag-kpi__icon.is-warn { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.ag-kpi__meta { display: flex; flex-direction: column; gap: 2px; }
+.ag-kpi__meta > span { font-size: 12.5px; }
+.ag-kpi__meta > b { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+
+/* Add-client form */
+.agency__add { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.agency__add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.agency__add label { display: flex; flex-direction: column; gap: 6px; }
+.agency__add label > span { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.agency__add input { width: 100%; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 9px 11px;
+  font: inherit; font-size: 13.5px; background: var(--surface); color: var(--text); }
+.agency__add input:focus { outline: 2px solid var(--accent-ring); border-color: var(--accent); }
+.agency__add-act { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* Clients grid */
+.agency__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 16px; }
+.cl-card { padding: 18px; display: flex; flex-direction: column; gap: 10px; cursor: pointer; }
+.cl-card:hover { box-shadow: var(--e2); transform: translateY(-2px); border-color: var(--accent-ring); }
+.cl-card:focus-visible { outline: 2px solid var(--accent-ring); }
+.cl-card__top { display: flex; align-items: center; justify-content: space-between; }
+.cl-card__ava { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-md);
+  background: var(--grad); color: #fff; font-weight: 700; font-size: 15px; letter-spacing: .02em; }
+.cl-card__badges { display: flex; align-items: center; gap: 6px; }
+.cl-card__del { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: none; color: var(--text-muted); cursor: pointer; }
+.cl-card__del:hover { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.badge--pro { background: var(--grad); color: #fff; }
+.cl-card__name { font-size: 17px; }
+.cl-card__domain { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-muted); width: fit-content; }
+.cl-card__domain:hover { color: var(--accent); }
+.cl-card__meta { display: flex; align-items: center; gap: 10px; font-size: 12.5px; flex-wrap: wrap; }
+.cl-st { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; padding: 3px 9px; border-radius: var(--r-pill); font-size: 11.5px; }
+.cl-st::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.cl-st.st-live { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.cl-st.st-draft { color: var(--text-muted); background: var(--surface-2); }
+.cl-st.st-building { color: var(--info); background: color-mix(in srgb, var(--info) 12%, transparent); }
+.cl-card__stats { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--text-muted); padding-top: 2px; }
+.cl-card__stats b { color: var(--text); font-weight: 700; }
+.cl-card__stats .has-tickets b { color: var(--warning); }
+.cl-card__enter { display: inline-flex; align-items: center; justify-content: center; gap: 7px; margin-top: 6px;
+  padding: 9px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2);
+  color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.cl-card__enter:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+@media (max-width: 900px) {
+  .agency__kpis { grid-template-columns: repeat(2, 1fr); }
+  .agency__add-row { grid-template-columns: 1fr; }
+}
