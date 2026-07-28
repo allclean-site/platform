@@ -106,8 +106,10 @@ export const EDIT_RUNTIME = `
           if (props[p] === "") continue;
           var pv2 = props[p];
           // Never let a phone/tablet width overflow the viewport (even a stale wide value from an old
-          // resize) — min(X,100%) caps it to the container so its resize handles stay on-screen.
-          if (p === "width" && /px$/.test(pv2)) pv2 = "min("+pv2+",100%)";
+          // resize) — cap to the VIEWPORT (100vw), NOT 100% (= the PARENT). 100% blocked widening a
+          // text box past its container on tablet/mobile ("не тянется вправо", while desktop does),
+          // since desktop has no cap. 100vw still stops a stale value overflowing the device screen.
+          if (p === "width" && /px$/.test(pv2)) pv2 = "min("+pv2+",100vw)";
           decl += p+":"+pv2+" !important;";
           if (CASCADE[p]) cdecl += p+":"+props[p]+" !important;"; // also override nested spans
         }

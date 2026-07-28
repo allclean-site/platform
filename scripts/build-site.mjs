@@ -64,7 +64,7 @@ function overridesCss(bp) {
       let decl = "", cdecl = "";
       for (const p of Object.keys(els[id])) {
         if (els[id][p] === "") continue;
-        const v = p === "width" && /px$/.test(els[id][p]) ? `min(${els[id][p]},100%)` : els[id][p];
+        const v = p === "width" && /px$/.test(els[id][p]) ? `min(${els[id][p]},100vw)` : els[id][p];
         decl += `${p}:${v} !important;`;
         if (CASCADE[p]) cdecl += `${p}:${els[id][p]} !important;`;
       }
