@@ -23,6 +23,14 @@
   --e2: 0 8px 24px rgba(20, 22, 40, 0.08);
   --e3: 0 16px 40px rgba(20, 22, 40, 0.12);
   --grad: linear-gradient(135deg, #7c3aed, #a855f7);
+  /* frosted content panels (over the aurora backdrop) */
+  --panel-bg: rgba(255, 255, 255, 0.72);
+  --panel-border: rgba(255, 255, 255, 0.9);
+  --panel-blur: 14px;
+  /* animated aurora blobs */
+  --blob-a: rgba(124, 58, 237, 0.30);
+  --blob-b: rgba(217, 70, 239, 0.20);
+  --blob-c: rgba(59, 130, 246, 0.16);
 }
 
 [data-theme="dark"] {
@@ -47,6 +55,12 @@
   --e2: 0 8px 24px rgba(0, 0, 0, 0.5);
   --e3: 0 16px 40px rgba(0, 0, 0, 0.6);
   --grad: linear-gradient(135deg, #8b5cf6, #6366f1);
+  --panel-bg: rgba(21, 22, 33, 0.60);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-blur: 16px;
+  --blob-a: rgba(139, 92, 246, 0.34);
+  --blob-b: rgba(168, 85, 247, 0.26);
+  --blob-c: rgba(99, 102, 241, 0.26);
 }
 
 :root {

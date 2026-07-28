@@ -11,6 +11,26 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
+/* Animated "aurora" backdrop — soft violet blobs drifting behind the frosted panels. Two layered
+   pseudo-elements move independently (transform = GPU-cheap). Honors reduced-motion. */
+body::before, body::after {
+  content: ""; position: fixed; inset: -30vmax; z-index: -1; pointer-events: none;
+  background-repeat: no-repeat; will-change: transform;
+}
+body::before {
+  background:
+    radial-gradient(38vmax 38vmax at 22% 26%, var(--blob-a), transparent 62%),
+    radial-gradient(30vmax 30vmax at 84% 80%, var(--blob-c), transparent 62%);
+  animation: auroraA 30s ease-in-out infinite alternate;
+}
+body::after {
+  background: radial-gradient(34vmax 34vmax at 80% 16%, var(--blob-b), transparent 60%);
+  animation: auroraB 38s ease-in-out infinite alternate;
+}
+@keyframes auroraA { from { transform: translate3d(-4%, -3%, 0) scale(1); } to { transform: translate3d(5%, 4%, 0) scale(1.12); } }
+@keyframes auroraB { from { transform: translate3d(4%, 2%, 0) scale(1.05); } to { transform: translate3d(-5%, -4%, 0) scale(0.94); } }
+@media (prefers-reduced-motion: reduce) { body::before, body::after { animation: none; } }
+
 h1, h2, h3, h4, .display { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; }
@@ -47,8 +67,10 @@ button { font-family: inherit; }
 .btn--lg { padding: 14px 26px; font-size: 16px; }
 .btn--sm { padding: 7px 12px; font-size: 13px; }
 
-/* Card */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--e1);
+/* Card — frosted glass panel over the aurora backdrop */
+.card { background: var(--panel-bg); backdrop-filter: blur(var(--panel-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--panel-blur)) saturate(140%);
+  border: 1px solid var(--panel-border); border-radius: var(--r-lg); box-shadow: var(--e1);
   transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease); }
 
 /* Icon button */
