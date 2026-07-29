@@ -87,8 +87,11 @@
 .usermenu__item--danger { color: var(--danger); }
 .usermenu__item--danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 
-/* Content — scrolls over the white plateau (cards are clean white here) */
-.content { flex: 1; min-height: 0; overflow: auto; padding-top: 16px; background: transparent; }
+/* Content — scrolls over the white plateau; a mask fades the top/bottom so items dissolve into the
+   glass rim (Apple-style) instead of clipping at a hard invisible edge. */
+.content { flex: 1; min-height: 0; overflow: auto; padding-top: 16px; background: transparent;
+  -webkit-mask: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 26px), transparent 100%);
+          mask: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 26px), transparent 100%); }
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }

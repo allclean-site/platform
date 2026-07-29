@@ -86,6 +86,6 @@
   --dur: 180ms;
   --dur-slow: 240ms;
   --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
-  --font-display: "General Sans", "Onest", system-ui, sans-serif;
-  --font-body: "Onest", system-ui, -apple-system, sans-serif;
+  --font-display: "TT Travels Next", "General Sans", "Onest", system-ui, sans-serif;
+  --font-body: "TT Travels Next", "Onest", system-ui, -apple-system, sans-serif;
 }

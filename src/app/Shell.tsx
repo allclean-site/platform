@@ -124,7 +124,7 @@ export function Shell() {
       </aside>
 
       <div className="shell__main">
-        <header className="topbar glass">
+        <header className="topbar">
           <button className="iconbtn rail-btn" title={collapsed ? "Развернуть меню" : "Свернуть меню"} onClick={() => setCollapsed((c) => !c)}>
             <PanelLeft size={18} />
           </button>

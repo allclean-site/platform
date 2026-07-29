@@ -1,0 +1,10 @@
+Положите сюда файлы TT Travels Next в формате .woff2 с такими именами:
+  TTTravelsNext-Regular.woff2   (400)
+  TTTravelsNext-Medium.woff2    (500)
+  TTTravelsNext-DemiBold.woff2  (600)
+  TTTravelsNext-Bold.woff2      (700)
+  TTTravelsNext-ExtraBold.woff2 (800)
+
+Где взять: у TypeType (typetype.org) есть бесплатные TRIAL-версии для теста.
+Если файлы .ttf/.otf — конвертируйте в .woff2 (например transfonter.org).
+Эти файлы в .gitignore — не коммитятся и не деплоятся без купленной лицензии.

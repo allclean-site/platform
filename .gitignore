@@ -18,3 +18,8 @@ out
 .astro
 .wrangler
 
+
+# paid font — local preview only
+public/fonts/tt-travels-next/*.woff2
+public/fonts/tt-travels-next/*.ttf
+public/fonts/tt-travels-next/*.otf
