@@ -86,6 +86,8 @@
   --dur: 180ms;
   --dur-slow: 240ms;
   --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  /* Damped-spring easing (harmonic-oscillator step response) for the sliding nav pill — used at 0.62s. */
+  --spring: linear(0.0000 0.0%, 0.0153 2.2%, 0.0567 4.3%, 0.1175 6.5%, 0.1922 8.7%, 0.2757 10.9%, 0.3637 13.0%, 0.4527 15.2%, 0.5399 17.4%, 0.6232 19.6%, 0.7007 21.7%, 0.7714 23.9%, 0.8346 26.1%, 0.8899 28.3%, 0.9373 30.4%, 0.9770 32.6%, 1.0094 34.8%, 1.0349 37.0%, 1.0542 39.1%, 1.0681 41.3%, 1.0771 43.5%, 1.0820 45.7%, 1.0835 47.8%, 1.0823 50.0%, 1.0788 52.2%, 1.0737 54.3%, 1.0675 56.5%, 1.0605 58.7%, 1.0532 60.9%, 1.0458 63.0%, 1.0385 65.2%, 1.0315 67.4%, 1.0250 69.6%, 1.0191 71.7%, 1.0138 73.9%, 1.0092 76.1%, 1.0053 78.3%, 1.0019 80.4%, 0.9992 82.6%, 0.9971 84.8%, 0.9955 87.0%, 0.9943 89.1%, 0.9936 91.3%, 0.9931 93.5%, 0.9930 95.7%, 0.9931 97.8%, 1.0000 100.0%);
   /* Main UI font = TT Interphases Pro; sidebar menu + numbers = TT Travels Next. */
   --font-display: "TT Interphases Pro", "General Sans", "Onest", system-ui, sans-serif;
   --font-body: "TT Interphases Pro", "Onest", system-ui, -apple-system, sans-serif;

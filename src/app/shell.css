@@ -5,28 +5,44 @@
   transition: grid-template-columns var(--dur-slow) var(--ease); }
 @media (max-width: 1280px) { .shell { padding: 22px; gap: 14px; } }
 
-/* Collapsed icon rail (auto in the editor). */
+/* Collapsed icon rail (auto in the editor). The nav layout is IDENTICAL to the expanded state
+   (same paddings, same icon X) — collapsing only shrinks the column width and fades the labels,
+   so nothing reflows or jumps. Icons sit at a fixed left offset that lands ~centred in the 76px rail. */
 .shell--rail { grid-template-columns: 76px 1fr; }
-.shell--rail .sidebar { padding: 20px 12px; }
-.shell--rail .sidebar__brand { justify-content: center; padding: 6px 0 22px; }
-.shell--rail .logo__word { display: none; }
-.shell--rail .navitem { justify-content: center; gap: 0; padding: 12px; }
-.shell--rail .navitem span { display: none; }
-.shell--rail .logo { width: 28px; overflow: hidden; }
+.shell--rail .navitem > span { opacity: 0; }
+.shell--rail .navitem__pro { display: none; }
 .shell--rail .sidebar__foot { display: none; }
 .shell--rail .content { padding: 16px; }
+/* cross-fade the wordmark → standalone mark; both are stacked in place, mark is fixed-size (never balloons) */
+.shell--rail .sidebar__brand .logo__full { opacity: 0; }
+.shell--rail .sidebar__brand .logo__mark { opacity: 1; }
 .rail-btn { margin-right: 4px; }
 
 /* Sidebar — floating rounded glass panel */
 .sidebar { display: flex; flex-direction: column; padding: 18px 14px; border-radius: var(--r-xl); box-shadow: var(--glass-shadow); }
-.sidebar__brand { display: flex; align-items: center; padding: 6px 10px 22px; }
+/* Brand = a fixed-height stage; the wordmark and the mark are stacked (absolute) and cross-faded, so
+   collapsing never reflows the logo. Left edge = 0 → the logo lines up with the nav pill's left edge;
+   the mark's fixed 46px width makes its rail side-margins equal the pill's (≈15px each). */
+.sidebar__brand { display: block; position: relative; height: 30px; margin: 6px 0 22px; }
+.sidebar__brand .logo { display: block; }
+.sidebar__brand .logo__full,
+.sidebar__brand .logo__mark { position: absolute; top: 50%; left: 0; transform: translateY(-50%);
+  transition: opacity 0.24s var(--ease); }
+.sidebar__brand .logo__full { width: 100%; max-width: 222px; height: auto; opacity: 1; }
+.sidebar__brand .logo__mark { display: block; width: 46px; height: 46px; opacity: 0; }
 .sidebar__nav { display: flex; flex-direction: column; gap: 4px; flex: 1; position: relative; }
 /* the active-item highlight slides smoothly to the selected item */
 .nav-pill { position: absolute; left: 0; right: 0; top: 0; border-radius: var(--r-md); background: var(--accent-soft);
-  transition: transform 0.3s var(--ease), height 0.3s var(--ease), opacity 0.2s; z-index: 0; pointer-events: none; }
+  /* Damped-spring travel via a CSS linear() easing (real oscillator step response: ~8% overshoot,
+     one clean counter-settle). Reads like a physical spring, not a single rubber-band snap. */
+  transition: transform 0.62s var(--spring), height 0.42s var(--spring), opacity 0.2s;
+  z-index: 0; pointer-events: none; }
 .navitem { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: var(--r-md);
   color: var(--text-muted); font-weight: 500; font-size: 15px; position: relative; z-index: 1;
+  white-space: nowrap; overflow: hidden;
   transition: color var(--dur) var(--ease), background var(--dur) var(--ease); }
+.navitem svg { flex: none; }
+.navitem > span { transition: opacity 0.18s var(--ease); }
 .navitem:not(.is-active):hover { background: var(--surface-2); color: var(--text); }
 .navitem.is-active { color: var(--accent); font-weight: 600; }
 .navitem__pro { margin-left: auto; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; color: var(--accent);

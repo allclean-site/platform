@@ -97,5 +97,7 @@ button { font-family: inherit; }
   font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .seg-mini__b.on { background: var(--surface); color: var(--accent); box-shadow: var(--e1); }
 
-.logo { display: inline-flex; align-items: center; gap: 9px; }
+.logo { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.logo__full { height: var(--logo-h, 26px); width: auto; display: block; }
+.logo__mark { height: var(--logo-h, 26px); width: var(--logo-h, 26px); display: none; flex: none; }
 .logo__word { font-family: var(--font-display); font-weight: 700; font-size: 19px; letter-spacing: -0.02em; color: var(--text); }

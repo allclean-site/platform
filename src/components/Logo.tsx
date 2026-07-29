@@ -1,12 +1,20 @@
 import React from "react";
 
-/** LeadGeniumCMS wordmark. The mark (violet square + white bolt) and "CMS" stay violet; "LeadGenium"
- * uses currentColor so it adapts to light/dark. In the collapsed rail only the mark shows (CSS clip). */
+/** LeadGeniumCMS logo. Two SVGs: the standalone mark (violet square + white bolt) and the full
+ * wordmark. Expanded UI shows the wordmark; the collapsed sidebar rail shows only the mark (toggled
+ * in CSS via .shell--rail). Height is driven by the --logo-h CSS var (set from `size`) so containers
+ * can override it (e.g. the sidebar scales the wordmark to fit its width without distortion).
+ * "LeadGenium" uses currentColor (adapts to light/dark); the mark and "CMS" stay violet. */
 export function Logo({ size = 26 }: { size?: number }) {
   return (
-    <span className="logo" style={{ color: "var(--text)" }}>
-      <svg className="logo__svg" viewBox="0 0 263 30" role="img" aria-label="LeadGenium CMS"
-        style={{ height: size, width: "auto", display: "block" }} xmlns="http://www.w3.org/2000/svg">
+    <span className="logo" style={{ color: "var(--text)", "--logo-h": `${size}px` } as React.CSSProperties}>
+      {/* standalone mark — shown alone when the sidebar is collapsed */}
+      <svg className="logo__mark" viewBox="0 0 30 30" role="img" aria-label="LeadGenium" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.5 0H7.5C3.35786 0 0 3.35786 0 7.5V22.5C0 26.6421 3.35786 30 7.5 30H22.5C26.6421 30 30 26.6421 30 22.5V7.5C30 3.35786 26.6421 0 22.5 0Z" fill="#7C3AED" />
+        <path d="M14.8644 5.6748L7.29688 18.7289H14.8644L12.9726 24.3235L24.3239 11.2694H16.7563L18.6482 5.6748H14.8644Z" fill="#fff" />
+      </svg>
+      {/* full wordmark — shown when expanded */}
+      <svg className="logo__full" viewBox="0 0 263 30" role="img" aria-label="LeadGenium CMS" xmlns="http://www.w3.org/2000/svg">
         {/* mark */}
         <path d="M22.5 0H7.5C3.35786 0 0 3.35786 0 7.5V22.5C0 26.6421 3.35786 30 7.5 30H22.5C26.6421 30 30 26.6421 30 22.5V7.5C30 3.35786 26.6421 0 22.5 0Z" fill="#7C3AED" />
         <path d="M14.8644 5.6748L7.29688 18.7289H14.8644L12.9726 24.3235L24.3239 11.2694H16.7563L18.6482 5.6748H14.8644Z" fill="#fff" />
