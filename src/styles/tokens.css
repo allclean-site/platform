@@ -34,11 +34,9 @@
   --blob-a: rgba(124, 58, 237, 0.30);
   --blob-b: rgba(217, 70, 239, 0.22);
   --blob-c: rgba(99, 102, 241, 0.20);
-  /* retro grid backdrop (light = soft violet) */
-  --rb-sky-top: #e7e1fb;
-  --rb-ground: #efe9ff;
-  --rb-line: rgba(124, 58, 237, 0.34);
-  --rb-neon: rgba(124, 58, 237, 0.45);
+  /* flowing-waves backdrop (light = white + violet gradient + violet lines) */
+  --rb-bg: radial-gradient(125% 105% at 16% -18%, #e4d6ff 0%, #f1eaff 44%, #ffffff 80%);
+  --rb-line: #7c3aed;
 }
 
 [data-theme="dark"] {
@@ -73,11 +71,9 @@
   --blob-a: rgba(139, 92, 246, 0.50);
   --blob-b: rgba(192, 90, 240, 0.38);
   --blob-c: rgba(99, 102, 241, 0.44);
-  /* retro grid backdrop (dark = neon violet) */
-  --rb-sky-top: #150733;
-  --rb-ground: #0c0320;
-  --rb-line: rgba(170, 120, 255, 0.55);
-  --rb-neon: rgba(170, 120, 255, 0.60);
+  /* flowing-waves backdrop (dark = deep violet gradient + glowing violet lines) */
+  --rb-bg: radial-gradient(125% 105% at 16% -18%, #2c1266 0%, #170a38 46%, #0a0220 82%);
+  --rb-line: #a97cff;
 }
 
 :root {
