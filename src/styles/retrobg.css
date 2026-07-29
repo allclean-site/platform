@@ -52,7 +52,3 @@
 /* horizon glow line where sky meets ground */
 #retrobg-ground::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
   background: var(--rb-neon); box-shadow: 0 0 24px 6px var(--rb-sun-glow); }
-
-@media (prefers-reduced-motion: reduce) {
-  .retrobg-star, #retrobg-sun, #retrobg-lines { animation: none; }
-}
