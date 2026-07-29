@@ -57,7 +57,7 @@ export function AgencyHome() {
       {/* KPI row */}
       <div className="ah__kpis">
         <Kpi icon={Users} label="Клиентов" value={ov.kpis.clients} to={{ label: "Все клиенты", path: "/app/agency/clients" }} />
-        <Kpi icon={FolderKanban} label="Проектов" value={ov.kpis.projects} sub={`${ov.kpis.activeSites} онлайн`} to={{ label: "К клиентам", path: "/app/agency/clients" }} />
+        <Kpi icon={FolderKanban} label="Проектов" value={ov.kpis.projects} to={{ label: `${ov.kpis.activeSites} из ${ov.kpis.projects} онлайн`, path: "/app/agency/clients" }} />
         <Kpi icon={Inbox} label="Заявок · 7 дней" value={ov.kpis.leads7d} accent to={{ label: "Смотреть заявки", path: "/app/agency/leads" }} />
         <Kpi icon={LifeBuoy} label="Открытых тикетов" value={ov.kpis.openTickets} tone={ov.kpis.openTickets ? "warn" : undefined} to={{ label: "Поддержка", path: "/app/agency/support" }} />
         <div className="card ah-kpi ah-kpi--money">

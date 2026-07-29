@@ -24,7 +24,7 @@
   --e3: 0 16px 40px rgba(20, 22, 40, 0.12);
   --grad: linear-gradient(135deg, #7c3aed, #a855f7);
   /* liquid glass (light): gradient fill + diagonal specular sheen + light rim + colored float shadow */
-  --glass-blur: 22px;
+  --glass-blur: 16px;
   --glass-sheen: linear-gradient(120deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 34%);
   --glass-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.60), rgba(255, 255, 255, 0.34));
   --panel-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.80), rgba(255, 255, 255, 0.55));
@@ -62,7 +62,7 @@
   --e3: 0 16px 40px rgba(0, 0, 0, 0.6);
   --grad: linear-gradient(135deg, #8b5cf6, #6366f1);
   /* liquid glass (dark): dark-tinted vibrancy with a bright top rim + specular sheen */
-  --glass-blur: 24px;
+  --glass-blur: 18px;
   --glass-sheen: linear-gradient(120deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 34%);
   --glass-fill: linear-gradient(140deg, rgba(52, 54, 78, 0.55), rgba(24, 25, 40, 0.40));
   --panel-fill: linear-gradient(140deg, rgba(44, 46, 68, 0.66), rgba(24, 25, 40, 0.54));

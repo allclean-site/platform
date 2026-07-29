@@ -18,8 +18,8 @@ export function RetroBg() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let W = 0, H = 0, raf = 0;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    let W = 0, H = 0, raf = 0, last = 0;
     let color = "#a97cff";
     const readColor = () => {
       const v = getComputedStyle(document.documentElement).getPropertyValue("--rb-line").trim();
@@ -37,8 +37,11 @@ export function RetroBg() {
     resize();
     window.addEventListener("resize", resize);
 
-    const N = 28, STEP = 7;
+    const N = 26, STEP = 10;
     const draw = (ms: number) => {
+      raf = requestAnimationFrame(draw);
+      if (ms - last < 33) return; // cap ~30fps — the flow is slow, this halves the redraw/backdrop cost
+      last = ms;
       const t = ms * 0.001;
       ctx.clearRect(0, 0, W, H);
       ctx.strokeStyle = color;
@@ -65,7 +68,6 @@ export function RetroBg() {
         ctx.stroke();
       }
       ctx.globalAlpha = 1;
-      raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
 

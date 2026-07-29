@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Globe, Newspaper, Calculator, Users, BarChart3, LifeBuoy, Settings, Bell, Search,
@@ -63,6 +63,15 @@ export function Shell() {
   }, [isEditor]);
   const [userMenu, setUserMenu] = useState(false);
 
+  // Sliding active-item highlight: measure the active nav item and move the pill to it.
+  const navRef = useRef<HTMLElement | null>(null);
+  const [pill, setPill] = useState({ top: 0, height: 0, ready: false });
+  useLayoutEffect(() => {
+    const el = navRef.current?.querySelector<HTMLElement>(".navitem.is-active");
+    if (el) setPill({ top: el.offsetTop, height: el.offsetHeight, ready: true });
+    else setPill((p) => ({ ...p, ready: false }));
+  }, [pathname, collapsed, activeClientId]);
+
   // Role-based route protection (after all hooks so hook order stays stable).
   if (isAgency && !activeClientId && !onAgencyRoute) return <Navigate to="/app/agency" replace />;
   if (!isAgency && onAgencyRoute) return <Navigate to="/app" replace />;
@@ -97,7 +106,8 @@ export function Shell() {
           </button>
         )}
 
-        <nav className="sidebar__nav">
+        <nav className="sidebar__nav" ref={navRef}>
+          <span className="nav-pill" style={{ transform: `translateY(${pill.top}px)`, height: pill.height, opacity: pill.ready ? 1 : 0 }} />
           {menu.map((n) => (
             <NavLink key={n.to} to={n.to} end={(n as { end?: boolean }).end} title={n.label + (!pro && routeNeedsPro(n.to) ? " (тариф PRO)" : "")}
               className={({ isActive }) => "navitem" + (isActive ? " is-active" : "")}>
