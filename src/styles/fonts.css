@@ -1,25 +1,13 @@
-/* TT Travels Next — PAID (TypeType), LOCAL PREVIEW ONLY.
- * Drop the licensed / trial .woff2 files into  platform/public/fonts/tt-travels-next/  with the names
- * below. Until the files exist the stack falls back to General Sans / Onest, so nothing breaks.
- * The font files are git-ignored — do NOT commit them or deploy without a purchased license. */
+/* TT Travels Next — TRIAL (TypeType), LOCAL PREVIEW ONLY.
+ * Files live in platform/public/fonts/tt-travels-next/ and are git-ignored — do NOT commit them or
+ * deploy without a purchased license. The variable font covers all weights (100–900); the static
+ * Regular is a fallback for engines without variable-font support. */
 
 @font-face {
-  font-family: "TT Travels Next"; font-style: normal; font-weight: 400; font-display: swap;
-  src: url("/fonts/tt-travels-next/TTTravelsNext-Regular.woff2") format("woff2");
-}
-@font-face {
-  font-family: "TT Travels Next"; font-style: normal; font-weight: 500; font-display: swap;
-  src: url("/fonts/tt-travels-next/TTTravelsNext-Medium.woff2") format("woff2");
-}
-@font-face {
-  font-family: "TT Travels Next"; font-style: normal; font-weight: 600; font-display: swap;
-  src: url("/fonts/tt-travels-next/TTTravelsNext-DemiBold.woff2") format("woff2");
-}
-@font-face {
-  font-family: "TT Travels Next"; font-style: normal; font-weight: 700; font-display: swap;
-  src: url("/fonts/tt-travels-next/TTTravelsNext-Bold.woff2") format("woff2");
-}
-@font-face {
-  font-family: "TT Travels Next"; font-style: normal; font-weight: 800; font-display: swap;
-  src: url("/fonts/tt-travels-next/TTTravelsNext-ExtraBold.woff2") format("woff2");
+  font-family: "TT Travels Next";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/tt-travels-next/TTTravelsNext-Variable.ttf") format("truetype-variations"),
+       url("/fonts/tt-travels-next/TTTravelsNext-Regular.ttf") format("truetype");
 }
