@@ -10,6 +10,7 @@ import { loadSettings } from "../settings/store";
 import { hasPro, routeNeedsPro } from "../lib/plans";
 import { useAuth } from "../auth/AuthContext";
 import { getClient } from "../agency/store";
+import { RetroBg } from "../components/RetroBg";
 import "./shell.css";
 
 const CLIENT_NAV = [
@@ -79,6 +80,7 @@ export function Shell() {
 
   return (
     <div className={"shell" + (collapsed ? " shell--rail" : "")}>
+      <RetroBg />
       <aside className="sidebar glass">
         <NavLink to={inConsole ? "/app/agency" : "/app"} className="sidebar__brand">
           <Logo size={26} />

@@ -11,25 +11,7 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-/* Animated "aurora" backdrop — soft violet blobs drifting behind the frosted panels. Two layered
-   pseudo-elements move independently (transform = GPU-cheap). Honors reduced-motion. */
-body::before, body::after {
-  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background-repeat: no-repeat; will-change: transform;
-}
-body::before {
-  background:
-    radial-gradient(52vmax 52vmax at 58% -6%, var(--blob-a), transparent 58%),
-    radial-gradient(46vmax 46vmax at 96% 62%, var(--blob-c), transparent 58%);
-  animation: auroraA 30s ease-in-out infinite alternate;
-}
-body::after {
-  background: radial-gradient(48vmax 48vmax at 34% 104%, var(--blob-b), transparent 58%);
-  animation: auroraB 38s ease-in-out infinite alternate;
-}
-@keyframes auroraA { from { transform: translate3d(-3%, -2%, 0) scale(1); } to { transform: translate3d(4%, 3%, 0) scale(1.14); } }
-@keyframes auroraB { from { transform: translate3d(3%, 2%, 0) scale(1.06); } to { transform: translate3d(-4%, -3%, 0) scale(0.92); } }
-@media (prefers-reduced-motion: reduce) { body::before, body::after { animation: none; } }
+/* Backdrop is the synthwave scene — see components/RetroBg + styles/retrobg.css. */
 
 h1, h2, h3, h4, .display { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
 a { color: inherit; text-decoration: none; }

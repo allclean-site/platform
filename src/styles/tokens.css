@@ -34,6 +34,17 @@
   --blob-a: rgba(124, 58, 237, 0.30);
   --blob-b: rgba(217, 70, 239, 0.22);
   --blob-c: rgba(99, 102, 241, 0.20);
+  /* retro synthwave backdrop (light = pastel daytime) */
+  --rb-sky: linear-gradient(to bottom, #e9ecff 0%, #f0e6ff 34%, #ffe4f1 62%, #ffd9c6 86%, #ffcfa8 100%);
+  --rb-ground: #efe9ff;
+  --rb-line: rgba(124, 58, 237, 0.30);
+  --rb-city: rgba(90, 60, 160, 0.55);
+  --rb-neon: rgba(217, 70, 239, 0.7);
+  --rb-mountain: rgba(124, 58, 237, 0.28);
+  --rb-star: rgba(124, 58, 237, 0.55);
+  --rb-sun: linear-gradient(to bottom, #ffe9a8, #ffb27a 46%, #ff9ec7 100%);
+  --rb-sun-glow: rgba(255, 158, 199, 0.5);
+  --rb-stripe: #f0e6ff;
 }
 
 [data-theme="dark"] {
@@ -68,6 +79,17 @@
   --blob-a: rgba(139, 92, 246, 0.50);
   --blob-b: rgba(192, 90, 240, 0.38);
   --blob-c: rgba(99, 102, 241, 0.44);
+  /* retro synthwave backdrop (dark = neon night) */
+  --rb-sky: linear-gradient(to bottom, #1b0a3a 0%, #3a1268 38%, #7c1f76 64%, #d6316f 84%, #ff7a4d 100%);
+  --rb-ground: #0b0320;
+  --rb-line: rgba(255, 62, 165, 0.55);
+  --rb-city: #0b0322;
+  --rb-neon: #ff3ea5;
+  --rb-mountain: #180a33;
+  --rb-star: #ffffff;
+  --rb-sun: linear-gradient(to bottom, #ffe14d, #ff9d5c 44%, #ff477e 78%, #ff2e97 100%);
+  --rb-sun-glow: rgba(255, 80, 140, 0.55);
+  --rb-stripe: #2a0a45;
 }
 
 :root {
