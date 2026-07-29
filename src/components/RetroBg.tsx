@@ -37,25 +37,28 @@ export function RetroBg() {
     resize();
     window.addEventListener("resize", resize);
 
-    const N = 34, STEP = 8;
+    const N = 28, STEP = 7;
     const draw = (ms: number) => {
       const t = ms * 0.001;
       ctx.clearRect(0, 0, W, H);
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      const th = H * 0.26; // ribbon half-thickness
+      ctx.lineWidth = 2.6; // thicker lines
+      const th = H * 0.30; // ribbon half-thickness (fan spread)
+      // slow vertical roam of the whole ribbon: lower → middle → upper → middle → …
+      const vshift = Math.sin(t * 0.17) * H * 0.34;
       for (let i = 0; i < N; i++) {
         const fi = i / (N - 1);                 // 0..1 across the ribbon
-        ctx.globalAlpha = 0.09 + 0.05 * Math.sin(fi * Math.PI);
+        ctx.globalAlpha = 0.11 + 0.06 * Math.sin(fi * Math.PI);
         ctx.beginPath();
         for (let x = 0; x <= W; x += STEP) {
           const u = x / W;
-          // travelling centerline (big slow S across the screen)
-          const base = H * 0.5
-            + Math.sin(u * 3.1 + t * 0.45) * H * 0.17
-            + Math.sin(u * 1.3 - t * 0.30) * H * 0.10;
-          // twist factor: 0 → lines collapse into a bright bundle (edge-on); ±1 → fan out
-          const twist = Math.cos(u * 3.3 - t * 0.55);
+          // centerline: the vertical roam dominates its position; gentle waves give it shape
+          const base = H * 0.5 + vshift
+            + Math.sin(u * 2.6 + t * 0.40) * H * 0.10
+            + Math.sin(u * 1.2 - t * 0.28) * H * 0.07;
+          // twist factor: 0 → lines collapse into a bright bundle (edge-on); ±1 → fan out. Its zero
+          // travels horizontally, so combined with the vertical roam the bundle visits the corners.
+          const twist = Math.cos(u * 2.6 - t * 0.50);
           const y = base + (fi - 0.5) * 2 * th * twist;
           if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
