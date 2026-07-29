@@ -1,9 +1,9 @@
 /* The whole app floats on the aurora backdrop: padding frames it, gap separates the panels,
    so the animated background shows around and between the sidebar / topbar / content. */
-.shell { display: grid; grid-template-columns: 264px 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; overflow: hidden;
-  gap: 14px; padding: 60px; background: transparent;
+.shell { display: grid; grid-template-columns: 250px 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; overflow: hidden;
+  gap: 14px; padding: 18px; background: transparent;
   transition: grid-template-columns var(--dur-slow) var(--ease); }
-@media (max-width: 1280px) { .shell { padding: 28px; } }
+@media (max-width: 1280px) { .shell { padding: 12px; gap: 12px; } }
 
 /* Collapsed icon rail (auto in the editor). */
 .shell--rail { grid-template-columns: 76px 1fr; }
@@ -33,10 +33,22 @@
 .plan { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .plan p { margin: 0; font-size: 13px; }
 
-/* Main column + floating rounded topbar panel */
-.shell__main { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 14px; }
-.topbar { display: flex; align-items: center; gap: 20px; height: 62px; padding: 0 22px; flex: none;
-  border-radius: var(--r-xl); box-shadow: var(--glass-shadow); z-index: 10; }
+/* Dashboard = one WHITE surface with a soft glass rim; the white plateau fades into the rim (edge mask).
+   Glass is reserved for the sidebar + this rim — content cards are clean white on the plateau. */
+.shell__main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  padding: 18px 26px 24px; border-radius: 26px; overflow: hidden;
+  background: var(--glass-sheen), var(--glass-fill);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-brd); box-shadow: var(--glass-shadow); }
+.shell__main::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--surface);
+  z-index: 0; pointer-events: none;
+  -webkit-mask: linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent),
+                linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+          mask: linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent),
+                linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+  -webkit-mask-composite: source-in; mask-composite: intersect; }
+.shell__main > * { position: relative; z-index: 1; }
+.topbar { display: flex; align-items: center; gap: 20px; height: 56px; flex: none; background: transparent; z-index: 10; }
 .topbar__title { font-size: 22px; }
 .topbar__search { display: flex; align-items: center; gap: 8px; margin-left: auto; background: var(--surface-2);
   border: 1px solid var(--border); border-radius: var(--r-pill); padding: 8px 16px; color: var(--text-muted); width: 260px; }
@@ -75,8 +87,8 @@
 .usermenu__item--danger { color: var(--danger); }
 .usermenu__item--danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 
-/* Content — transparent scroll area so the cards float on the aurora with the backdrop between them */
-.content { flex: 1; min-height: 0; overflow: auto; padding: 4px 20px 24px; }
+/* Content — scrolls over the white plateau (cards are clean white here) */
+.content { flex: 1; min-height: 0; overflow: auto; padding-top: 16px; background: transparent; }
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
