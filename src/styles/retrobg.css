@@ -1,11 +1,5 @@
-/* Flowing violet wave-lines over a purple gradient. Palette from --rb-* tokens. Always animates. */
+/* Flowing violet ribbon backdrop — a full-screen canvas of parallel lines over a purple gradient.
+   The gradient is the CSS background (--rb-bg); the canvas draws only the lines (transparent elsewhere). */
 
-#retrobg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--rb-bg); }
-
-#retrobg-waves { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rb-line) 45%, transparent)); }
-
-/* each wave drifts one wavelength (300 user units) → seamless loop; speed/opacity set inline per line */
-.rbw { fill: none; stroke: var(--rb-line); stroke-linecap: round; vector-effect: non-scaling-stroke;
-  animation-name: rb-drift; animation-timing-function: linear; animation-iteration-count: infinite; }
-@keyframes rb-drift { from { transform: translateX(0); } to { transform: translateX(-300px); } }
+#retrobg { position: fixed; inset: 0; z-index: -1; pointer-events: none; display: block;
+  width: 100%; height: 100%; background: var(--rb-bg); }
