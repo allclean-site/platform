@@ -86,6 +86,9 @@
   --dur: 180ms;
   --dur-slow: 240ms;
   --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
-  --font-display: "TT Travels Next", "General Sans", "Onest", system-ui, sans-serif;
-  --font-body: "TT Travels Next", "Onest", system-ui, -apple-system, sans-serif;
+  /* Main UI font = TT Interphases Pro; sidebar menu + numbers = TT Travels Next. */
+  --font-display: "TT Interphases Pro", "General Sans", "Onest", system-ui, sans-serif;
+  --font-body: "TT Interphases Pro", "Onest", system-ui, -apple-system, sans-serif;
+  --font-menu: "TT Travels Next", "General Sans", "Onest", system-ui, sans-serif;
+  --font-num: "TT Travels Next", "General Sans", system-ui, sans-serif;
 }

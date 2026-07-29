@@ -23,3 +23,9 @@ out
 public/fonts/tt-travels-next/*.woff2
 public/fonts/tt-travels-next/*.ttf
 public/fonts/tt-travels-next/*.otf
+
+# all local trial/licensed fonts — never commit/deploy binaries
+public/fonts/**/*.ttf
+public/fonts/**/*.otf
+public/fonts/**/*.woff
+public/fonts/**/*.woff2

@@ -66,6 +66,12 @@ button { font-family: inherit; }
 .iconbtn:hover { color: var(--accent); border-color: var(--accent); }
 
 .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+/* Font combination: sidebar menu + prominent numbers → TT Travels Next; everything else Interphases. */
+.navitem { font-family: var(--font-menu); }
+.ah-kpi__val, .ah-attn > b, .ag-stat b, .pp__ring b, .pp__seo-nums b, .pp-hc__meta b,
+.cc-proj__money, .ag-money b, .crm-kpi__v {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--r-pill);
   font-size: 12px; font-weight: 600; }
 .badge--soft { background: var(--accent-soft); color: var(--accent); }
