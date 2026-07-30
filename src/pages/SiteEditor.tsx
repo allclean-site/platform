@@ -10,7 +10,8 @@ import { useParams, Link } from "react-router-dom";
 import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw, ChevronDown, Plus, ChevronUp, X } from "lucide-react";
 import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
-import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides } from "../editor/realStore";
+import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides, type PageOverrides } from "../editor/realStore";
+import { fetchPublishedOverrides } from "../editor/overridesClient";
 import { loadBp, saveBp, bpCount, emptyPageBp, type SiteBp, type PageBp } from "../editor/bpStore";
 import { indexMediaFromDoc } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
@@ -56,8 +57,11 @@ export function SiteEditor() {
   const [err, setErr] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [frameH, setFrameH] = useState(900);
-  const overrides = useRef<SiteOverrides>({});
+  const overrides = useRef<SiteOverrides>({});        // LOCAL edits (this browser, localStorage)
   const bpOverrides = useRef<SiteBp>({});
+  const pubOverrides = useRef<SiteOverrides>({});      // PUBLISHED edits from Supabase (shared, read-only base)
+  const pubBp = useRef<SiteBp>({});
+  const [syncTick, setSyncTick] = useState(0);         // bump when published edits arrive → re-render
   const [, setBpTick] = useState(0); // bump to re-render device-tab dots after a bp change
   const frameRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -72,6 +76,35 @@ export function SiteEditor() {
   const [blocksOpen, setBlocksOpen] = useState(true);
 
   useEffect(() => { overrides.current = loadOverrides(TENANT, SITE); bpOverrides.current = loadBp(TENANT, SITE); }, [SITE]);
+
+  // Pull the PUBLISHED edits (shared state) so the editor matches the live site and shows the client's
+  // published edits — not just this browser's local ones. Published = base, local unpublished edits win
+  // per block. Graceful no-op when publish isn't configured or offline (falls back to local-only).
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublishedOverrides("allclean").then((pub) => {
+      if (!pub || cancelled) return;
+      pubOverrides.current = pub.overrides;
+      pubBp.current = pub.breakpoints;
+      setSyncTick((t) => t + 1); // re-render the current page with the merged (published + local) edits
+    });
+    return () => { cancelled = true; };
+  }, [SITE]);
+
+  // published base + local (local wins per block).
+  const mergedOv = (pid: string): PageOverrides => ({ ...pubOverrides.current[pid], ...overrides.current[pid] });
+  const mergedBp = (pid: string): PageBp | undefined => bpOverrides.current[pid] ?? pubBp.current[pid];
+  // Full merged maps for publish/export so publishing preserves others' published edits (not just local).
+  const allOverrides = (): SiteOverrides => {
+    const out: SiteOverrides = {};
+    new Set([...Object.keys(pubOverrides.current), ...Object.keys(overrides.current)]).forEach((pid) => { out[pid] = mergedOv(pid); });
+    return out;
+  };
+  const allBp = (): SiteBp => {
+    const out: SiteBp = {};
+    new Set([...Object.keys(pubBp.current), ...Object.keys(bpOverrides.current)]).forEach((pid) => { const m = mergedBp(pid); if (m) out[pid] = m; });
+    return out;
+  };
 
   useEffect(() => {
     fetch(`${DATA}/_pages.json`)
@@ -93,7 +126,7 @@ export function SiteEditor() {
     fetch(`${DATA}/${file}.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`page ${r.status}`))))
       .then((p: ImportedPage) => {
-        const blocks = applyOverrides(p.blocks, overrides.current[p.id]);
+        const blocks = applyOverrides(p.blocks, { ...pubOverrides.current[p.id], ...overrides.current[p.id] });
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));
         history.current = []; future.current = []; setHistLen(0);
         setPage({ ...p, blocks });
@@ -101,7 +134,7 @@ export function SiteEditor() {
       .catch((e) => setErr(String(e)));
   }, []);
 
-  useEffect(() => { loadPage(activeFile); }, [activeFile, loadPage]);
+  useEffect(() => { loadPage(activeFile); }, [activeFile, loadPage, syncTick]);
 
   useEffect(() => {
     function onMsg(e: MessageEvent) {
@@ -113,7 +146,7 @@ export function SiteEditor() {
       else if (d.type === "lg-text-sel") { setTextSel(d.rect ? (d as TextSel) : null); if (!d.rect) setLinkPop(null); }
       else if (d.type === "lg-ready") {
         // Iframe loaded → push this page's saved breakpoint rules + the active device into the runtime.
-        const rules = (page && bpOverrides.current[page.id]) || emptyPageBp();
+        const rules = (page && mergedBp(page.id)) || emptyPageBp();
         const win = frameRef.current?.contentWindow;
         win?.postMessage({ type: "lg-bp-init", rules }, "*");
         win?.postMessage({ type: "lg-device", breakpoint: device }, "*");
@@ -162,11 +195,11 @@ export function SiteEditor() {
     [index, locale]
   );
   const activeEntry = index?.pages.find((p) => p.file === activeFile);
-  const srcDoc = useMemo(() => (page ? previewDoc(page, edit, edit ? undefined : bpOverrides.current[page.id]) : ""), [page, edit]);
+  const srcDoc = useMemo(() => (page ? previewDoc(page, edit, edit ? undefined : mergedBp(page.id)) : ""), [page, edit]); // eslint-disable-line react-hooks/exhaustive-deps
   const frameW = device === "desktop" ? deskW : DEVICE_W[device];
   const totalEdited =
-    Object.values(overrides.current).reduce((n, o) => n + Object.keys(o).length, 0) +
-    Object.values(bpOverrides.current).reduce((n, p) => n + Object.keys(p.tablet ?? {}).length + Object.keys(p.mobile ?? {}).length, 0);
+    Object.values(allOverrides()).reduce((n, o) => n + Object.keys(o).length, 0) +
+    Object.values(allBp()).reduce((n, p) => n + Object.keys(p.tablet ?? {}).length + Object.keys(p.mobile ?? {}).length, 0);
 
   // Apply a property change to the selected element (updates the panel + the iframe → saved).
   // On tablet/mobile, style changes become @media overrides (breakpoint field routes them in the runtime).
@@ -322,7 +355,7 @@ export function SiteEditor() {
   // Section delete/restore. A removed section is stored as an EMPTY-STRING override for its block —
   // it renders nothing in the editor and is applied (→ empty) by the publish build, so it flows through
   // the existing overrides pipeline with no schema change. Restore just drops the override (back to base).
-  const isRemoved = (blockId: string) => page != null && overrides.current[page.id]?.[blockId] === "";
+  const isRemoved = (blockId: string) => page != null && mergedOv(page.id)[blockId] === "";
 
   const deleteBlock = (blockId: string) => {
     if (!page) return;
@@ -345,7 +378,7 @@ export function SiteEditor() {
 
   const exportEdits = () => {
     // Both edit layers: content overrides (per-block html) + breakpoint overrides (@media rules).
-    const payload = { overrides: overrides.current, breakpoints: bpOverrides.current };
+    const payload = { overrides: allOverrides(), breakpoints: allBp() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -572,8 +605,8 @@ export function SiteEditor() {
         <PublishDialog
           index={index}
           dataBase={DATA}
-          overrides={overrides.current}
-          bp={bpOverrides.current}
+          overrides={allOverrides()}
+          bp={allBp()}
           onDownload={exportEdits}
           onClose={() => setPublishing(false)}
         />
