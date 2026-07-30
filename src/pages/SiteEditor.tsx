@@ -12,10 +12,11 @@ import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
 import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides } from "../editor/realStore";
 import { loadBp, saveBp, bpCount, emptyPageBp, type SiteBp, type PageBp } from "../editor/bpStore";
-import { pickImage } from "../editor/image";
+import { indexMediaFromDoc } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
 import { PublishDialog } from "./PublishDialog";
+import { MediaPicker } from "./MediaPicker";
 import type { ElStyle, SelectedEl, Breakpoint, SelectOption } from "../editor/elemTypes";
 import "./site-editor.css";
 
@@ -26,7 +27,7 @@ type Device = keyof typeof DEVICE_W;
 const TENANT = "tenant-allclean";
 const clampZoom = (z: number) => Math.min(2, Math.max(0.2, z));
 
-const KIND_LABEL: Record<SelectedEl["kind"], string> = { text: "Текст", link: "Кнопка / ссылка", image: "Изображение", container: "Контейнер", select: "Список (выпадающий)" };
+const KIND_LABEL: Record<SelectedEl["kind"], string> = { text: "Текст", link: "Кнопка / ссылка", image: "Изображение", video: "Видео", container: "Контейнер", select: "Список (выпадающий)" };
 
 /** Live text selection inside the iframe → drives the floating rich-text toolbar. */
 interface TextSel {
@@ -51,6 +52,7 @@ export function SiteEditor() {
   const [linkPop, setLinkPop] = useState<{ url: string; newTab: boolean } | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [publishing, setPublishing] = useState(false);
+  const [mediaPick, setMediaPick] = useState<{ blockId: string; el: string; accept: "image" | "video" } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [frameH, setFrameH] = useState(900);
@@ -206,11 +208,10 @@ export function SiteEditor() {
     else Object.keys(bpOver).forEach((k) => delete (bpOver as Record<string, boolean>)[k]);
     setSelEl({ ...selEl, bpOver });
   };
-  const replaceImage = () => {
+  // Open the media picker (upload / gallery / trash) for the selected photo or video.
+  const replaceMedia = () => {
     if (!selEl) return;
-    pickImage(TENANT).then((src) => {
-      if (src) frameRef.current?.contentWindow?.postMessage({ type: "lg-img-set", blockId: selEl.blockId, el: selEl.el, src }, "*");
-    });
+    setMediaPick({ blockId: selEl.blockId, el: selEl.el, accept: selEl.kind === "video" ? "video" : "image" });
   };
   // Figma text-box resize mode + vertical align (routed per-device by the runtime).
   const resizeMode = (mode: "hug" | "fixw" | "fixed") => {
@@ -290,6 +291,8 @@ export function SiteEditor() {
   }, []);
   const onFrameLoad = () => {
     measure();
+    const doc = frameRef.current?.contentDocument;
+    if (doc) indexMediaFromDoc(TENANT, doc); // populate the gallery with the page's existing media
     [400, 1200, 2500].forEach((t) => setTimeout(measure, t));
   };
   // Switching device does NOT reload the iframe — tell the runtime the new breakpoint (so edits route
@@ -494,7 +497,7 @@ export function SiteEditor() {
                   ))}
                 </div>
               )}
-              <ElementInspector sel={selEl} patch={patchEl} onReplaceImage={replaceImage} breakpoint={device as Breakpoint} onResetBp={resetBp} onState={patchState} onResetState={resetState} onResizeMode={resizeMode} onVAlign={vAlign} />
+              <ElementInspector sel={selEl} patch={patchEl} onReplaceImage={replaceMedia} breakpoint={device as Breakpoint} onResetBp={resetBp} onState={patchState} onResetState={resetState} onResizeMode={resizeMode} onVAlign={vAlign} />
               {edit && selEl.kind === "select" && selEl.selectOptions && (
                 <OptionsEditor options={selEl.selectOptions} onChange={setSelectOptions} />
               )}
@@ -549,6 +552,18 @@ export function SiteEditor() {
           <span className="rtb__sep" />
           <button className="rtb__btn" title="Убрать форматирование" onClick={() => textCmd("removeFormat")}><Eraser size={15} /></button>
         </div>
+      )}
+
+      {mediaPick && (
+        <MediaPicker
+          tenant={TENANT}
+          accept={mediaPick.accept}
+          onPick={(url) => {
+            frameRef.current?.contentWindow?.postMessage({ type: "lg-media-set", blockId: mediaPick.blockId, el: mediaPick.el, src: url }, "*");
+            setMediaPick(null);
+          }}
+          onClose={() => setMediaPick(null)}
+        />
       )}
 
       {publishing && (

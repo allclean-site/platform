@@ -173,6 +173,7 @@ export const EDIT_RUNTIME = `
   }
   function kindOf(el){
     if (el.tagName==="IMG") return "image";
+    if (el.tagName==="VIDEO") return "video";
     if (el.tagName==="SELECT") return "select";
     if (el.tagName==="A" || el.tagName==="BUTTON") return "link";
     // A contenteditable field is a TEXT unit even if it wraps word-divs/spans (structured heading).
@@ -191,7 +192,7 @@ export const EDIT_RUNTIME = `
     var t = el.tagName;
     if (/^H[1-6]$/.test(t)) return "Заголовок";
     if (t==="P") return "Абзац";
-    if (t==="A") return "Ссылка"; if (t==="BUTTON") return "Кнопка"; if (t==="IMG") return "Фото";
+    if (t==="A") return "Ссылка"; if (t==="BUTTON") return "Кнопка"; if (t==="IMG") return "Фото"; if (t==="VIDEO") return "Видео";
     if (t==="UL"||t==="OL") return "Список"; if (t==="LI") return "Пункт";
     if (t==="SECTION") return "Секция"; if (t==="SPAN") return "Текст";
     var c = (el.getAttribute("class")||"").split(" ")[0];
@@ -515,10 +516,17 @@ export const EDIT_RUNTIME = `
     if (d.type === "lg-select-el"){
       var t = document.querySelector('[data-lg-id="'+d.el+'"]'); if (t) select(t); return;
     }
-    // Undo/redo: replace a block's inner HTML with a saved version (no reload).
+    // Undo/redo: replace a block's inner HTML with a saved version (no reload). Re-wire it afterwards —
+    // setting innerHTML drops the runtime attrs (data-lg-id + contenteditable), which would otherwise
+    // leave the restored section dead (un-clickable / un-editable). Also drop any stale selection whose
+    // node was just detached.
     if (d.type === "lg-set-html"){
       var wb = document.querySelector('[data-lg-block="'+d.blockId+'"]');
-      if (wb) wb.innerHTML = d.html;
+      if (wb){
+        wb.innerHTML = d.html;
+        cleanBlock(wb); stampIds(wb, d.blockId); editableWithin(wb);
+        if (selected){ selected = null; hideSelBox(); hideHover(); if (handle) handle.style.display = "none"; }
+      }
       return;
     }
     // Canvas zoom changed → resize the overlay handles so they stay grabbable on screen.
@@ -611,6 +619,18 @@ export const EDIT_RUNTIME = `
     if (d.type === "lg-img-set"){
       var img = findEl(d.blockId, d.el); if (!img) return;
       img.setAttribute("src", d.src); img.removeAttribute("srcset"); img.removeAttribute("loading");
+      save(d.blockId); return;
+    }
+    // Replace media from the gallery/upload — handles <img> and <video> (with a <source> child).
+    if (d.type === "lg-media-set"){
+      var mel = findEl(d.blockId, d.el); if (!mel) return;
+      if (mel.tagName === "VIDEO"){
+        var vs = mel.querySelector("source");
+        if (vs) vs.setAttribute("src", d.src); else mel.setAttribute("src", d.src);
+        try { mel.load(); } catch(e){}
+      } else {
+        mel.setAttribute("src", d.src); mel.removeAttribute("srcset"); mel.removeAttribute("loading");
+      }
       save(d.blockId); return;
     }
     if (d.type === "lg-elem-set"){

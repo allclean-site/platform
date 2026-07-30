@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { ChevronDown, Type, Ruler, Square, PaintBucket, Link2, Image as ImageIcon, HelpCircle, MousePointerClick, LayoutGrid, AlignLeft, AlignCenter, AlignRight, AlignJustify } from "lucide-react";
+import { ChevronDown, Type, Ruler, Square, PaintBucket, Link2, Image as ImageIcon, Video as VideoIcon, HelpCircle, MousePointerClick, LayoutGrid, AlignLeft, AlignCenter, AlignRight, AlignJustify } from "lucide-react";
 import type { ElStyle, ElPatch, SelectedEl, Breakpoint } from "../editor/elemTypes";
 
 const WEIGHTS = [
@@ -136,6 +136,13 @@ export function ElementInspector({ sel, patch, onReplaceImage, breakpoint = "des
         <Section title="Изображение" icon={ImageIcon}>
           <button className="pi__btn" onClick={onReplaceImage}>Заменить фото</button>
           <Row label="Alt (SEO)"><input className="pi__inp" value={sel.text} onChange={(e) => patch({ text: e.target.value })} /></Row>
+        </Section>
+      )}
+
+      {sel.kind === "video" && (
+        <Section title="Видео" icon={VideoIcon}>
+          <button className="pi__btn" onClick={onReplaceImage}>Заменить видео</button>
+          <p className="pi__note">Загрузите новое видео с устройства/ПК или выберите из галереи.</p>
         </Section>
       )}
 

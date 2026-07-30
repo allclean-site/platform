@@ -65,12 +65,20 @@ export function downscale(file: File): Promise<{ blob: Blob; ext: string; type: 
   });
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
+export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result as string);
     r.readAsDataURL(blob);
   });
+}
+
+/** Upload a blob/file to the configured Supabase Storage bucket → public URL, or null when Storage
+ *  isn't configured or the upload fails. Used by the media library for both images and video. */
+export async function putToStorage(tenant: string, blob: Blob, ext: string, type: string): Promise<string | null> {
+  const cfg = storageCfg();
+  if (!cfg) return null;
+  return uploadToSupabase(cfg, blob, ext, type, tenant);
 }
 
 /** Upload a Blob to Supabase Storage and return its public URL, or null on failure. */

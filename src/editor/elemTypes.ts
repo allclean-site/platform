@@ -32,7 +32,7 @@ export interface SelectedEl {
   type: "lg-elem-select";
   blockId: string;
   el: string;
-  kind: "text" | "link" | "image" | "container" | "select";
+  kind: "text" | "link" | "image" | "video" | "container" | "select";
   text: string;
   href: string;
   /** For a <select>: its current options (edited in the panel → written back to the option elements). */
