@@ -20,6 +20,7 @@ import { Clients } from "../pages/Clients";
 import { ClientCard } from "../pages/ClientCard";
 import { ProjectPage } from "../pages/ProjectPage";
 import { AgencyLeads } from "../pages/AgencyLeads";
+import { Outreach } from "../pages/Outreach";
 import { AgencySupport } from "../pages/AgencySupport";
 import { AgencyTasks } from "../pages/AgencyTasks";
 import { AgencyTeam } from "../pages/AgencyTeam";
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="agency/clients/:clientId" element={<ClientCard />} />
           <Route path="agency/clients/:clientId/projects/:projectId" element={<ProjectPage />} />
           <Route path="agency/leads" element={<AgencyLeads />} />
+          <Route path="agency/outreach" element={<Outreach />} />
           <Route path="agency/support" element={<AgencySupport />} />
           <Route path="agency/tasks" element={<AgencyTasks />} />
           <Route path="agency/team" element={<AgencyTeam />} />

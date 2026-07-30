@@ -1,0 +1,93 @@
+/* Рассылка (outreach) — section-specific styles. Reuses agency-ui.css primitives (ag-*, pdr, card). */
+
+.or-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.or-hint { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin: 4px 0 0; }
+
+/* campaigns grid */
+.or-cmps { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.or-cmp { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.or-cmp__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.or-cmp__name { font-size: 16px; font-weight: 700; margin: 0 0 3px; letter-spacing: -0.01em; }
+.or-cmp__meta { font-size: 12.5px; margin: 0; }
+.or-cmp__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+.or-cmp__actions { display: flex; gap: 6px; }
+.or-ib { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--border); background: var(--surface);
+  border-radius: var(--r-sm); color: var(--text-muted); cursor: pointer; }
+.or-ib:hover { border-color: var(--accent); color: var(--accent); }
+.or-ib--danger:hover { border-color: var(--danger); color: var(--danger); }
+
+/* funnel (per campaign card) */
+.or-funnel { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.or-fstep { display: flex; flex-direction: column; gap: 3px; text-align: left; }
+.or-fstep b { font-size: 16px; font-weight: 700; }
+.or-fstep span { font-size: 10.5px; }
+.or-fbar { height: 4px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-bottom: 3px; }
+.or-fbar > span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+
+/* find leads */
+.or-find { padding: 16px; }
+.or-find__row { display: flex; gap: 10px; flex-wrap: wrap; }
+.or-find__row .ci { flex: 1; min-width: 140px; }
+.or-find__row .btn-primary { flex: none; }
+.or-find__note { font-size: 12px; margin: 10px 0 0; }
+.or-score { font-weight: 700; }
+
+/* lead drawer */
+.or-shot { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 120px;
+  border: 1px dashed var(--border); border-radius: var(--r-md); color: var(--text-muted); background: var(--surface-2); }
+.or-issues { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; }
+.or-note { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--text-muted); margin: 4px 0 0; line-height: 1.45; }
+.or-note code { background: var(--surface-2); padding: 0 4px; border-radius: 4px; font-size: 11.5px; }
+
+/* emails: two-column */
+.or-emails { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
+.or-tpls { padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+.or-tpls__h { font-size: 11.5px; font-weight: 600; padding: 6px 8px; }
+.or-tpl { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 11px; border: 1px solid transparent; border-radius: var(--r-md);
+  background: none; text-align: left; cursor: pointer; font: inherit; color: var(--text); }
+.or-tpl b { font-size: 13.5px; font-weight: 600; }
+.or-tpl:hover { background: var(--surface-2); }
+.or-tpl.on { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.or-editor { display: flex; flex-direction: column; gap: 12px; }
+.or-editor__bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.or-body { min-height: 120px; resize: vertical; font: inherit; line-height: 1.5; }
+.or-vars { font-size: 12px; margin: 0; }
+.or-vars code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; margin: 0 2px; }
+.or-preview { padding: 16px; }
+.or-preview__h { display: flex; align-items: center; gap: 6px; font-size: 11.5px; margin-bottom: 10px; }
+.or-preview__subj { font-size: 15px; margin-bottom: 10px; }
+.or-preview__body { font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+.or-preview__footer { font-size: 11.5px; line-height: 1.5; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); white-space: pre-wrap; }
+
+/* analytics */
+.or-an { padding: 18px; }
+.or-anfunnel { display: flex; flex-direction: column; gap: 10px; }
+.or-anrow { display: flex; align-items: center; gap: 12px; }
+.or-anrow__k { width: 90px; flex: none; font-size: 13px; color: var(--text-muted); }
+.or-anbar { flex: 1; height: 26px; background: var(--surface-2); border-radius: var(--r-sm); overflow: hidden; }
+.or-anbar > span { display: flex; align-items: center; justify-content: flex-end; height: 100%; min-width: 28px; padding: 0 9px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, transparent), var(--accent)); color: #fff; font-size: 12px; font-weight: 700; border-radius: var(--r-sm); }
+.or-anrow__pct { width: 44px; flex: none; font-size: 12px; }
+
+/* settings */
+.or-settings { display: flex; flex-direction: column; gap: 14px; }
+.or-set { padding: 16px; }
+.or-set__row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-top: 6px; }
+.or-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.or-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-radius: 999px; background: var(--surface-2);
+  border: 1px solid var(--border); font-size: 12.5px; }
+.or-tag button { display: grid; place-items: center; border: 0; background: none; color: var(--text-muted); cursor: pointer; padding: 2px; border-radius: 50%; }
+.or-tag button:hover { color: var(--danger); }
+.or-cap { display: flex; flex-direction: column; padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.or-cap b { font-size: 20px; font-weight: 700; }
+.or-cap span { font-size: 11.5px; }
+.or-supp { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; }
+.or-supp li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.or-supp li:last-child { border-bottom: 0; }
+.or-supp li .muted { margin-left: auto; font-size: 11.5px; }
+.or-x { border: 0; background: none; color: var(--text-muted); cursor: pointer; display: grid; place-items: center; padding: 2px; }
+.or-x:hover { color: var(--danger); }
+
+@media (max-width: 1000px) {
+  .or-emails { grid-template-columns: 1fr; }
+}

@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Globe, Newspaper, Calculator, Users, BarChart3, LifeBuoy, Settings, Bell, Search,
-  PanelLeft, ArrowLeft, LogOut, Home, Inbox, ListChecks, UsersRound, Wallet,
+  PanelLeft, ArrowLeft, LogOut, Home, Inbox, ListChecks, UsersRound, Wallet, Send,
 } from "lucide-react";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { Logo } from "../components/Logo";
@@ -28,6 +28,7 @@ const AGENCY_NAV = [
   { to: "/app/agency", end: true, icon: Home, label: "Обзор" },
   { to: "/app/agency/clients", icon: Users, label: "Клиенты" },
   { to: "/app/agency/leads", icon: Inbox, label: "Заявки" },
+  { to: "/app/agency/outreach", icon: Send, label: "Рассылка" },
   { to: "/app/agency/support", icon: LifeBuoy, label: "Поддержка" },
   { to: "/app/agency/tasks", icon: ListChecks, label: "Задачи" },
   { to: "/app/agency/team", icon: UsersRound, label: "Команда" },
@@ -36,7 +37,7 @@ const AGENCY_NAV = [
 ];
 
 const TITLES: Record<string, string> = {
-  "/app": "Дашборд", "/app/agency": "Обзор", "/app/agency/clients": "Клиенты", "/app/agency/leads": "Заявки",
+  "/app": "Дашборд", "/app/agency": "Обзор", "/app/agency/clients": "Клиенты", "/app/agency/leads": "Заявки", "/app/agency/outreach": "Рассылка",
   "/app/agency/support": "Поддержка", "/app/agency/tasks": "Задачи", "/app/agency/team": "Команда",
   "/app/agency/billing": "Биллинг", "/app/agency/settings": "Настройки агентства",
   "/app/sites": "Сайты", "/app/blog": "Блог", "/app/calculators": "Калькуляторы", "/app/crm": "CRM",
