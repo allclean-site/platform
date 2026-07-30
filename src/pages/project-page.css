@@ -62,3 +62,29 @@
 .pp__mod:disabled { opacity: .5; cursor: not-allowed; }
 
 @media (max-width: 1100px) { .pp__health { grid-template-columns: repeat(3, 1fr); } .pp__seo { grid-template-columns: 1fr; } .pp__mods { grid-template-columns: repeat(3, 1fr); } }
+
+/* section hint (e.g. «— открываются как у клиента») */
+.pp__sec-hint { font-weight: 400; font-size: 12px; }
+
+/* Logs — agency-only tech journal */
+.pp__logs { padding: 18px; }
+.pp__logs-h { justify-content: space-between; }
+.pp__logs-h > span:first-child { display: inline-flex; align-items: center; gap: 7px; }
+.pp__logs-count { display: inline-flex; gap: 6px; }
+.pp__lc { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.pp__lc--error { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.pp__lc--warn { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.pp__lc--ok { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+.pp__loglist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pp__log { display: flex; gap: 11px; padding: 11px 12px 11px 10px; border-left: 3px solid transparent; border-bottom: 1px solid var(--border); }
+.pp__loglist li:last-child { border-bottom: 0; }
+.pp__log-ic { flex: none; margin-top: 1px; }
+.pp__log--error { border-left-color: var(--danger); } .pp__log--error .pp__log-ic { color: var(--danger); }
+.pp__log--warn { border-left-color: var(--warning); } .pp__log--warn .pp__log-ic { color: var(--warning); }
+.pp__log--info { border-left-color: var(--border); } .pp__log--info .pp__log-ic { color: var(--text-muted); }
+.pp__log.is-resolved { opacity: 0.6; }
+.pp__log-body { min-width: 0; flex: 1; }
+.pp__log-top { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.pp__log-cat { font-size: 11.5px; font-weight: 700; color: var(--text); }
+.pp__log-at { font-size: 11.5px; margin-left: auto; }
+.pp__log-msg { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-muted); }

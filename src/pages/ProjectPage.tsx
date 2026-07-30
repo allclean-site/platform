@@ -5,25 +5,29 @@ import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Globe, Gauge, Rocket, ShieldCheck, TrendingUp, Search, Target, CheckCircle2, ListChecks,
-  Pencil, Newspaper, Calculator, Users, BarChart3, Settings, CircleDot,
+  Pencil, Newspaper, Calculator, Users, BarChart3, Settings, CircleDot, ScrollText, AlertCircle, AlertTriangle, Info,
 } from "lucide-react";
 import {
-  getProject, getAClient, loadTasks, updateProject, STAGE_LABEL, STAGE_ORDER, clientName, eur,
-  type Stage, type Priority,
+  getProject, getAClient, loadTasks, updateProject, logsOf, STAGE_LABEL, STAGE_ORDER, clientName, eur,
+  type Stage, type Priority, type LogLevel,
 } from "../agency/data";
+import { useAuth } from "../auth/AuthContext";
 import "./agency-ui.css";
 import "./project-page.css";
 
 const PRIO_LABEL: Record<Priority, string> = { high: "Срочно", med: "Средне", low: "Низкий" };
+const LOG_ICON: Record<LogLevel, React.ElementType> = { error: AlertCircle, warn: AlertTriangle, info: Info };
 const metricTone = (v: number | undefined, good: number, ok: number) => v == null ? "" : v <= good ? "ok" : v <= ok ? "warn" : "danger";
 
 export function ProjectPage() {
   const { clientId = "", projectId = "" } = useParams();
   const nav = useNavigate();
-  const [, force] = useState(0);
-  const project = useMemo(() => getProject(projectId), [projectId]);
+  const [tick, force] = useState(0);
+  const project = useMemo(() => getProject(projectId), [projectId, tick]);
   const client = getAClient(clientId);
   const tasks = useMemo(() => loadTasks().filter((t) => t.projectId === projectId && t.status !== "done"), [projectId]);
+  const logs = useMemo(() => logsOf(projectId), [projectId]);
+  const { enterClient } = useAuth();
 
   if (!project) return <div className="agp"><button className="ag-back" onClick={() => nav(`/app/agency/clients/${clientId}`)}><ArrowLeft size={14} /> Назад</button><div className="card ag-empty">Проект не найден.</div></div>;
 
@@ -32,11 +36,19 @@ export function ProjectPage() {
   const setStage = (s: Stage) => { updateProject(project.id, { stage: s }); force((x) => x + 1); };
   const setPaid = (v: number) => { updateProject(project.id, { pricePaid: v }); force((x) => x + 1); };
 
+  // Each module opens the CLIENT's own section (we enter the client's cabinet on this project),
+  // exactly the screen the client sees. Редактор needs a published site slug.
+  const openClientSection = (to: string) => { enterClient(clientId); nav(to); };
   const modules = [
     { icon: Pencil, label: "Редактор", to: project.siteSlug ? `/app/sites/${project.siteSlug}` : null },
-    { icon: Newspaper, label: "Блог", to: null }, { icon: Calculator, label: "Калькуляторы", to: null },
-    { icon: Users, label: "CRM", to: null }, { icon: BarChart3, label: "Аналитика", to: null }, { icon: Settings, label: "Настройки", to: null },
+    { icon: Newspaper, label: "Блог", to: "/app/blog" },
+    { icon: Calculator, label: "Калькуляторы", to: "/app/calculators" },
+    { icon: Users, label: "CRM", to: "/app/crm" },
+    { icon: BarChart3, label: "Аналитика", to: "/app/analytics" },
+    { icon: Settings, label: "Настройки", to: "/app/settings" },
   ];
+  const logErrors = logs.filter((l) => l.level === "error").length;
+  const logWarns = logs.filter((l) => l.level === "warn").length;
 
   return (
     <div className="agp pp">
@@ -115,12 +127,40 @@ export function ProjectPage() {
         )}
       </section>
 
-      {/* Module shortcuts */}
+      {/* Logs — agency-only technical journal (errors & problems) */}
+      <section className="card pp__logs">
+        <div className="pp__sec-h pp__logs-h">
+          <span><ScrollText size={16} /> Логи</span>
+          <span className="pp__logs-count">
+            {logErrors > 0 && <span className="pp__lc pp__lc--error">{logErrors} ошибок</span>}
+            {logWarns > 0 && <span className="pp__lc pp__lc--warn">{logWarns} предупр.</span>}
+            {logErrors === 0 && logWarns === 0 && <span className="pp__lc pp__lc--ok">без ошибок</span>}
+          </span>
+        </div>
+        {logs.length === 0 ? <p className="muted" style={{ margin: 0 }}>Записей нет.</p> : (
+          <ul className="pp__loglist">
+            {logs.map((l) => {
+              const Icon = LOG_ICON[l.level];
+              return (
+                <li key={l.id} className={"pp__log pp__log--" + l.level + (l.resolved ? " is-resolved" : "")}>
+                  <span className="pp__log-ic"><Icon size={15} /></span>
+                  <div className="pp__log-body">
+                    <div className="pp__log-top"><span className="pp__log-cat">{l.category}</span><span className="muted pp__log-at">{new Date(l.at).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>
+                    <p className="pp__log-msg">{l.message}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* Module shortcuts — open the client's own section for this project */}
       <section>
-        <div className="pp__sec-h"><Globe size={16} /> Инструменты проекта</div>
+        <div className="pp__sec-h"><Globe size={16} /> Разделы проекта <span className="muted pp__sec-hint">— открываются как у клиента</span></div>
         <div className="pp__mods">
           {modules.map((m) => (
-            <button key={m.label} className="pp__mod" disabled={!m.to} title={m.to ? "" : "Откроется на бэкенд-фазе"} onClick={() => m.to && nav(m.to)}>
+            <button key={m.label} className="pp__mod" disabled={!m.to} title={m.to ? "Открыть раздел клиента" : "Сайт ещё не опубликован"} onClick={() => m.to && openClientSection(m.to)}>
               <m.icon size={20} /><span>{m.label}</span>
             </button>
           ))}
