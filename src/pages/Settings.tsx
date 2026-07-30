@@ -8,7 +8,7 @@ import { useLocation } from "react-router-dom";
 import {
   Bell, Globe, Plug, Users, CreditCard, Check, Plus, Trash2, Mail, Send, Phone, MonitorSmartphone, Server, ExternalLink, Minus, Crown, AlertTriangle,
 } from "lucide-react";
-import { loadSettings, saveSettings, NOTIF_EVENTS, CHANNELS, type Settings, type Channel, type NotifRow, type TeamMember } from "../settings/store";
+import { loadSettings, saveSettings, publishConfig, NOTIF_EVENTS, CHANNELS, type Settings, type Channel, type NotifRow, type TeamMember } from "../settings/store";
 import { PLANS, hasPro, isPro, inGracePeriod } from "../lib/plans";
 import "./settings.css";
 
@@ -194,15 +194,15 @@ function IntegrTab({ s, set }: { s: Settings; set: (p: Partial<Settings>) => voi
       </div>
 
       <h4 className="set-h4">Публикация (моментальная)</h4>
-      <p className="muted set-sub">Адрес обработчика публикации на сайте. Когда задан — в редакторе работает кнопка «Опубликовать на сайт» (правки уходят на сайт и он пересобирается). Пусто — доступно только скачивание пакета правок.</p>
+      <p className="muted set-sub">Обычно настроено агентством при сборке — <b>вводить ничего не нужно</b>, кнопка «Опубликовать на сайт» работает сразу. Поля ниже — необязательное переопределение (например, свой адрес или ключ).</p>
       <div className="set-grid2">
-        <label className="fld"><span>Адрес /api/publish</span><input className="ci" value={s.publish.endpoint} onChange={(e) => setPub({ endpoint: e.target.value })} placeholder="https://allclean.md/api/publish" /></label>
-        <label className="fld"><span>Ключ публикации (EDIT_KEY)</span><input className="ci" value={s.publish.editKey} onChange={(e) => setPub({ editKey: e.target.value })} placeholder="секрет, совпадает с EDIT_KEY на сервере" /></label>
+        <label className="fld"><span>Адрес /api/publish (необязательно)</span><input className="ci" value={s.publish.endpoint} onChange={(e) => setPub({ endpoint: e.target.value })} placeholder="по умолчанию задан агентством" /></label>
+        <label className="fld"><span>Ключ публикации (необязательно)</span><input className="ci" type="password" value={s.publish.editKey} onChange={(e) => setPub({ editKey: e.target.value })} placeholder="задан агентством — можно оставить пустым" /></label>
       </div>
-      <div className={"set-storage-status " + (s.publish.endpoint ? "is-on" : "is-off")}>
-        {s.publish.endpoint
-          ? <><Check size={14} /> Кнопка «Опубликовать на сайт» включена</>
-          : <>Адрес не задан — только скачивание пакета правок</>}
+      <div className={"set-storage-status " + (publishConfig().editKey ? "is-on" : "is-off")}>
+        {publishConfig().editKey
+          ? <><Check size={14} /> Публикация на сайт настроена и готова</>
+          : <>Ключ не задан ни в сборке, ни здесь — публикация недоступна</>}
       </div>
     </div>
   );

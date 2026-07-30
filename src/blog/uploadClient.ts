@@ -4,7 +4,7 @@
  * inline data URL if the endpoint isn't configured or the upload fails, so the editor keeps working.
  */
 
-import { loadSettings } from "../settings/store";
+import { publishConfig } from "../settings/store";
 import { downscale } from "../editor/image";
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -29,8 +29,8 @@ export function pickAndUploadImage(): Promise<{ url: string | null; note?: strin
       if (!file) return resolve({ url: null });
       try {
         const { blob, ext, type } = await downscale(file);
-        const p = loadSettings().publish;
-        if (p?.endpoint) {
+        const p = publishConfig();
+        if (p.endpoint) {
           const endpoint = p.endpoint.replace(/\/publish\/?$/, "/upload");
           try {
             const dataBase64 = await blobToBase64(blob);

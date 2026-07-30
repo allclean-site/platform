@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { X, CheckCircle2, AlertTriangle, XCircle, Download, Loader2, Rocket } from "lucide-react";
+import { X, CheckCircle2, AlertTriangle, XCircle, Download, Loader2, Rocket, Copy } from "lucide-react";
 import type { SiteIndex, ImportedPage } from "../editor/reassemble";
 import type { SiteOverrides } from "../editor/realStore";
 import type { SiteBp } from "../editor/bpStore";
@@ -29,13 +29,19 @@ export function PublishDialog({
   const [progress, setProgress] = useState(0);
   const [pubState, setPubState] = useState<"idle" | "publishing" | "done" | "error">("idle");
   const [pubMsg, setPubMsg] = useState("");
+  const [pubDetail, setPubDetail] = useState("");
+  const [copied, setCopied] = useState(false);
   const canPublish = publishConfigured();
 
   const doPublish = async () => {
-    setPubState("publishing"); setPubMsg("");
+    setPubState("publishing"); setPubMsg(""); setPubDetail(""); setCopied(false);
     const r = await publishToSite(overrides, bp);
     setPubState(r.ok ? "done" : "error");
     setPubMsg(r.message);
+    setPubDetail(r.detail ?? "");
+  };
+  const copyError = () => {
+    navigator.clipboard?.writeText(`${pubMsg}\n\n${pubDetail}`).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 
   useEffect(() => {
@@ -132,9 +138,19 @@ export function PublishDialog({
                 </p>
               )}
               {pubMsg && (
-                <p className={"pub__result " + (pubState === "error" ? "is-err" : "is-ok")}>
-                  {pubState === "error" ? <XCircle size={15} /> : <CheckCircle2 size={15} />} {pubMsg}
-                </p>
+                <div className={"pub__result " + (pubState === "error" ? "is-err" : "is-ok")}>
+                  <p className="pub__result-msg">
+                    {pubState === "error" ? <XCircle size={15} /> : <CheckCircle2 size={15} />} {pubMsg}
+                  </p>
+                  {pubState === "error" && pubDetail && (
+                    <div className="pub__result-detail">
+                      <pre>{pubDetail}</pre>
+                      <button className="pub__copy" onClick={copyError}>
+                        <Copy size={13} /> {copied ? "Скопировано" : "Скопировать ошибку"}
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
               <div className="pub__actions">
                 <button className="pub__btn-ghost" onClick={onClose}>Закрыть</button>

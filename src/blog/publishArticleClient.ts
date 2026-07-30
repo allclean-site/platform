@@ -4,12 +4,12 @@
  * Endpoint + key come from Настройки → Публикация (same EDIT_KEY as page publishing).
  */
 
-import { loadSettings } from "../settings/store";
+import { publishConfig } from "../settings/store";
 import type { Article } from "../engine/blog/types";
 
 export async function publishArticlesToSite(articles: Article[]): Promise<{ ok: boolean; message: string; urls?: string[] }> {
-  const p = loadSettings().publish;
-  if (!p?.endpoint) return { ok: false, message: "Публикация не настроена (Настройки → Публикация)." };
+  const p = publishConfig();
+  if (!p.endpoint) return { ok: false, message: "Публикация не настроена (Настройки → Публикация)." };
   const endpoint = p.endpoint.replace(/\/publish\/?$/, "/publish-article");
   try {
     const res = await fetch(endpoint, {

@@ -87,3 +87,20 @@ export function loadSettings(): Settings {
 export function saveSettings(s: Settings): void {
   localStorage.setItem(KEY, JSON.stringify(s));
 }
+
+/**
+ * Effective publish config: cabinet Settings first, then build-time env fallback
+ * (VITE_PUBLISH_ENDPOINT / VITE_PUBLISH_KEY). The env fallback lets the agency ship the cabinet with
+ * publishing working out-of-the-box — the client enters nothing (no editKey to forget or lose). All
+ * publish-family calls (publish, article publish, translate, upload, leads) resolve their endpoint+key
+ * through here. INTERIM: the key ships in the cabinet bundle; a login-based publish (real auth) replaces
+ * this shared key in the backend phase.
+ */
+export function publishConfig(): { endpoint: string; editKey: string } {
+  const p = loadSettings().publish;
+  const env = import.meta.env as Record<string, string | undefined>;
+  return {
+    endpoint: (p?.endpoint || env.VITE_PUBLISH_ENDPOINT || "https://allclean.md/api/publish").trim(),
+    editKey: (p?.editKey || env.VITE_PUBLISH_KEY || "").trim(),
+  };
+}
