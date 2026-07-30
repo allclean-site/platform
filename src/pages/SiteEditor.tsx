@@ -291,10 +291,11 @@ export function SiteEditor() {
     if (doc) setFrameH(Math.max(600, doc.documentElement.scrollHeight));
   }, []);
   const onFrameLoad = () => {
-    measure();
-    const doc = frameRef.current?.contentDocument;
-    if (doc) indexMediaFromDoc(TENANT, doc); // populate the gallery with the page's existing media
-    [400, 1200, 2500].forEach((t) => setTimeout(measure, t));
+    // Re-index media as the page settles: some media (esp. lazy Webflow background <video>) attach a
+    // moment after load, so a single pass at load can miss them → the gallery would differ per browser.
+    const doIndex = () => { const doc = frameRef.current?.contentDocument; if (doc) indexMediaFromDoc(TENANT, doc); };
+    measure(); doIndex();
+    [400, 1200, 2500, 5000].forEach((t) => setTimeout(() => { measure(); doIndex(); }, t));
   };
   // Switching device does NOT reload the iframe — tell the runtime the new breakpoint (so edits route
   // correctly + the panel refreshes) and re-measure height, since a narrower page reflows taller.
