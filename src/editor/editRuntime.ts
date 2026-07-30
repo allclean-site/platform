@@ -621,17 +621,41 @@ export const EDIT_RUNTIME = `
       img.setAttribute("src", d.src); img.removeAttribute("srcset"); img.removeAttribute("loading");
       save(d.blockId); return;
     }
-    // Replace media from the gallery/upload — handles <img> and <video> (with a <source> child).
+    // Replace media from the gallery/upload — handles <img> and <video>, INCLUDING cross-type swap
+    // (photo↔video): a mismatching pick replaces the element, keeping its id/class/style so it stays
+    // styled + selectable.
     if (d.type === "lg-media-set"){
       var mel = findEl(d.blockId, d.el); if (!mel) return;
-      if (mel.tagName === "VIDEO"){
+      var isVid = mel.tagName === "VIDEO";
+      var want = d.mediaType || (isVid ? "video" : "image");
+      if (want === "video" && isVid){
         var vs = mel.querySelector("source");
         if (vs) vs.setAttribute("src", d.src); else mel.setAttribute("src", d.src);
         try { mel.load(); } catch(e){}
-      } else {
-        mel.setAttribute("src", d.src); mel.removeAttribute("srcset"); mel.removeAttribute("loading");
+        save(d.blockId); return;
       }
-      save(d.blockId); return;
+      if (want === "image" && !isVid){
+        mel.setAttribute("src", d.src); mel.removeAttribute("srcset"); mel.removeAttribute("loading");
+        save(d.blockId); return;
+      }
+      // cross-type swap
+      var repl;
+      if (want === "video"){
+        repl = document.createElement("video");
+        repl.setAttribute("autoplay",""); repl.muted = true; repl.setAttribute("muted","");
+        repl.setAttribute("loop",""); repl.setAttribute("playsinline",""); repl.setAttribute("preload","auto");
+        var so = document.createElement("source"); so.setAttribute("src", d.src); repl.appendChild(so);
+      } else {
+        repl = document.createElement("img"); repl.setAttribute("src", d.src);
+      }
+      repl.setAttribute("data-lg-id", mel.getAttribute("data-lg-id") || "");
+      if (mel.getAttribute("class")) repl.setAttribute("class", mel.getAttribute("class"));
+      if (mel.getAttribute("style")) repl.setAttribute("style", mel.getAttribute("style"));
+      if (mel.parentNode) mel.parentNode.replaceChild(repl, mel);
+      if (selected === mel){ selected = null; hideSelBox(); }
+      save(d.blockId);
+      select(repl); // refresh the panel to the new element (Фото↔Видео)
+      return;
     }
     if (d.type === "lg-elem-set"){
       var el = findEl(d.blockId, d.el); if (!el) return;

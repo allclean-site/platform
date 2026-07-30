@@ -72,6 +72,8 @@ export function indexMediaFromDoc(tenant: string, doc: Document): number {
     if (!raw) return;
     const u = raw.trim();
     if (!u || u.startsWith("data:") || u.startsWith("blob:") || u.startsWith("#")) return;
+    // Skip SVGs — those are logos/UI icons (phone, viber, telegram…), not swappable photos.
+    if (type === "image" && /\.svg(\?|$)/i.test(u)) return;
     found.push({ url: u, type });
   };
   doc.querySelectorAll("img").forEach((el) => { push(el.getAttribute("src"), "image"); });

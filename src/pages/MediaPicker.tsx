@@ -4,7 +4,7 @@
  * a «Корзина» to restore deleted assets. Selecting an asset returns its url + type to the caller.
  */
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, Image as ImageIcon, Video as VideoIcon, Trash2, RotateCcw, X, Loader2, Play, Undo2 } from "lucide-react";
 import {
   activeMedia, trashedMedia, uploadMediaFile, trashMedia, restoreMedia, purgeMedia,
@@ -28,12 +28,22 @@ export function MediaPicker({
   const [rev, force] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bad, setBad] = useState<Set<string>>(new Set()); // assets that fail to load / are icons → hidden
   const fileRef = useRef<HTMLInputElement>(null);
   const bump = () => force((x) => x + 1);
+  const markBad = (id: string) => setBad((s) => (s.has(id) ? s : new Set(s).add(id)));
+
+  // Esc closes the picker.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const wants = (t: MediaType) => accept === "both" || accept === t;
-  const gallery = useMemo(() => activeMedia(tenant).filter((m) => wants(m.type)), [tenant, rev, accept]);
-  const trash = useMemo(() => trashedMedia(tenant).filter((m) => wants(m.type)), [tenant, rev, accept]);
+  const ok = (id: string) => !bad.has(id);
+  const gallery = useMemo(() => activeMedia(tenant).filter((m) => wants(m.type)), [tenant, rev, accept]).filter((m) => ok(m.id));
+  const trash = useMemo(() => trashedMedia(tenant).filter((m) => wants(m.type)), [tenant, rev, accept]).filter((m) => ok(m.id));
 
   const acceptAttr = accept === "video" ? "video/*" : accept === "both" ? "image/*,video/*" : "image/*";
 
@@ -95,7 +105,7 @@ export function MediaPicker({
           ) : (
             <div className="mp__grid">
               {gallery.map((m) => (
-                <MediaCard key={m.id} m={m} onClick={() => onPick(m.url, m.type)}
+                <MediaCard key={m.id} m={m} onBad={markBad} onClick={() => onPick(m.url, m.type)}
                   action={<button className="mp__card-btn" title="В корзину" onClick={(e) => { e.stopPropagation(); del(m.id); }}><Trash2 size={14} /></button>} />
               ))}
             </div>
@@ -108,7 +118,7 @@ export function MediaPicker({
           ) : (
             <div className="mp__grid">
               {trash.map((m) => (
-                <MediaCard key={m.id} m={m} dim
+                <MediaCard key={m.id} m={m} dim onBad={markBad}
                   action={
                     <>
                       <button className="mp__card-btn" title="Восстановить" onClick={(e) => { e.stopPropagation(); restore(m.id); }}><RotateCcw size={14} /></button>
@@ -124,13 +134,14 @@ export function MediaPicker({
   );
 }
 
-function MediaCard({ m, onClick, action, dim }: { m: MediaAsset; onClick?: () => void; action?: React.ReactNode; dim?: boolean }) {
+function MediaCard({ m, onClick, action, dim, onBad }: { m: MediaAsset; onClick?: () => void; action?: React.ReactNode; dim?: boolean; onBad?: (id: string) => void }) {
   return (
     <div className={"mp__card" + (dim ? " is-dim" : "") + (onClick ? " is-pick" : "")} onClick={onClick} title={m.name}>
       <div className="mp__thumb">
         {m.type === "video"
-          ? <><video src={m.url} muted preload="metadata" /><span className="mp__play"><Play size={16} /></span></>
-          : <img src={m.url} alt={m.name} loading="lazy" />}
+          ? <><video src={m.url} muted preload="metadata" onError={() => onBad?.(m.id)} /><span className="mp__play"><Play size={16} /></span></>
+          : <img src={m.url} alt={m.name} loading="lazy" onError={() => onBad?.(m.id)}
+              onLoad={(e) => { if (e.currentTarget.naturalWidth > 0 && e.currentTarget.naturalWidth < 120) onBad?.(m.id); }} />}
         <span className="mp__type">{m.type === "video" ? <VideoIcon size={12} /> : <ImageIcon size={12} />}</span>
       </div>
       <div className="mp__card-foot">

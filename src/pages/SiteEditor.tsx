@@ -52,7 +52,7 @@ export function SiteEditor() {
   const [linkPop, setLinkPop] = useState<{ url: string; newTab: boolean } | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [publishing, setPublishing] = useState(false);
-  const [mediaPick, setMediaPick] = useState<{ blockId: string; el: string; accept: "image" | "video" } | null>(null);
+  const [mediaPick, setMediaPick] = useState<{ blockId: string; el: string; accept: "image" | "video" | "both" } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [frameH, setFrameH] = useState(900);
@@ -208,10 +208,11 @@ export function SiteEditor() {
     else Object.keys(bpOver).forEach((k) => delete (bpOver as Record<string, boolean>)[k]);
     setSelEl({ ...selEl, bpOver });
   };
-  // Open the media picker (upload / gallery / trash) for the selected photo or video.
+  // Open the media picker (upload / gallery / trash) for the selected photo or video. The gallery is
+  // COMMON (photo + video) so the client can swap a photo for a video and vice versa.
   const replaceMedia = () => {
     if (!selEl) return;
-    setMediaPick({ blockId: selEl.blockId, el: selEl.el, accept: selEl.kind === "video" ? "video" : "image" });
+    setMediaPick({ blockId: selEl.blockId, el: selEl.el, accept: "both" });
   };
   // Figma text-box resize mode + vertical align (routed per-device by the runtime).
   const resizeMode = (mode: "hug" | "fixw" | "fixed") => {
@@ -558,8 +559,8 @@ export function SiteEditor() {
         <MediaPicker
           tenant={TENANT}
           accept={mediaPick.accept}
-          onPick={(url) => {
-            frameRef.current?.contentWindow?.postMessage({ type: "lg-media-set", blockId: mediaPick.blockId, el: mediaPick.el, src: url }, "*");
+          onPick={(url, type) => {
+            frameRef.current?.contentWindow?.postMessage({ type: "lg-media-set", blockId: mediaPick.blockId, el: mediaPick.el, src: url, mediaType: type }, "*");
             setMediaPick(null);
           }}
           onClose={() => setMediaPick(null)}
