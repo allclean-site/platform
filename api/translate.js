@@ -6,7 +6,7 @@
 // EDIT_KEY gate stops strangers from spending on the endpoint. CORS * (cabinet is a different origin).
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-const EDIT_KEY = process.env.EDIT_KEY;
+const EDIT_KEY = (process.env.EDIT_KEY || "").trim();
 
 const LOCALE_NAMES = { ru: "Russian (русский)", ro: "Romanian (română, as spoken in Moldova)" };
 

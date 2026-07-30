@@ -7,7 +7,7 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DEPLOY_HOOK = process.env.DEPLOY_HOOK;
-const EDIT_KEY = process.env.EDIT_KEY;
+const EDIT_KEY = (process.env.EDIT_KEY || "").trim();
 const PROJECT_ID = "8878db57-c541-4502-bfa6-ae812dc3aefd"; // allclean project in the client Supabase
 
 const SITE = "https://allclean.md";
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
   let body;
   try { body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {}); }
   catch { return res.status(400).json({ error: "invalid JSON" }); }
-  if (EDIT_KEY && body.editKey !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
+  if (EDIT_KEY && String(body.editKey || "").trim() !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
 
   const arts = (body.articles || []).filter((a) => a && a.slug && a.title);
   if (!arts.length) return res.status(400).json({ error: "no articles with slug+title" });

@@ -10,7 +10,7 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DEPLOY_HOOK = process.env.DEPLOY_HOOK;
-const EDIT_KEY = process.env.EDIT_KEY;
+const EDIT_KEY = (process.env.EDIT_KEY || "").trim(); // trim: pasted env vars often carry a trailing newline
 
 export default async function handler(req, res) {
   // CORS — the cabinet lives on a different origin than the site.
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   try { body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {}); }
   catch { return res.status(400).json({ error: "invalid JSON" }); }
 
-  if (EDIT_KEY && body.editKey !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
+  if (EDIT_KEY && String(body.editKey || "").trim() !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
 
   const project = body.project || "allclean";
   const overrides = body.overrides || {};

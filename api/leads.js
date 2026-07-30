@@ -9,7 +9,7 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const EDIT_KEY = process.env.EDIT_KEY;
+const EDIT_KEY = (process.env.EDIT_KEY || "").trim();
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   try { body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {}); }
   catch { return res.status(400).json({ error: "invalid JSON" }); }
 
-  if (EDIT_KEY && body.editKey !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
+  if (EDIT_KEY && String(body.editKey || "").trim() !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
 
   const limit = Math.min(1000, Math.max(1, body.limit || 300));
   // No `order` in the query so we don't depend on a specific timestamp column existing; the CRM sorts

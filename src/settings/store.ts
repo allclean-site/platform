@@ -101,6 +101,8 @@ export function publishConfig(): { endpoint: string; editKey: string } {
   const env = import.meta.env as Record<string, string | undefined>;
   return {
     endpoint: (p?.endpoint || env.VITE_PUBLISH_ENDPOINT || "https://allclean.md/api/publish").trim(),
-    editKey: (p?.editKey || env.VITE_PUBLISH_KEY || "").trim(),
+    // env-first: the build key (agency-managed) wins over any stale value left in a client's localStorage
+    // (there's no Settings field for it anymore, so a stale wrong key couldn't otherwise be corrected).
+    editKey: (env.VITE_PUBLISH_KEY || p?.editKey || "").trim(),
   };
 }
