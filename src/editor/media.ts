@@ -88,18 +88,26 @@ export function indexMediaFromDoc(tenant: string, doc: Document): number {
     if (m) push(m[2], "image");
   });
 
-  const list = loadMedia(tenant);
-  const have = new Set(list.map((m) => m.url));
-  let added = 0;
+  // Self-heal legacy libraries built by older indexers: drop SVG icons + de-duplicate by url. Runs on
+  // every editor load, so a client's stale gallery cleans itself up without clearing localStorage.
+  const seen = new Set<string>();
+  const cleaned: MediaAsset[] = [];
+  let removed = 0;
+  for (const m of loadMedia(tenant)) {
+    if (m.type === "image" && /\.svg(\?|$)/i.test(m.url)) { removed++; continue; }
+    if (seen.has(m.url)) { removed++; continue; }
+    seen.add(m.url);
+    cleaned.push(m);
+  }
+
   const additions: MediaAsset[] = [];
   for (const f of found) {
-    if (have.has(f.url)) continue;
-    have.add(f.url);
+    if (seen.has(f.url)) continue;
+    seen.add(f.url);
     additions.push({ id: uid(), url: f.url, type: f.type, name: fileNameOf(f.url), at: new Date().toISOString() });
-    added++;
   }
-  if (added) save(tenant, [...additions, ...list]);
-  return added;
+  if (additions.length || removed) save(tenant, [...additions, ...cleaned]);
+  return additions.length;
 }
 
 /** Upload a picked File to the library. Images are downscaled; video is uploaded as-is (needs Storage).
