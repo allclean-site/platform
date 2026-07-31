@@ -82,7 +82,9 @@ export function cleanHtml(html, keepIds) {
     .replace(/(?:\/site-assets)+\/(images|video|fonts|js)\//g, "/$1/")
     .replace(/(?:\/site-assets)+\/logo\.svg/g, "/logo.svg")
     .replace(/\s+contenteditable="true"/g, "")
-    .replace(/\s+spellcheck="false"/g, "")
+    // both values: the editor used to write "false" and now writes "true" (the client's copy deserves
+    // a spell checker), and neither belongs in the published page — the source site sets neither
+    .replace(/\s+spellcheck="(?:false|true)"/g, "")
     .replace(/\s+data-lg-el="[^"]*"/g, "")
     // the stashed "original inline style" used by the element reset — editor bookkeeping, never shipped
     .replace(/\s+data-lg-style0="[^"]*"/g, "")

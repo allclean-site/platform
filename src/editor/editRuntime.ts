@@ -111,7 +111,10 @@ ${CORE_INLINE}
   // (a CTA, not inside a paragraph) are their own field. Loose text (a div with direct text and no
   // text-tag ancestor) falls back to its parent.
   var BLOCK_TEXT = "h1,h2,h3,h4,h5,h6,p,li,blockquote,figcaption,dt,dd";
-  function makeCE(el){ el.setAttribute("contenteditable","true"); el.setAttribute("spellcheck","false"); tag(el); }
+  // spellcheck stays ON: the client writes the site's selling copy in Russian and Romanian here, and
+  // switching the browser's spell checker off (it was off) took away the one thing that catches a typo
+  // before it is published. The attribute never ships — cleanHtml strips it on export.
+  function makeCE(el){ el.setAttribute("contenteditable","true"); el.setAttribute("spellcheck","true"); tag(el); }
   function editableWithin(root){
     // 1) block-level text containers → one editable field each
     var blocks = root.querySelectorAll(BLOCK_TEXT);
@@ -397,7 +400,22 @@ ${CORE_INLINE}
   // run instead and silently pull the DOM out of step with our history, so we suppress it and hand the
   // gesture to the editor.
   document.addEventListener("keydown", function(e){
-    if (!(e.ctrlKey || e.metaKey)) return;
+    var ce = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
+    if (!(e.ctrlKey || e.metaKey)){
+      if (!ce) return;
+      if (e.key === "Enter"){
+        // The browser answers Enter inside foreign markup by SPLITTING the element — a heading becomes
+        // two nodes, the second one without the site's classes, and that structure gets published.
+        // A line break is what the client actually wants here, and it keeps the block intact.
+        e.preventDefault();
+        document.execCommand("insertLineBreak");
+      } else if (e.key === "Escape"){
+        // A way out of a text field that does not need the mouse.
+        e.preventDefault();
+        ce.blur();
+      }
+      return;
+    }
     var k = (e.key || "").toLowerCase();
     if (k === "z" || k === "y"){
       e.preventDefault();
