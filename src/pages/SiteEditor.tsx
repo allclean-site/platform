@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw, ChevronDown, Plus, ChevronUp, X } from "lucide-react";
+import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw, ChevronDown, Plus, ChevronUp, X, AlertTriangle, HelpCircle, Loader2 } from "lucide-react";
 import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
 import { applyOverrides, loadOverrides, saveOverrides, mergeOverrideLayers,
@@ -17,12 +17,14 @@ import { fetchDraft, saveDraftPage, beaconDraftPage, draftConfigured, type Draft
 import { toCanonical, toPreview, canonicalizeOverrides } from "../editor/assetPaths";
 import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
+import { loadHistory, saveHistory, type Snap, type Step } from "../editor/historyStore";
 import { indexMediaFromDoc } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
 import { PublishDialog } from "./PublishDialog";
 import { MediaPicker } from "./MediaPicker";
 import { Toolbar } from "../components/Toolbar";
+import { EditorIntro, introUnseen } from "./EditorIntro";
 import type { ElStyle, SelectedEl, Breakpoint, SelectOption } from "../editor/elemTypes";
 import "./site-editor.css";
 
@@ -63,6 +65,12 @@ export function SiteEditor() {
   const [publishing, setPublishing] = useState(false);
   const [mediaPick, setMediaPick] = useState<{ blockId: string; el: string; accept: "image" | "video" | "both" } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Runtime notices (a lost selection, a full localStorage) are NOT load failures: `err` replaces the
+  // whole editor with an error screen, which would throw the client out of their work over a hiccup.
+  // Carries an id so the SAME message shown twice re-appears instead of being swallowed as "no change".
+  const [notice, setNotice] = useState<{ text: string; id: number } | null>(null);
+  const noticeSeq = useRef(0);
+  const say = useCallback((text: string) => setNotice({ text, id: ++noticeSeq.current }), []);
   const [zoom, setZoom] = useState(1);
   const [frameH, setFrameH] = useState(900);
   const overrides = useRef<StoredSiteOverrides>({});   // LOCAL edits (this browser, localStorage)
@@ -90,9 +98,8 @@ export function SiteEditor() {
   // touches (once), and closing the transaction pushes ONE step covering both stores.
   //
   // Only touched keys are captured, so a step costs a few strings rather than a clone of the page.
-  // undefined = this layer had no entry · null = tombstone · string = override html
-  type Snap = { blocks: Record<string, string | null | undefined>; bp: PageBp | null | undefined };
-  type Step = { pageId: string; before: Snap; after: Snap };
+  // The stacks are mirrored into sessionStorage per page (see historyStore), so a reload — or a step
+  // back to a page edited earlier in this session — keeps everything undoable.
   const history = useRef<Step[]>([]);
   const future = useRef<Step[]>([]);
   const txn = useRef<{ pageId: string; blocks: Record<string, string | null | undefined>; bp: PageBp | null | undefined } | null>(null);
@@ -106,6 +113,8 @@ export function SiteEditor() {
   const loadedPageId = useRef<string | null>(null);
   const [pagesOpen, setPagesOpen] = useState(true);   // collapsible left-panel sections
   const [blocksOpen, setBlocksOpen] = useState(true);
+  // First run: explain the editor once, instead of leaving the client to discover it by clicking.
+  const [intro, setIntro] = useState(() => introUnseen());
 
   // canonicalizeOverrides heals blocks saved by the older code path, which stored the iframe's
   // /site-assets/* preview paths (and grew another prefix on every save).
@@ -270,6 +279,13 @@ export function SiteEditor() {
   // Every change to a page's stored state goes through writeBlock / writeBp. They keep persistence,
   // draft sync and the undo transaction in step, so no code path can mutate state and forget one.
 
+  /** Mirror the stacks to this tab's storage so a reload keeps everything undoable. Called only when
+   *  a step is pushed or replayed (never per keystroke), so the cost stays off the typing path. */
+  const persistHistory = useCallback(() => {
+    const pid = loadedPageId.current;
+    if (pid) saveHistory(TENANT, SITE, pid, history.current, future.current);
+  }, [SITE]);
+
   /** Remember a key's previous value the FIRST time this transaction touches it. */
   const recordBlock = (pageId: string, blockId: string) => {
     const t = txn.current;
@@ -305,6 +321,7 @@ export function SiteEditor() {
     if (history.current.length > 100) history.current.shift();
     future.current = []; setFutLen(0);
     setHistLen(history.current.length);
+    persistHistory();
   };
   /** Discrete edits (a keystroke, a slider tick) have no gesture end — close them on a short idle,
    *  which also coalesces a burst of typing into one undo step. Drags hold the transaction open. */
@@ -340,7 +357,8 @@ export function SiteEditor() {
     // merge with the shared draft and the published layer (that is what makes undo stick for others).
     page[blockId] = html;
     if (!saveOverrides(TENANT, SITE, overrides.current)) {
-      setErr("Не удалось сохранить правку в этом браузере: закончилось место. Опубликуйте изменения или очистите данные сайта.");
+      setSaveState("idle");
+      say("Не удалось сохранить правку в этом браузере: закончилось место. Опубликуйте изменения или очистите данные сайта.");
       return;
     }
     setSaveState("saved");
@@ -386,12 +404,17 @@ export function SiteEditor() {
         // regains focus — and wiping the stack there is what made undo/redo "stop working".
         if (loadedPageId.current !== p.id) {
           loadedPageId.current = p.id;
-          history.current = []; future.current = []; setHistLen(0); setFutLen(0);
+          // Not an empty stack: this tab's steps for THIS page, so a reload (or coming back to a page
+          // edited a minute ago) can still be undone.
+          const kept = loadHistory(TENANT, SITE, p.id);
+          history.current = kept.history; future.current = kept.future;
+          setHistLen(kept.history.length); setFutLen(kept.future.length);
         }
         setPage({ ...p, blocks });
       })
       .catch((e) => setErr(String(e)));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [SITE]);
 
   useEffect(() => { loadPage(activeFile); }, [activeFile, loadPage, syncTick]);
   // Who touched the current page's shared draft last (shown next to the sync status).
@@ -412,6 +435,12 @@ export function SiteEditor() {
       else if (d.type === "lg-elem-select") { setSelEl(d as SelectedEl); setSelected(d.blockId); }
       else if (d.type === "lg-elem-deleted") setSelEl(null);
       else if (d.type === "lg-text-sel") { setTextSel(d.rect ? (d as TextSel) : null); if (!d.rect) setLinkPop(null); }
+      // The highlighted text is gone (the block was re-rendered under it), so the command could not be
+      // applied. Say it out loud — this used to look like the button simply did nothing.
+      else if (d.type === "lg-text-stale") {
+        setTextSel(null); setLinkPop(null);
+        say("Выделение сбросилось — выделите текст ещё раз и повторите.");
+      }
       else if (d.type === "lg-ready") {
         // Iframe loaded → push this page's saved breakpoint rules + the active device into the runtime.
         const rules = (page && mergedBp(page.id)) || emptyPageBp();
@@ -571,6 +600,7 @@ export function SiteEditor() {
     commitTxn();                                  // close anything still open, so it can be undone
     const s = history.current.pop(); if (!s) return;
     future.current.push(s); setHistLen(history.current.length); setFutLen(future.current.length);
+    persistHistory();
     applySnap(s.pageId, s.before);
   };
   // Kept in refs so the iframe message handler (registered once) always calls the current versions.
@@ -580,6 +610,7 @@ export function SiteEditor() {
     commitTxn();                                  // same as undo: never redo on top of an open gesture
     const s = future.current.pop(); if (!s) return;
     history.current.push(s); setHistLen(history.current.length); setFutLen(future.current.length);
+    persistHistory();
     applySnap(s.pageId, s.after);
   };
   undoRef.current = undo; redoRef.current = redo;
@@ -592,6 +623,13 @@ export function SiteEditor() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [page]);
+
+  // Notices clear themselves — nobody should have to dismiss a hint to keep editing.
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(null), 7000);
+    return () => window.clearTimeout(t);
+  }, [notice]);
 
   // Position of the floating text toolbar in the cabinet, mapping iframe-space → screen (accounts for zoom + scroll).
   const toolbarPos = (() => {
@@ -723,6 +761,9 @@ export function SiteEditor() {
           <button className="se__icon" disabled={!histLen} title="Отменить (Ctrl+Z)" onClick={undo}><Undo2 size={16} /></button>
           <button className="se__icon" disabled={!futLen} title="Повторить (Ctrl+Shift+Z)" onClick={redo}><Redo2 size={16} /></button>
         </Toolbar>
+        <button className="se__icon" onClick={() => setIntro(true)} title="Как редактировать сайт" aria-label="Как редактировать сайт">
+          <HelpCircle size={16} />
+        </button>
         <button className={"se__toggle" + (edit ? " is-on" : "")} onClick={() => setEdit((v) => !v)}>
           {edit ? <><Pencil size={15} /> Правка</> : <><Eye size={15} /> Просмотр</>}
         </button>
@@ -835,7 +876,13 @@ export function SiteEditor() {
                 />
               </div>
             </div>
-          ) : null}
+          ) : (
+            /* Not "nothing yet": the canvas is the whole screen, and a blank one reads as a broken editor. */
+            <div className="se__canvas-empty" role="status" aria-live="polite">
+              <Loader2 size={22} className="se__spin" />
+              <p>Открываю страницу…</p>
+            </div>
+          )}
         </main>
 
         <aside className="se__panel glass se__inspector">
@@ -912,6 +959,16 @@ export function SiteEditor() {
             onClick={() => setLinkPop((p) => (p ? null : { url: textSel.state.href || "https://", newTab: textSel.state.newTab }))}><Link2 size={15} /></button>
           <span className="rtb__sep" />
           <button className="rtb__btn" title="Убрать форматирование" onClick={() => textCmd("removeFormat")}><Eraser size={15} /></button>
+        </div>
+      )}
+
+      {intro && <EditorIntro onClose={() => setIntro(false)} />}
+
+      {notice && (
+        <div className="se__toast glass" role="status" aria-live="polite">
+          <AlertTriangle size={15} />
+          <span className="se__toast-t">{notice.text}</span>
+          <button className="se__toast-x" onClick={() => setNotice(null)} title="Закрыть" aria-label="Закрыть сообщение"><X size={14} /></button>
         </div>
       )}
 

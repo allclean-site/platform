@@ -446,6 +446,16 @@ ${CORE_INLINE}
   function isAutoText(el){
     return el.isContentEditable || /^(H[1-6]|P|LI|BLOCKQUOTE|FIGCAPTION|DT|DD)$/.test(el.tagName);
   }
+  // The editable element a Range still lives in, or null when the range is detached — its nodes were
+  // replaced (undo, restored section, re-rendered block) and it can no longer be used for anything.
+  function rangeHost(r){
+    if (!r || !r.startContainer || !r.endContainer) return null;
+    if (!r.startContainer.isConnected || !r.endContainer.isConnected) return null;
+    var n = r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement;
+    if (!n || !n.closest) return null;
+    var host = n.closest('[contenteditable="true"]');
+    return host && document.contains(host) ? host : null;
+  }
   function startResize(e){
     e.preventDefault(); e.stopPropagation();
     var el = selected; if (!el) return;
@@ -869,12 +879,27 @@ ${CORE_INLINE}
     }
     // Rich inline text: apply a command to the LAST selection (restored, since focus moved to the panel).
     if (d.type === "lg-text-cmd"){
-      if (lastRange){
-        try {
-          (lastRange.startContainer.nodeType===1 ? lastRange.startContainer : lastRange.startContainer.parentElement).closest('[contenteditable="true"]').focus();
-        } catch(_){}
-        var s0 = document.getSelection(); s0.removeAllRanges(); s0.addRange(lastRange);
+      // The stored range dies whenever its nodes leave the document — an undo, a restored section, a
+      // re-render of the block. Restoring a dead range put the caret nowhere, execCommand then styled
+      // nothing, and no lg-edit was ever posted: the button looked like it worked and the change was
+      // silently lost. Check the range is still attached, fall back to whatever is selected right now,
+      // and if neither is usable say so instead of pretending.
+      var host = rangeHost(lastRange);
+      if (!host){
+        var cur = document.getSelection();
+        if (cur && cur.rangeCount && !cur.isCollapsed){
+          var curR = cur.getRangeAt(0);
+          var curHost = rangeHost(curR);
+          if (curHost){ lastRange = curR.cloneRange(); host = curHost; }
+        }
       }
+      if (!host){
+        lastRange = null;
+        parent.postMessage({ type:"lg-text-stale" }, "*");
+        return;
+      }
+      try { host.focus(); } catch(_){}
+      var s0 = document.getSelection(); s0.removeAllRanges(); s0.addRange(lastRange);
       try { document.execCommand("styleWithCSS", false, "true"); } catch(_){}
       if (d.cmd === "color") document.execCommand("foreColor", false, d.value);
       else if (d.cmd === "link"){
@@ -887,9 +912,14 @@ ${CORE_INLINE}
       else if (d.cmd === "unlink") document.execCommand("unlink");
       else if (d.cmd === "removeFormat") document.execCommand("removeFormat");
       else document.execCommand(d.cmd); // bold | italic | underline
-      var an = document.getSelection() && document.getSelection().anchorNode;
+      // The command rebuilt the nodes the old range pointed at, so re-capture it — otherwise a second
+      // command on the same highlight (bold, then colour) worked on a range that no longer exists.
+      var sN = document.getSelection();
+      if (sN && sN.rangeCount && !sN.isCollapsed && rangeHost(sN.getRangeAt(0))) lastRange = sN.getRangeAt(0).cloneRange();
+      var an = sN && sN.anchorNode;
       var w = an && (an.nodeType===1?an:an.parentElement).closest(W);
       if (w) parent.postMessage({ type:"lg-edit", id:w.getAttribute("data-lg-block"), html:w.innerHTML }, "*");
+      else parent.postMessage({ type:"lg-text-stale" }, "*");   // nothing to save = nothing happened
       return;
     }
   });

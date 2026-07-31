@@ -41,6 +41,12 @@ export function PublishDialog({
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreMsg, setRestoreMsg] = useState("");
   const canPublish = publishConfigured();
+  // Nothing was changed anywhere (this browser, the shared draft, or what is already live). Scanning
+  // 38 pages to tell someone that is ten seconds spent proving there is nothing to say.
+  const nothingToPublish =
+    Object.values(overrides).every((o) => !o || !Object.keys(o).length) &&
+    Object.values(bp).every((p) => !p || (!Object.keys(p.tablet ?? {}).length && !Object.keys(p.mobile ?? {}).length
+      && !Object.keys(p.hover ?? {}).length && !Object.keys(p.active ?? {}).length));
 
   const doPublish = async () => {
     setPubState("publishing"); setPubMsg(""); setPubDetail(""); setCopied(false);
@@ -73,6 +79,7 @@ export function PublishDialog({
   };
 
   useEffect(() => {
+    if (nothingToPublish) { setScanning(false); return; }
     let cancelled = false;
     (async () => {
       const out: PageReport[] = [];
@@ -111,7 +118,19 @@ export function PublishDialog({
           <button className="pub__x" onClick={onClose} title="Закрыть"><X size={18} /></button>
         </div>
 
-        {!reports ? (
+        {nothingToPublish ? (
+          <div className="pub__none">
+            <CheckCircle2 size={26} className="pub__ic pub__ic--ok" />
+            <p className="pub__none-t">Публиковать пока нечего</p>
+            <p className="pub__none-s">
+              Сайт уже соответствует последней публикации. Измените текст, фото или оформление на странице —
+              и правки появятся здесь вместе с проверкой SEO.
+            </p>
+            <div className="pub__actions">
+              <button className="pub__btn-primary" onClick={onClose}>Вернуться к правкам</button>
+            </div>
+          </div>
+        ) : !reports ? (
           <div className="pub__loading">
             <Loader2 size={22} className="pub__spin" />
             <p>Проверяю страницы… {progress} из {total}</p>

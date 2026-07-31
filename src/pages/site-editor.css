@@ -41,6 +41,18 @@
 .se__publish:hover:not(:disabled) { background: var(--accent-hover); }
 .se__publish:disabled { opacity: .5; cursor: default; }
 
+/* Transient notice (lost selection, storage full). Deliberately NOT the full-screen error state —
+   a hiccup must never take the client out of the page they are editing. */
+.se__toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 1200;
+  display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100vw - 40px));
+  padding: 11px 12px 11px 14px; border-radius: var(--r-md); border: 1px solid var(--glass-border);
+  box-shadow: var(--e2); color: var(--text); font-size: 13.5px; line-height: 1.45; }
+.se__toast > svg { flex: none; color: var(--warning); }
+.se__toast-t { flex: 1; }
+.se__toast-x { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+  border: 0; background: transparent; color: var(--text-muted); border-radius: var(--r-sm); cursor: pointer; }
+.se__toast-x:hover { background: var(--surface-2); color: var(--text); }
+
 /* Body: panel + canvas */
 .se__body { display: grid; grid-template-columns: 264px 1fr; grid-template-rows: minmax(0, 1fr); gap: 16px; flex: 1; min-height: 0; }
 .se__panel { border-radius: var(--r-lg); border: 1px solid var(--glass-border); box-shadow: var(--e1);
@@ -126,6 +138,9 @@
 .se__sizer { position: relative; margin: 0 auto; flex: 0 0 auto; }
 .se__stage { position: absolute; top: 0; left: 0; transform-origin: top left; }
 .se__frame { border: 0; border-radius: var(--r-md); background: #fff; box-shadow: var(--e2); display: block; }
+/* The canvas is the screen — while a page is on its way, say so rather than showing a void. */
+.se__canvas-empty { margin: auto; display: grid; place-items: center; gap: 10px; color: var(--text-muted); font-size: 14px; }
+.se__spin { color: var(--accent); animation: pub-spin 1s linear infinite; }
 
 /* Block-model (Zero-Block) editor: 3-column panel/canvas/inspector */
 .se--blocks .se__body { grid-template-columns: 260px 1fr 304px; }
@@ -345,6 +360,11 @@
 .pub__loading { padding: 48px 20px; display: grid; place-items: center; gap: 12px; color: var(--text-muted); }
 .pub__spin { color: var(--accent); animation: pub-spin 1s linear infinite; }
 @keyframes pub-spin { to { transform: rotate(360deg); } }
+/* Nothing changed yet — an answer, not a ten-second scan that ends in an empty list. */
+.pub__none { padding: 40px 28px 26px; display: grid; justify-items: center; text-align: center; gap: 8px; }
+.pub__none-t { margin: 4px 0 0; font-size: 16px; font-weight: 700; color: var(--text); }
+.pub__none-s { margin: 0; max-width: 42ch; font-size: 13.5px; line-height: 1.55; color: var(--text-muted); }
+.pub__none .pub__actions { margin-top: 12px; }
 
 .pub__summary { display: flex; flex-wrap: wrap; gap: 10px; padding: 16px 20px; }
 .pub__stat { flex: 1 1 90px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md);
@@ -418,3 +438,28 @@
   font: inherit; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: var(--r-sm); cursor: pointer; }
 .pub__version-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .pub__version-btn:disabled { opacity: .5; cursor: default; }
+
+/* First run: what this editor is and what happens when you press publish. Shown once, then on "?". */
+.intro__scrim { position: fixed; inset: 0; z-index: 1150; background: rgba(15, 10, 35, .42);
+  backdrop-filter: blur(3px); display: grid; place-items: center; padding: 24px; }
+.intro { width: min(620px, 100%); max-height: 88vh; overflow-y: auto; border-radius: var(--r-lg);
+  border: 1px solid var(--border); box-shadow: 0 24px 70px rgba(15, 10, 35, .35); padding: 22px 24px 18px; }
+.intro__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.intro__title { margin: 0; font-size: 19px; font-weight: 700; color: var(--text); letter-spacing: -.01em; }
+.intro__sub { margin: 5px 0 0; font-size: 13.5px; color: var(--text-muted); }
+.intro__x { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--r-sm);
+  background: transparent; color: var(--text-muted); cursor: pointer; }
+.intro__x:hover { background: var(--surface-2); color: var(--text); }
+.intro__steps { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 12px; }
+.intro__step { display: flex; align-items: flex-start; gap: 12px; }
+.intro__step b { display: block; font-size: 13.5px; color: var(--text); }
+.intro__step p { margin: 2px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+.intro__ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--r-md);
+  background: var(--accent-soft); color: var(--accent); }
+.intro__foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); }
+.intro__note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+.intro__btn { border: 0; background: var(--accent); color: #fff; font: inherit; font-size: 13.5px; font-weight: 600;
+  padding: 10px 22px; border-radius: var(--r-md); cursor: pointer; box-shadow: var(--e1); }
+.intro__btn:hover { background: var(--accent-hover); }
+.intro__btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
