@@ -22,6 +22,12 @@
 .se__toggle.is-on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
 .se__save { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--success); min-width: 92px; }
 
+/* "Reset styling" — the always-available way back out of an experiment, on any device. */
+.se__insp-reset { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 13px;
+  font-weight: 600; padding: 9px 12px; border-radius: var(--r-md); cursor: pointer; }
+.se__insp-reset:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
 /* Shared-draft (live editing) status pill — shows that edits are synced between client and agency. */
 .se__draft { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
   padding: 4px 10px; border-radius: var(--r-pill); white-space: nowrap; }

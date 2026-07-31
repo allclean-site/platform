@@ -79,14 +79,22 @@ export function SiteEditor() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   // Undo/redo: per-block html commands. lastHtml = current html per block (baseline for next command).
-  // An undo step is either a block's HTML (desktop edits) or a snapshot of the page's breakpoint
-  // rules (tablet/phone edits). Both must be undoable — style changes made on a device used to be
-  // invisible to Ctrl+Z, so a client could not step back out of a resize.
-  type Cmd =
-    | { kind: "html"; blockId: string; before: string; after: string }
-    | { kind: "bp"; pageId: string; before: string; after: string };
-  const history = useRef<Cmd[]>([]);
-  const future = useRef<Cmd[]>([]);
+  // ---- undo/redo: transactions, not per-message snapshots ----------------------------------------
+  // A page's state lives in TWO stores: block HTML (content + desktop inline styles) and the
+  // per-device rule layers. One user gesture routinely writes to both — resizing a row sets an inline
+  // height AND releases that height on tablet/phone. The old history recorded each store separately,
+  // so a single gesture produced two entries and one Ctrl+Z undid only half of it: visibly "undo does
+  // nothing". Now a gesture opens a TRANSACTION, every write records the previous value of the key it
+  // touches (once), and closing the transaction pushes ONE step covering both stores.
+  //
+  // Only touched keys are captured, so a step costs a few strings rather than a clone of the page.
+  type Snap = { blocks: Record<string, string | null>; bp: PageBp | null | undefined };
+  type Step = { pageId: string; before: Snap; after: Snap };
+  const history = useRef<Step[]>([]);
+  const future = useRef<Step[]>([]);
+  const txn = useRef<{ pageId: string; blocks: Record<string, string | null>; bp: PageBp | null | undefined } | null>(null);
+  const txnDepth = useRef(0);          // >0 while a gesture (drag) is in progress
+  const txnTimer = useRef<number | undefined>(undefined);
   const lastHtml = useRef<Record<string, string>>({});
   const lastEditAt = useRef(0); // for coalescing rapid typing into one undo entry
   const [histLen, setHistLen] = useState(0);
@@ -174,6 +182,70 @@ export function SiteEditor() {
     }, 1200);
   }, [session?.name]);
 
+  // ---- the single mutation gateway ---------------------------------------------------------------
+  // Every change to a page's stored state goes through writeBlock / writeBp. They keep persistence,
+  // draft sync and the undo transaction in step, so no code path can mutate state and forget one.
+
+  /** Remember a key's previous value the FIRST time this transaction touches it. */
+  const recordBlock = (pageId: string, blockId: string) => {
+    const t = txn.current;
+    if (!t || t.pageId !== pageId || blockId in t.blocks) return;
+    t.blocks[blockId] = overrides.current[pageId]?.[blockId] ?? null;
+  };
+  const recordBp = (pageId: string) => {
+    const t = txn.current;
+    if (!t || t.pageId !== pageId || t.bp !== undefined) return;
+    const cur = bpOverrides.current[pageId];
+    t.bp = cur ? (JSON.parse(JSON.stringify(cur)) as PageBp) : null;
+  };
+  const openTxn = (pageId: string) => { if (!txn.current) txn.current = { pageId, blocks: {}, bp: undefined }; };
+  /** Close the transaction and push ONE undo step describing everything it changed. */
+  const commitTxn = () => {
+    const t = txn.current; txn.current = null;
+    if (!t) return;
+    const before: Snap = { blocks: t.blocks, bp: t.bp };
+    const after: Snap = { blocks: {}, bp: undefined };
+    let changed = false;
+    for (const bid of Object.keys(t.blocks)) {
+      const now = overrides.current[t.pageId]?.[bid] ?? null;
+      after.blocks[bid] = now;
+      if (now !== t.blocks[bid]) changed = true;
+    }
+    if (t.bp !== undefined) {
+      const now = bpOverrides.current[t.pageId] ?? null;
+      after.bp = now ? (JSON.parse(JSON.stringify(now)) as PageBp) : null;
+      if (JSON.stringify(now) !== JSON.stringify(t.bp)) changed = true;
+    }
+    if (!changed) return;
+    history.current.push({ pageId: t.pageId, before, after });
+    if (history.current.length > 100) history.current.shift();
+    future.current = [];
+    setHistLen(history.current.length);
+  };
+  /** Discrete edits (a keystroke, a slider tick) have no gesture end — close them on a short idle,
+   *  which also coalesces a burst of typing into one undo step. Drags hold the transaction open. */
+  const autoCommit = () => {
+    window.clearTimeout(txnTimer.current);
+    txnTimer.current = window.setTimeout(() => { if (txnDepth.current === 0) commitTxn(); }, 400);
+  };
+
+  const writeBlock = (pageId: string, blockId: string, html: string | null) => {
+    openTxn(pageId); recordBlock(pageId, blockId);
+    const page = (overrides.current[pageId] ??= {});
+    if (html === null) { delete page[blockId]; if (!Object.keys(page).length) delete overrides.current[pageId]; }
+    else page[blockId] = html;
+    saveOverrides(TENANT, SITE, overrides.current);
+    scheduleDraft(pageId);
+    autoCommit();
+  };
+  const writeBp = (pageId: string, rules: PageBp) => {
+    openTxn(pageId); recordBp(pageId);
+    bpOverrides.current[pageId] = rules;
+    saveBp(TENANT, SITE, bpOverrides.current);
+    scheduleDraft(pageId);
+    autoCommit();
+  };
+
   useEffect(() => {
     fetch(`${DATA}/_pages.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`index ${r.status}`))))
@@ -222,53 +294,23 @@ export function SiteEditor() {
         win?.postMessage({ type: "lg-device", breakpoint: device }, "*");
         win?.postMessage({ type: "lg-zoom", zoom }, "*");
       }
+      // Gesture boundaries from the runtime: everything between them is ONE undo step.
+      else if (d.type === "lg-txn-begin" && page) { txnDepth.current++; window.clearTimeout(txnTimer.current); openTxn(page.id); }
+      else if (d.type === "lg-txn-end") { txnDepth.current = Math.max(0, txnDepth.current - 1); if (txnDepth.current === 0) commitTxn(); }
       else if (d.type === "lg-bp-changed" && page) {
-        // Record the change so Ctrl+Z can step back out of a tablet/phone style edit too.
-        const beforeBp = JSON.stringify(bpOverrides.current[page.id] ?? mergedBp(page.id) ?? emptyPageBp());
-        const afterBp = JSON.stringify(d.rules);
-        if (beforeBp !== afterBp) {
-          history.current.push({ kind: "bp", pageId: page.id, before: beforeBp, after: afterBp });
-          if (history.current.length > 200) history.current.shift();
-          future.current = [];
-          setHistLen(history.current.length);
-        }
-        bpOverrides.current[page.id] = d.rules as PageBp;
+        writeBp(page.id, d.rules as PageBp);
         setBpTick((t) => t + 1);
-        setSaveState("saving");
-        clearTimeout(saveTimer.current);
-        saveTimer.current = window.setTimeout(() => { saveBp(TENANT, SITE, bpOverrides.current); setSaveState("saved"); }, 400);
-        scheduleDraft(page.id);
+        setSaveState("saved");
       }
       else if (d.type === "lg-edit" && page) {
-        const before = lastHtml.current[d.id];
-        if (before !== undefined && before !== d.html && !d.silent) {
-          const now = Date.now();
-          const top = history.current[history.current.length - 1];
-          // Coalesce: successive edits to the same block within 800ms extend the same undo entry
-          // (so typing a word is one undo, not one-per-keystroke-pause).
-          if (top && top.kind === "html" && top.blockId === d.id && now - lastEditAt.current < 800) {
-            top.after = d.html;
-          } else {
-            history.current.push({ kind: "html", blockId: d.id, before, after: d.html });
-            if (history.current.length > 200) history.current.shift();
-            setHistLen(history.current.length);
-          }
-          future.current = [];
-          lastEditAt.current = now;
-        }
         // The iframe serves assets under /site-assets/*, so its innerHTML carries preview paths.
         // Strip them back to canonical root paths BEFORE storing — otherwise every save appended
         // another prefix and the published page pointed at a path nothing serves (404 video/images).
         d.html = toCanonical(d.html);
+        if (d.html === lastHtml.current[d.id]) return;   // nothing actually changed
         lastHtml.current[d.id] = d.html;
-        (overrides.current[page.id] ??= {})[d.id] = d.html;
-        setSaveState("saving");
-        clearTimeout(saveTimer.current);
-        saveTimer.current = window.setTimeout(() => {
-          saveOverrides(TENANT, SITE, overrides.current);
-          setSaveState("saved");
-        }, 500);
-        scheduleDraft(page.id);
+        writeBlock(page.id, d.id, d.html);
+        setSaveState("saved");
       }
     }
     window.addEventListener("message", onMsg);
@@ -346,6 +388,11 @@ export function SiteEditor() {
     if (!selEl) return;
     frameRef.current?.contentWindow?.postMessage({ type: "lg-elem-delete", blockId: selEl.blockId, el: selEl.el }, "*");
   };
+  /** Undo everything we ever styled on this element — inline styles AND its rules on every device. */
+  const resetEl = () => {
+    if (!selEl) return;
+    frameRef.current?.contentWindow?.postMessage({ type: "lg-elem-reset", blockId: selEl.blockId, el: selEl.el }, "*");
+  };
   // Edit the options of a selected <select> (form dropdown) → write them back to the option elements.
   const setSelectOptions = (options: { value: string; label: string }[]) => {
     if (!selEl) return;
@@ -359,39 +406,56 @@ export function SiteEditor() {
   const selectCrumb = (id: string) =>
     frameRef.current?.contentWindow?.postMessage({ type: "lg-select-el", el: id }, "*");
 
+  /** Push a block's HTML into the iframe (assets in preview form) — used by history and by edits. */
+  const pushHtmlToFrame = (blockId: string, html: string) =>
+    frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html: toPreview(html) }, "*");
+
   const applyHtml = (blockId: string, html: string) => {
     if (!page) return;
-    html = toCanonical(html);            // store canonical…
+    html = toCanonical(html);
     lastHtml.current[blockId] = html;
-    (overrides.current[page.id] ??= {})[blockId] = html;
-    saveOverrides(TENANT, SITE, overrides.current);
-    scheduleDraft(page.id);
-    // …but the iframe serves assets from /site-assets, so it needs the preview form to display them.
-    frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html: toPreview(html) }, "*");
+    writeBlock(page.id, blockId, html);
+    pushHtmlToFrame(blockId, html);
     setSelEl(null); setTextSel(null); setSaveState("saved");
   };
-  /** Put a page's breakpoint rules back and re-render the generated stylesheet in the iframe. */
-  const applyBp = (pageId: string, snapshot: string) => {
-    const rules = JSON.parse(snapshot) as PageBp;
-    bpOverrides.current[pageId] = rules;
-    saveBp(TENANT, SITE, bpOverrides.current);
+
+  /**
+   * Restore one side of a transaction. Writes go straight to the stores: replaying history must NOT
+   * be recorded as new history (that is the classic "undo undoes itself" loop), so this deliberately
+   * bypasses the transaction gateway and re-renders from the restored state instead.
+   */
+  const applySnap = (pageId: string, snap: Snap) => {
+    for (const blockId of Object.keys(snap.blocks)) {
+      const html = snap.blocks[blockId];
+      const pageOv = (overrides.current[pageId] ??= {});
+      if (html === null) { delete pageOv[blockId]; }
+      else { pageOv[blockId] = html; lastHtml.current[blockId] = html; }
+      if (!Object.keys(pageOv).length) delete overrides.current[pageId];
+      // A removed override means "back to the base markup" — reload the page to get it verbatim.
+      if (html === null) { loadPage(activeFile); } else { pushHtmlToFrame(blockId, html); }
+    }
+    if (snap.bp !== undefined) {
+      const rules = (snap.bp ?? emptyPageBp()) as PageBp;
+      if (snap.bp === null) delete bpOverrides.current[pageId]; else bpOverrides.current[pageId] = rules;
+      saveBp(TENANT, SITE, bpOverrides.current);
+      frameRef.current?.contentWindow?.postMessage({ type: "lg-bp-init", rules }, "*");
+      setBpTick((t) => t + 1);
+    }
+    saveOverrides(TENANT, SITE, overrides.current);
     scheduleDraft(pageId);
-    frameRef.current?.contentWindow?.postMessage({ type: "lg-bp-init", rules }, "*");
-    setBpTick((t) => t + 1);
-    setSaveState("saved");
+    setSelEl(null); setTextSel(null); setSaveState("saved");
   };
-  const step = (cmd: Cmd, to: "before" | "after") =>
-    cmd.kind === "html" ? applyHtml(cmd.blockId, cmd[to]) : applyBp(cmd.pageId, cmd[to]);
 
   const undo = () => {
-    const cmd = history.current.pop(); if (!cmd) return;
-    future.current.push(cmd); setHistLen(history.current.length);
-    step(cmd, "before");
+    commitTxn();                                  // close anything still open, so it can be undone
+    const s = history.current.pop(); if (!s) return;
+    future.current.push(s); setHistLen(history.current.length);
+    applySnap(s.pageId, s.before);
   };
   const redo = () => {
-    const cmd = future.current.pop(); if (!cmd) return;
-    history.current.push(cmd); setHistLen(history.current.length);
-    step(cmd, "after");
+    const s = future.current.pop(); if (!s) return;
+    history.current.push(s); setHistLen(history.current.length);
+    applySnap(s.pageId, s.after);
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -461,9 +525,8 @@ export function SiteEditor() {
   const deleteBlock = (blockId: string) => {
     if (!page) return;
     if (!window.confirm("Удалить эту секцию? Её можно вернуть кнопкой ↩ в списке блоков.")) return;
-    (overrides.current[page.id] ??= {})[blockId] = "";
-    saveOverrides(TENANT, SITE, overrides.current);
-    scheduleDraft(page.id);
+    writeBlock(page.id, blockId, "");
+    commitTxn();                       // deleting a section is one deliberate step
     if (selected === blockId) { setSelected(null); setSelEl(null); }
     setSaveState("saved");
     loadPage(activeFile);
@@ -471,13 +534,11 @@ export function SiteEditor() {
 
   const restoreBlock = (blockId: string) => {
     if (!page) return;
-    const po = overrides.current[page.id];
-    if (po) { delete po[blockId]; if (!Object.keys(po).length) delete overrides.current[page.id]; }
+    writeBlock(page.id, blockId, null);   // drop the override → back to the base markup
+    commitTxn();
     // Also drop it from the shared draft — otherwise the next pull would resurrect the deleted section.
     const dpo = draftOv.current[page.id];
     if (dpo) { delete dpo[blockId]; if (!Object.keys(dpo).length) delete draftOv.current[page.id]; }
-    saveOverrides(TENANT, SITE, overrides.current);
-    scheduleDraft(page.id);
     setSaveState("saved");
     loadPage(activeFile);
   };
@@ -655,6 +716,12 @@ export function SiteEditor() {
               )}
               {edit && (
                 <div className="se__insp-actions">
+                  {/* Works on every device, unlike «Сбросить экран» which only clears the current
+                      breakpoint — a desktop experiment used to have no way back. */}
+                  <button className="se__insp-reset" title="Вернуть элементу исходное оформление на всех экранах"
+                    onClick={resetEl}>
+                    <RotateCcw size={15} /> Сбросить оформление
+                  </button>
                   <button className="se__insp-del se__insp-del--el" title="Удалить только этот элемент"
                     onClick={deleteEl}>
                     <Trash2 size={15} /> Удалить элемент

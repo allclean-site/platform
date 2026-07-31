@@ -59,6 +59,8 @@ export function cleanHtml(html, keepIds) {
     .replace(/\s+contenteditable="true"/g, "")
     .replace(/\s+spellcheck="false"/g, "")
     .replace(/\s+data-lg-el="[^"]*"/g, "")
+    // the stashed "original inline style" used by the element reset — editor bookkeeping, never shipped
+    .replace(/\s+data-lg-style0="[^"]*"/g, "")
     .replace(/\s+data-lg-id="([^"]*)"/g, (m, id) => (keepIds && keepIds.has(id) ? m : ""))
     // Only touch class attributes that actually carry the transient selection class → unedited markup
     // (and its exact whitespace) stays byte-identical.

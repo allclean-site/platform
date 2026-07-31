@@ -76,7 +76,7 @@ ${CORE_INLINE}
     for (var i=0;i<kids.length;i++){
       var t = kids[i].tagName; if (t==="SCRIPT"||t==="STYLE") continue;
       if (val === "") kids[i].style.removeProperty(prop);
-      else kids[i].style.setProperty(prop, val, "important");
+      else { stashOriginal(kids[i]); kids[i].style.setProperty(prop, val, "important"); }
     }
   }
   function renderOverrides(){
@@ -376,9 +376,22 @@ ${CORE_INLINE}
   }
   function hideSelBox(){ if (selBox) selBox.style.display = "none"; }
   // Set a CSS prop on an element, routed to the current breakpoint (inline base OR @media rule).
+  // A gesture (a drag, a slider sweep) is ONE undo step. The runtime marks its boundaries so the host
+  // can group every change it produces — including ones that land in different stores — into a single
+  // transaction. Without this a drag that touches both the markup and the device rules produced two
+  // history entries, so one Ctrl+Z only undid half of it and looked like undo was broken.
+  function txnBegin(){ parent.postMessage({ type:"lg-txn-begin" }, "*"); }
+  function txnEnd(){ parent.postMessage({ type:"lg-txn-end" }, "*"); }
+
+  // Remember an element's ORIGINAL inline style the first time we touch it, so "reset" can restore
+  // exactly what the site shipped instead of guessing which declarations were ours.
+  function stashOriginal(el){
+    if (el.hasAttribute("data-lg-style0")) return;
+    el.setAttribute("data-lg-style0", el.getAttribute("style") || "");
+  }
   function setStyleProp(el, prop, val, prio){
     var id = el.getAttribute("data-lg-id");
-    if (curBp === "desktop"){ el.style.setProperty(prop, val, prio || ""); }
+    if (curBp === "desktop"){ stashOriginal(el); el.style.setProperty(prop, val, prio || ""); }
     else {
       var store = bp[curBp] || (bp[curBp] = {}), rec = store[id] || (store[id] = {});
       if (val === "") delete rec[prop]; else rec[prop] = val;
@@ -422,7 +435,7 @@ ${CORE_INLINE}
     var vStartH = vTarget.getBoundingClientRect().height;
     var vId = vTarget.getAttribute("data-lg-id");
     var touchedBp = false;
-    isDragging = true; hideHover();
+    isDragging = true; hideHover(); txnBegin();   // whole drag = one undo step
     function move(ev){
       var dw = ev.clientX - startX, dh = ev.clientY - startY, w = startW, h = startH;
       if (dir.indexOf("e") >= 0) w = Math.max(20, startW + dw);
@@ -467,6 +480,7 @@ ${CORE_INLINE}
       commitStyle(el);
       // The auto tablet/mobile release above lives in the breakpoint layers — persist it too.
       if (touchedBp) parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*");
+      txnEnd();
       select(el); // refresh panel (width/height changed)
     }
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
@@ -672,6 +686,33 @@ ${CORE_INLINE}
     // Replace media from the gallery/upload — handles <img> and <video>, INCLUDING cross-type swap
     // (photo↔video): a mismatching pick replaces the element, keeping its id/class/style so it stays
     // styled + selectable.
+    // Reset an element's styling back to what the site originally shipped: restore the stashed inline
+    // style AND drop every generated rule keyed to it (base cascade, tablet, phone, hover, active).
+    // Previously only tablet/phone had a reset, so a desktop experiment had no way back.
+    if (d.type === "lg-elem-reset"){
+      var rel = findEl(d.blockId, d.el); if (!rel) return;
+      txnBegin();
+      var orig = rel.getAttribute("data-lg-style0");
+      if (orig !== null){ if (orig) rel.setAttribute("style", orig); else rel.removeAttribute("style"); rel.removeAttribute("data-lg-style0"); }
+      else { rel.removeAttribute("style"); }
+      // Descendants may carry the forced text cascade from an older edit — clear that too.
+      var rk = rel.querySelectorAll("[data-lg-style0]");
+      for (var ri = 0; ri < rk.length; ri++){
+        var o2 = rk[ri].getAttribute("data-lg-style0");
+        if (o2) rk[ri].setAttribute("style", o2); else rk[ri].removeAttribute("style");
+        rk[ri].removeAttribute("data-lg-style0");
+      }
+      var layers = ["base","tablet","mobile","hover","active"];
+      for (var li = 0; li < layers.length; li++){
+        var st = bp[layers[li]]; if (st && st[d.el]) delete st[d.el];
+      }
+      renderOverrides();
+      parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*");
+      save(d.blockId);
+      txnEnd();
+      select(rel);
+      return;
+    }
     if (d.type === "lg-media-set"){
       var mel = findEl(d.blockId, d.el); if (!mel) return;
       var isVid = mel.tagName === "VIDEO";
@@ -770,6 +811,7 @@ ${CORE_INLINE}
           // For inheritable props we ALSO force nested spans — but via the BASE stylesheet layer
           // ([data-lg-id] *{…!important}), NOT inline !important, so tablet/mobile @media can override.
           var baseChg = false;
+          stashOriginal(el);   // keep the site's own inline style so "Сбросить оформление" is exact
           decls(d.style).forEach(function(pv){
             el.style.setProperty(pv[0], pv[1]);
             if (CASCADE[pv[0]]){
