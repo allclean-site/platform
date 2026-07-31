@@ -58,7 +58,8 @@
 .se__locale.is-active { background: var(--surface); color: var(--accent); box-shadow: var(--e1); }
 .se__pages { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .se__page { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: var(--r-md); cursor: pointer;
-  border: 1px solid transparent; }
+  border: 1px solid transparent; width: 100%; text-align: left; background: transparent; font: inherit; color: inherit; }
+.se__page:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
 .se__page:hover { background: var(--surface-2); }
 .se__page.is-active { background: var(--accent-soft); border-color: transparent; }
 .se__page.is-active .se__page-name { color: var(--accent); }
@@ -68,7 +69,10 @@
 .se__block { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: var(--r-sm);
   font-size: 13px; font-weight: 500; border: 1px solid transparent; cursor: pointer; }
 .se__block.is-selected { background: var(--accent-soft); color: var(--accent); }
-.se__block-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.se__block-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 0; background: transparent; font: inherit; color: inherit; text-align: left; padding: 0; cursor: pointer; }
+.se__block-label:disabled { cursor: default; }
+.se__block-label:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: 4px; }
 .se__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
 .se__block-btn { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border: 0; border-radius: 6px;
   background: transparent; color: var(--text-muted); cursor: pointer; opacity: .5; transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease), background var(--dur) var(--ease); }
@@ -391,3 +395,8 @@
 .pub__copy { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); background: var(--surface);
   color: var(--text); font: inherit; font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: var(--r-sm); cursor: pointer; }
 .pub__copy:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Slim progress line shown while the remaining pages are still being checked — the summary and the
+   edited pages are already usable above it. */
+.pub__scanline { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 12.5px;
+  color: var(--text-muted); }

@@ -13,7 +13,7 @@ import { previewDoc } from "../editor/preview";
 import { applyOverrides, loadOverrides, saveOverrides, mergeOverrideLayers,
   type SiteOverrides, type PageOverrides, type StoredSiteOverrides } from "../editor/realStore";
 import { fetchPublishedOverrides } from "../editor/overridesClient";
-import { fetchDraft, saveDraftPage, draftConfigured, type DraftMeta } from "../editor/draftClient";
+import { fetchDraft, saveDraftPage, beaconDraftPage, draftConfigured, type DraftMeta } from "../editor/draftClient";
 import { toCanonical, toPreview, canonicalizeOverrides } from "../editor/assetPaths";
 import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
@@ -78,7 +78,7 @@ export function SiteEditor() {
   const [, setBpTick] = useState(0); // bump to re-render device-tab dots after a bp change
   const frameRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const saveTimer = useRef<number | undefined>(undefined);
+  const settleTimers = useRef<number[]>([]);   // re-measure passes for the current iframe load
   // ---- undo/redo: transactions, not per-message snapshots ----------------------------------------
   // A page's state lives in TWO stores: block HTML (content + desktop inline styles) and the
   // per-device rule layers. One user gesture routinely writes to both — resizing a row sets an inline
@@ -221,6 +221,37 @@ export function SiteEditor() {
     }, 1200);
   }, [session?.name]);
 
+  /**
+   * Send anything the debounce still owes before the tab goes away. Closing the tab (or switching
+   * away on a phone, where the browser may never come back) otherwise dropped up to 1.2s of edits:
+   * they stayed in this browser and the other side never saw them, while the pill still read
+   * "синхронизирую…".
+   */
+  const flushDrafts = useCallback(() => {
+    const pending = Object.keys(draftTimers.current);
+    if (!pending.length || !draftConfigured()) return;
+    for (const pageId of pending) {
+      window.clearTimeout(draftTimers.current[pageId]);
+      delete draftTimers.current[pageId];
+      const ov = mergeOverrideLayers(draftOv.current[pageId], overrides.current[pageId]);
+      beaconDraftPage("allclean", pageId, ov, mergedBp(pageId), session?.name || "");
+    }
+  }, [session?.name]);
+
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === "hidden") flushDrafts(); };
+    window.addEventListener("pagehide", flushDrafts);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flushDrafts);
+      document.removeEventListener("visibilitychange", onHide);
+      flushDrafts();          // leaving the editor for another screen counts too
+      Object.values(draftTimers.current).forEach((t) => window.clearTimeout(t));
+      settleTimers.current.forEach((t) => window.clearTimeout(t));
+      window.clearTimeout(txnTimer.current);
+    };
+  }, [flushDrafts]);
+
   // ---- the single mutation gateway ---------------------------------------------------------------
   // Every change to a page's stored state goes through writeBlock / writeBp. They keep persistence,
   // draft sync and the undo transaction in step, so no code path can mutate state and forget one.
@@ -289,11 +320,16 @@ export function SiteEditor() {
 
   const writeBlock = (pageId: string, blockId: string, html: string | null) => {
     openTxn(pageId); recordBlock(pageId, blockId);
+    setSaveState("saving");
     const page = (overrides.current[pageId] ??= {});
     // A tombstone, not a deletion: "this block has no override" has to be stated so it survives the
     // merge with the shared draft and the published layer (that is what makes undo stick for others).
     page[blockId] = html;
-    saveOverrides(TENANT, SITE, overrides.current);
+    if (!saveOverrides(TENANT, SITE, overrides.current)) {
+      setErr("Не удалось сохранить правку в этом браузере: закончилось место. Опубликуйте изменения или очистите данные сайта.");
+      return;
+    }
+    setSaveState("saved");
     scheduleDraft(pageId);
     autoCommit();
   };
@@ -301,6 +337,7 @@ export function SiteEditor() {
     openTxn(pageId); recordBp(pageId);
     bpOverrides.current[pageId] = rules;
     saveBp(TENANT, SITE, bpOverrides.current);
+    setSaveState("saved");
     scheduleDraft(pageId);
     autoCommit();
   };
@@ -485,14 +522,6 @@ export function SiteEditor() {
   const pushHtmlToFrame = (blockId: string, html: string) =>
     frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html: toPreview(html) }, "*");
 
-  const applyHtml = (blockId: string, html: string) => {
-    if (!page) return;
-    html = toCanonical(html);
-    lastHtml.current[blockId] = html;
-    writeBlock(page.id, blockId, html);
-    pushHtmlToFrame(blockId, html);
-    setSelEl(null); setTextSel(null); setSaveState("saved");
-  };
 
   /**
    * Restore one side of a transaction. Writes go straight to the stores: replaying history must NOT
@@ -576,7 +605,10 @@ export function SiteEditor() {
     // moment after load, so a single pass at load can miss them → the gallery would differ per browser.
     const doIndex = () => { const doc = frameRef.current?.contentDocument; if (doc) indexMediaFromDoc(TENANT, doc); };
     measure(); doIndex();
-    [400, 1200, 2500, 5000].forEach((t) => setTimeout(() => { measure(); doIndex(); }, t));
+    // Cancel the previous page's pending passes: clicking through pages otherwise piles up callbacks
+    // that re-measure and rebuild the media library against whichever document happens to be loaded.
+    settleTimers.current.forEach((t) => window.clearTimeout(t));
+    settleTimers.current = [400, 1200, 2500, 5000].map((t) => window.setTimeout(() => { measure(); doIndex(); }, t));
   };
   // Switching device does NOT reload the iframe — tell the runtime the new breakpoint (so edits route
   // correctly + the panel refreshes) and re-measure height, since a narrower page reflows taller.
@@ -627,11 +659,17 @@ export function SiteEditor() {
     // Both edit layers: content overrides (per-block html) + breakpoint overrides (@media rules).
     const payload = { overrides: allOverrides(), breakpoints: allBp() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    // The anchor has to be in the document, and the URL must outlive the click, or the download
+    // silently never starts outside Chromium — and this is the only publish route when the endpoint
+    // isn't configured.
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = "edits.json";
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(a.href);
+    window.setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
   };
 
   if (err) return <div className="se-error">Ошибка загрузки: {err}</div>;
@@ -706,9 +744,14 @@ export function SiteEditor() {
               )}
               <ul className="se__pages">
                 {localePages.map((p) => (
-                  <li key={p.file} className={"se__page" + (activeFile === p.file ? " is-active" : "")} onClick={() => setActiveFile(p.file)}>
-                    <span className="se__page-name">{p.title.replace(/ [—|].*$/, "")}</span>
-                    <span className="se__page-slug">{p.slug}</span>
+                  <li key={p.file}>
+                    {/* a real button: the page list was unreachable by keyboard entirely */}
+                    <button type="button" aria-current={activeFile === p.file ? "page" : undefined}
+                      className={"se__page" + (activeFile === p.file ? " is-active" : "")}
+                      onClick={() => setActiveFile(p.file)}>
+                      <span className="se__page-name">{p.title.replace(/ [—|].*$/, "")}</span>
+                      <span className="se__page-slug">{p.slug}</span>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -727,9 +770,10 @@ export function SiteEditor() {
               const edited = !removed && overrides.current[page?.id ?? ""]?.[b.id] != null;
               return (
                 <li key={b.id}
-                  className={"se__block" + (selected === b.id ? " is-selected" : "") + (removed ? " is-removed" : "")}
-                  onClick={() => !removed && scrollToBlock(b.id)}>
-                  <span className="se__block-label">{b.label}{removed ? " · удалён" : ""}</span>
+                  className={"se__block" + (selected === b.id ? " is-selected" : "") + (removed ? " is-removed" : "")}>
+                  {/* the label itself is the control, so the list is reachable by keyboard */}
+                  <button type="button" className="se__block-label" disabled={removed}
+                    onClick={() => !removed && scrollToBlock(b.id)}>{b.label}{removed ? " · удалён" : ""}</button>
                   {edited && <span className="se__dot" title="изменён" />}
                   {removed ? (
                     <button className="se__block-btn" title="Вернуть секцию"

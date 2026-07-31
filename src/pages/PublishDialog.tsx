@@ -28,6 +28,7 @@ export function PublishDialog({
 }) {
   const [reports, setReports] = useState<PageReport[] | null>(null);
   const [progress, setProgress] = useState(0);
+  const [scanning, setScanning] = useState(true);
   const [pubState, setPubState] = useState<"idle" | "publishing" | "done" | "error">("idle");
   const [pubMsg, setPubMsg] = useState("");
   const [pubDetail, setPubDetail] = useState("");
@@ -49,7 +50,12 @@ export function PublishDialog({
     let cancelled = false;
     (async () => {
       const out: PageReport[] = [];
-      for (const entry of index.pages) {
+      // Check the pages the client actually changed FIRST. Scanning all 38 before showing anything
+      // meant a ten-second wait for someone who edited one heading; now their pages — the only ones
+      // whose result can change the decision — are on screen almost immediately.
+      const edited = (e: { id: string }) => (overrides[e.id] && Object.keys(overrides[e.id]).length) || (bp[e.id] ? 1 : 0);
+      const order = [...index.pages].sort((a, b) => Number(!!edited(b)) - Number(!!edited(a)));
+      for (const entry of order) {
         try {
           const p: ImportedPage = await fetch(`${dataBase}/${entry.file}.json`).then((r) => r.json());
           out.push(reportForPage(p, overrides, bp));
@@ -58,8 +64,9 @@ export function PublishDialog({
         }
         if (cancelled) return;
         setProgress(out.length);
+        setReports([...out]);      // show results as they arrive instead of one long blank wait
       }
-      if (!cancelled) setReports(out);
+      if (!cancelled) setScanning(false);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,6 +92,11 @@ export function PublishDialog({
           </div>
         ) : (
           <>
+            {scanning && (
+              <p className="pub__scanline" role="status" aria-live="polite">
+                <Loader2 size={14} className="pub__spin" /> Проверено {progress} из {total} — изменённые страницы первыми
+              </p>
+            )}
             <div className="pub__summary">
               <div className="pub__stat"><b>{total}</b><span>страниц</span></div>
               <div className="pub__stat"><b>{edits}</b><span>правок</span></div>
@@ -109,7 +121,9 @@ export function PublishDialog({
                         ? <AlertTriangle size={15} className="pub__ic pub__ic--warn" />
                         : <CheckCircle2 size={15} className="pub__ic pub__ic--ok" />}
                     <span className="pub__page-title">{r.title.replace(/ [—|].*$/, "")}</span>
-                    <span className="pub__page-slug">{r.lang !== index.defaultLocale ? `/${r.lang}` : ""}{r.slug}</span>
+                    {/* the stored slug already carries the locale prefix — adding it again showed
+                        clients "/ru/ru/about" in the one place they check what is going live */}
+                    <span className="pub__page-slug">{r.slug}</span>
                     {r.edits > 0 && <span className="pub__page-edits">{r.edits} правок</span>}
                   </div>
                   {r.issues.length > 0 && (

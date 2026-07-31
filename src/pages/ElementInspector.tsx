@@ -180,13 +180,13 @@ export function ElementInspector({ sel, patch, onReplaceImage, breakpoint = "des
             </div>
             <Row label="Цвет текста" over={!!cur?.over.color} onReset={() => onResetState?.(stateTab, "color")}>
               <label className="pi__swatch" style={{ background: cur?.color || s.color }}>
-                <input type="color" value={cur?.color || s.color} onChange={(e) => onState?.(stateTab, { color: e.target.value })} />
+                <input type="color" aria-label="Выбор цвета" value={cur?.color || s.color} onChange={(e) => onState?.(stateTab, { color: e.target.value })} />
               </label>
               <span className="pi__hex">{cur?.color || "как обычно"}</span>
             </Row>
             <Row label="Цвет фона" over={!!cur?.over.background} onReset={() => onResetState?.(stateTab, "background")}>
               <label className="pi__swatch" style={{ background: cur?.background || "#ffffff" }}>
-                <input type="color" value={cur?.background || "#ffffff"} onChange={(e) => onState?.(stateTab, { background: e.target.value })} />
+                <input type="color" aria-label="Выбор цвета" value={cur?.background || "#ffffff"} onChange={(e) => onState?.(stateTab, { background: e.target.value })} />
               </label>
               <span className="pi__hex">{cur?.background || "как обычно"}</span>
             </Row>
@@ -221,7 +221,7 @@ export function ElementInspector({ sel, patch, onReplaceImage, breakpoint = "des
           </Row>
           <Row label="Цвет" hint="Цвет всего текста. Чтобы покрасить часть — выделите её и жмите цвет на панельке." {...bp("color")}>
             <label className="pi__swatch" style={{ background: s.color }}>
-              <input type="color" value={s.color} onChange={(e) => st("color")(e.target.value)} />
+              <input type="color" aria-label="Выбор цвета" value={s.color} onChange={(e) => st("color")(e.target.value)} />
             </label>
             <span className="pi__hex">{s.color}</span>
           </Row>
@@ -312,7 +312,7 @@ export function ElementInspector({ sel, patch, onReplaceImage, breakpoint = "des
       <Section title="Фон" icon={PaintBucket} defaultOpen={false}>
         <Row label="Цвет фона" {...bp("background")}>
           <label className="pi__swatch" style={{ background: s.background || "transparent" }}>
-            <input type="color" value={s.background || "#ffffff"} onChange={(e) => st("background")(e.target.value)} />
+            <input type="color" aria-label="Выбор цвета" value={s.background || "#ffffff"} onChange={(e) => st("background")(e.target.value)} />
           </label>
           <span className="pi__hex">{s.background || "нет"}</span>
         </Row>

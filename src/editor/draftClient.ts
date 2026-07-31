@@ -71,6 +71,30 @@ export async function saveDraftPage(
   return d ? (d.updatedAt as string) : null;
 }
 
+/**
+ * Last-chance send when the tab is closing. A normal fetch is abandoned as the page goes away, so a
+ * client who types and immediately closes the tab loses whatever the debounce had not yet pushed;
+ * sendBeacon is queued by the browser and survives the unload.
+ */
+export function beaconDraftPage(
+  project: string,
+  pageId: string,
+  overrides: PageOverrides,
+  breakpoints: PageBp | undefined,
+  by: string
+): boolean {
+  const p = publishConfig();
+  if (!p.endpoint || !p.editKey || typeof navigator === "undefined" || !navigator.sendBeacon) return false;
+  const body = JSON.stringify({
+    editKey: p.editKey, project, action: "save", pageId, overrides, breakpoints: breakpoints || {}, by,
+  });
+  try {
+    return navigator.sendBeacon(endpointFor(p.endpoint), new Blob([body], { type: "application/json" }));
+  } catch {
+    return false;
+  }
+}
+
 /** Drop the shared draft (whole project, or one page) — used after a successful publish. */
 export async function clearDraft(project: string, pageId?: string): Promise<boolean> {
   return Boolean(await call({ project, action: "clear", ...(pageId ? { pageId } : {}) }));
