@@ -42,6 +42,24 @@ export function fluidFont(v) {
 }
 
 /**
+ * A link the client typed, made safe to publish.
+ *
+ * The URL field and the link popover take free text and the result is written straight into the live
+ * page, so `javascript:` (or `data:`, or `vbscript:`) would ship as stored XSS on the client's own
+ * site — running for every visitor. Anything that is not a known navigation scheme becomes "#": the
+ * link stays where it is and simply goes nowhere, which is visible and fixable, unlike a silent drop.
+ *
+ * Control characters are stripped before the check because `java&#9;script:` still executes.
+ */
+export function safeHref(v) {
+  const s = String(v == null ? "" : v);
+  const probe = s.replace(/[\u0000-\u0020\u007F-\u00A0]/g, "").toLowerCase();
+  if (!probe) return s;                                     // empty href: nothing to exploit
+  if (!/^[a-z][a-z0-9+.-]*:/.test(probe)) return s;         // relative path, /path, #anchor, ?query
+  return /^(?:https?|mailto|tel|sms|callto|viber|whatsapp|geo):/.test(probe) ? s : "#";
+}
+
+/**
  * Strip editor-only attributes from a block's HTML. `keepIds` = the data-lg-id values still needed as
  * `@media` selector hooks (kept); every other data-lg-id is removed.
  *
@@ -50,6 +68,13 @@ export function fluidFont(v) {
  */
 export function cleanHtml(html, keepIds) {
   return html
+    // Defence in depth: whatever is already stored (or arrives from another editor) is neutralised on
+    // its way out, so a build can never publish an executable link. A safe href is returned byte-for-
+    // byte, keeping the unedited-mirror invariant.
+    .replace(/(<a\b[^>]*?\shref=)(["'])([^"']*)\2/gi, (m, pre, q, url) => {
+      const safe = safeHref(url);
+      return safe === url ? m : pre + q + safe + q;
+    })
     // The editor iframe serves assets under /site-assets/*; an older save path stored that preview
     // prefix into the block (gaining one more on every save) and published a url nothing serves —
     // a 404'd hero video showing as a white box. Collapsing it here means every build self-heals,

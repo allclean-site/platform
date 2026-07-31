@@ -446,6 +446,68 @@ ${CORE_INLINE}
   function isAutoText(el){
     return el.isContentEditable || /^(H[1-6]|P|LI|BLOCKQUOTE|FIGCAPTION|DT|DD)$/.test(el.tagName);
   }
+  // ---- pasting -----------------------------------------------------------------------------------
+  // Text pasted from Word, Google Docs or a web page arrives as full markup: foreign fonts and colours,
+  // mso-* declarations, <o:p> tags, and images pointing at file:///…/clip_image001.png that exist only
+  // on the author's own machine. None of that was ever cleaned, so it went into the client's published
+  // site as-is. Keep the meaning of the text — bold, italic, links, lists — and drop the rest.
+  var PASTE_KEEP = { B:1, STRONG:1, I:1, EM:1, U:1, BR:1, A:1, UL:1, OL:1, LI:1, P:1, SPAN:1 };
+  function sanitizePaste(html){
+    var box = document.createElement("div");
+    box.innerHTML = html;
+    var dropped = 0;
+    var junk = box.querySelectorAll("script,style,link,meta,iframe,object,embed,form,input,button,select,textarea,svg,video,audio,img,table");
+    for (var j=0;j<junk.length;j++){ if (junk[j].tagName === "IMG" || junk[j].tagName === "TABLE") dropped++; junk[j].remove(); }
+    var els = box.querySelectorAll("*");
+    for (var i=els.length-1;i>=0;i--){
+      var el = els[i];
+      if (!PASTE_KEEP[el.tagName]){
+        // Unwrap rather than delete: the words inside are what the client actually meant to paste.
+        while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+        el.remove();
+        continue;
+      }
+      var names = el.getAttributeNames();
+      for (var a=0;a<names.length;a++){
+        if (el.tagName === "A" && names[a] === "href") continue;
+        el.removeAttribute(names[a]);
+      }
+      if (el.tagName === "A"){
+        var h = safeHref(el.getAttribute("href") || "");
+        if (h) el.setAttribute("href", h); else el.removeAttribute("href");
+      }
+    }
+    return { html: box.innerHTML, dropped: dropped };
+  }
+  function onPaste(e){
+    var host = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
+    if (!host) return;
+    var dt = e.clipboardData; if (!dt) return;
+    e.preventDefault();
+    var raw = dt.getData("text/html");
+    var clean = raw ? sanitizePaste(raw) : { html: null, dropped: 0 };
+    if (clean.html != null && clean.html.replace(/<[^>]*>/g, "").trim()){
+      document.execCommand("insertHTML", false, clean.html);
+    } else {
+      // No usable markup (or a plain-text copy): insert the text, keeping line breaks.
+      var txt = (dt.getData("text/plain") || "").replace(/\r\n?/g, "\n");
+      document.execCommand("insertText", false, txt);
+    }
+    if (clean.dropped) parent.postMessage({ type:"lg-paste-note" }, "*");
+  }
+  // A file dropped onto the canvas would otherwise NAVIGATE the iframe to it — the page vanishes and
+  // looks broken. Dropped text is pasted through the same cleaning path.
+  function onDrop(e){
+    var host = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
+    if (!host){ if (e.dataTransfer && e.dataTransfer.types && [].indexOf.call(e.dataTransfer.types,"Files")>=0) e.preventDefault(); return; }
+    e.preventDefault();
+    var dt = e.dataTransfer; if (!dt) return;
+    var raw = dt.getData("text/html");
+    var clean = raw ? sanitizePaste(raw) : { html: null, dropped: 0 };
+    if (clean.html != null && clean.html.replace(/<[^>]*>/g, "").trim()) document.execCommand("insertHTML", false, clean.html);
+    else document.execCommand("insertText", false, dt.getData("text/plain") || "");
+  }
+
   // The editable element a Range still lives in, or null when the range is detached — its nodes were
   // replaced (undo, restored section, re-rendered block) and it can no longer be used for anything.
   function rangeHost(r){
@@ -815,7 +877,13 @@ ${CORE_INLINE}
       var contentChg = false;
       // Content (text / alt / href) is shared across breakpoints → always applied to the base.
       if (d.text != null){ if (kindOf(el)==="image") el.setAttribute("alt", d.text); else el.textContent = d.text; contentChg = true; }
-      if (d.href != null && el.hasAttribute("href")){ el.setAttribute("href", d.href); contentChg = true; }
+      if (d.href != null && el.hasAttribute("href")){
+        // The URL field is free text and lands on the live site: a script scheme would run for every
+        // visitor. safeHref is the same check the publisher applies, so both agree.
+        var hrefOk = safeHref(d.href);
+        if (hrefOk !== d.href) parent.postMessage({ type:"lg-link-blocked", value:d.href }, "*");
+        el.setAttribute("href", hrefOk); contentChg = true;
+      }
       if (d.style){
         // Alignment on a FLEX container: text-align never moves flex children, so "Выравнивание" looks
         // dead (e.g. the hero H1 is a flex row of word-divs). Map it to justify-content (row) /
@@ -903,7 +971,9 @@ ${CORE_INLINE}
       try { document.execCommand("styleWithCSS", false, "true"); } catch(_){}
       if (d.cmd === "color") document.execCommand("foreColor", false, d.value);
       else if (d.cmd === "link"){
-        document.execCommand("createLink", false, d.value);
+        var lv = safeHref(d.value);
+        if (lv !== d.value) parent.postMessage({ type:"lg-link-blocked", value:d.value }, "*");
+        document.execCommand("createLink", false, lv);
         // execCommand can't set target — find the anchor we just made and set/clear "open in new tab".
         var selL = document.getSelection(), ndL = selL && selL.anchorNode;
         var aL = ndL && (ndL.nodeType===1?ndL:ndL.parentElement).closest("a");
@@ -981,6 +1051,11 @@ ${CORE_INLINE}
       showHover(el);
     }, true);
     document.addEventListener("mouseout", function(e){ if (!e.relatedTarget) hideHover(); }, true);
+    document.addEventListener("paste", onPaste, true);
+    document.addEventListener("drop", onDrop, true);
+    document.addEventListener("dragover", function(e){
+      if (e.dataTransfer && e.dataTransfer.types && [].indexOf.call(e.dataTransfer.types,"Files")>=0) e.preventDefault();
+    }, true);
     window.addEventListener("scroll", function(){ hideHover(); }, true);
     // Text selection inside an editable element → tell the parent to show the floating text toolbar.
     document.addEventListener("selectionchange", function(){

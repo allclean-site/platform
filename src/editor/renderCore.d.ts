@@ -28,6 +28,8 @@ export declare const MQ: Record<"tablet" | "mobile", string>;
 export declare const CASCADE: Record<string, 1>;
 
 export declare function fluidFont(v: string): string;
+/** A link made safe to publish: anything but a known navigation scheme becomes "#". */
+export declare function safeHref(v: string): string;
 export declare function cleanHtml(html: string, keepIds?: Set<string>): string;
 export declare function overridesCss(pageBp?: PageBp): string;
 export declare function keptIds(pageBp?: PageBp): Set<string>;

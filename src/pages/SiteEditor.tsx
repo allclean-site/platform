@@ -482,6 +482,10 @@ export function SiteEditor() {
         setTextSel(null); setLinkPop(null);
         say("Выделение сбросилось — выделите текст ещё раз и повторите.");
       }
+      // A link scheme that would execute script on the live site was refused.
+      else if (d.type === "lg-link-blocked") say("Такой адрес нельзя поставить ссылкой. Подойдут https://…, mailto:, tel: или адрес внутри сайта (/about, #book).");
+      // Word and Google Docs bring their own pictures along; those live on the author's computer.
+      else if (d.type === "lg-paste-note") say("Текст вставлен без картинок — добавьте фото через «Заменить фото», чтобы оно открывалось у посетителей.");
       else if (d.type === "lg-ready") {
         // Iframe loaded → push this page's saved breakpoint rules + the active device into the runtime.
         const rules = (page && mergedBp(page.id)) || emptyPageBp();
