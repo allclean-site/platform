@@ -490,7 +490,10 @@ ${CORE_INLINE}
       document.execCommand("insertHTML", false, clean.html);
     } else {
       // No usable markup (or a plain-text copy): insert the text, keeping line breaks.
-      var txt = (dt.getData("text/plain") || "").replace(/\r\n?/g, "\n");
+      // NB: this whole runtime lives in a template literal, so every backslash must be DOUBLED —
+      // single ones are eaten as escape sequences, and a regex containing a carriage return escape
+      // ends up broken across two lines, which stops the entire runtime from parsing.
+      var txt = (dt.getData("text/plain") || "").replace(/\\r\\n?/g, "\\n");
       document.execCommand("insertText", false, txt);
     }
     if (clean.dropped) parent.postMessage({ type:"lg-paste-note" }, "*");
@@ -1051,6 +1054,13 @@ ${CORE_INLINE}
       showHover(el);
     }, true);
     document.addEventListener("mouseout", function(e){ if (!e.relatedTarget) hideHover(); }, true);
+    // Keyboard: a contenteditable field is a tab stop, but only a CLICK used to open the inspector —
+    // so someone working from the keyboard could type into the page and still not reach a single
+    // control (size, colour, replace photo). Focus now selects, exactly like a click.
+    document.addEventListener("focusin", function(e){
+      var el = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
+      if (el && el !== selected) select(el);
+    }, true);
     document.addEventListener("paste", onPaste, true);
     document.addEventListener("drop", onDrop, true);
     document.addEventListener("dragover", function(e){
