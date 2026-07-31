@@ -464,6 +464,58 @@ ${CORE_INLINE}
   function isAutoText(el){
     return el.isContentEditable || /^(H[1-6]|P|LI|BLOCKQUOTE|FIGCAPTION|DT|DD)$/.test(el.tagName);
   }
+  // ---- updating a block in place -------------------------------------------------------------------
+  // Every incoming update used to assign the whole innerHTML: every node in the block was rebuilt and
+  // rebuilt. That takes the caret with it (so a collaborator's edit, or an undo, interrupted whoever
+  // was typing), resets the site's own widgets inside the block (sliders, players, accordions), and
+  // re-stamps ids for elements that never changed. Now the incoming markup is compared against the
+  // live DOM and only the actual differences are applied.
+  //
+  // Attributes the EDITOR owns are never taken from the incoming copy — they belong to the live node
+  // and removing them would blur the field or drop its identity.
+  var OWN_ATTRS = { "data-lg-id":1, "data-lg-el":1, "data-lg-style0":1, "contenteditable":1, "spellcheck":1 };
+  function syncAttrs(cur, next){
+    var an = cur.attributes, i;
+    for (i = an.length - 1; i >= 0; i--){
+      var name = an[i].name;
+      if (OWN_ATTRS[name]) continue;
+      if (!next.hasAttribute(name)) cur.removeAttribute(name);
+    }
+    var bn = next.attributes;
+    for (i = 0; i < bn.length; i++){
+      var n2 = bn[i].name;
+      if (OWN_ATTRS[n2]) continue;
+      var v = bn[i].value;
+      if (n2 === "class" && cur.classList.contains("lg-selected")) v = v + " lg-selected";
+      if (cur.getAttribute(n2) !== v) cur.setAttribute(n2, v);
+    }
+  }
+  function morph(cur, next){
+    if (cur.nodeType === 1 && next.nodeType === 1) syncAttrs(cur, next);
+    morphChildren(cur, next);
+  }
+  /** The block WRAPPER is ours (data-lg-block, display:contents) and is not part of the incoming
+   *  markup — syncing its attributes would strip the very thing that identifies the block. */
+  function morphChildren(cur, next){
+    var a = cur.childNodes, b = next.childNodes, i = 0;
+    while (i < b.length){
+      var bn = b[i], an = a[i];
+      if (!an){ cur.appendChild(document.importNode(bn, true)); i++; continue; }
+      var swap = an.nodeType !== bn.nodeType ||
+        (an.nodeType === 1 && an.tagName !== bn.tagName) ||
+        (an.nodeType === 1 && an.getAttribute("data-lg-id") && bn.nodeType === 1 &&
+         bn.getAttribute("data-lg-id") && an.getAttribute("data-lg-id") !== bn.getAttribute("data-lg-id"));
+      if (swap){ cur.replaceChild(document.importNode(bn, true), an); i++; continue; }
+      if (an.nodeType === 3 || an.nodeType === 8){
+        if (an.nodeValue !== bn.nodeValue) an.nodeValue = bn.nodeValue;   // touch text only when it differs
+      } else if (an.nodeType === 1){
+        morph(an, bn);
+      }
+      i++;
+    }
+    while (a.length > b.length) cur.removeChild(a[a.length - 1]);
+  }
+
   // ---- pasting -----------------------------------------------------------------------------------
   // Text pasted from Word, Google Docs or a web page arrives as full markup: foreign fonts and colours,
   // mso-* declarations, <o:p> tags, and images pointing at file:///…/clip_image001.png that exist only
@@ -704,13 +756,19 @@ ${CORE_INLINE}
     if (d.type === "lg-set-html"){
       var wb = document.querySelector('[data-lg-block="'+d.blockId+'"]');
       if (wb){
-        // Only the selection INSIDE this block dies with it. Blocks are now updated one at a time
-        // (a collaborator's edit, an undo), and dropping the selection every time would take the
-        // inspector away from someone working in a different part of the page.
-        var hadSel = selected && wb.contains(selected);
-        wb.innerHTML = d.html;
-        cleanBlock(wb); stampIds(wb, d.blockId); editableWithin(wb);
-        if (hadSel){ selected = null; hideSelBox(); hideHover(); if (handle) handle.style.display = "none"; }
+        // Clean the INCOMING copy (old saves can carry leaked editor cruft), never the live one:
+        // stripping contenteditable off the node someone is typing in would blur it.
+        var box = document.createElement("div");
+        box.innerHTML = d.html;
+        cleanBlock(box);
+        morphChildren(wb, box);
+        stampIds(wb, d.blockId); editableWithin(wb);
+        // The selection survives unless its element was actually replaced by this update.
+        if (selected && !document.contains(selected)){
+          selected = null; hideSelBox(); hideHover(); if (handle) handle.style.display = "none";
+        } else if (selected && wb.contains(selected)){
+          positionSelBox(selected);
+        }
       }
       return;
     }
