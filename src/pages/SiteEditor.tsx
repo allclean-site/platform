@@ -582,10 +582,13 @@ export function SiteEditor() {
   };
 
   // Does this page carry unpublished edits of ours (its own, or via the shared header/footer layer)?
-  const pageHasEdits = Boolean(page && page.blocks.some((b) => {
-    const key = ovKeyFor(b.id, page, page.lang);
-    return overrides.current[key]?.[b.id] != null || draftOv.current[key]?.[b.id] != null;
-  }));
+  const pageHasEdits = Boolean(page && (
+    page.blocks.some((b) => {
+      const key = ovKeyFor(b.id, page, page.lang);
+      return overrides.current[key]?.[b.id] != null || draftOv.current[key]?.[b.id] != null;
+    }) ||
+    overrides.current[page.id]?.[META_KEY] != null || draftOv.current[page.id]?.[META_KEY] != null   // SEO-only edit counts
+  ));
   /**
    * The canvas document is built ONCE per page (and per edit/preview mode). Later edits are pushed
    * into the live document block by block — see loadPage. Recomputing this on every state change
@@ -722,6 +725,7 @@ export function SiteEditor() {
     // a step may have restored a header edit that has to be rebuilt against this page's own copy.
     // Pushing directly (instead of reloading the page to get it) keeps the editing state alive.
     for (const blockId of blocks) {
+      if (blockId === META_KEY) continue;              // page meta, not a block on the canvas
       const shown = htmlForBlockNow(blockId);
       lastHtml.current[blockId] = shown;
       pushHtmlToFrame(blockId, shown);
@@ -872,10 +876,13 @@ export function SiteEditor() {
    */
   const revertPage = () => {
     if (!page) return;
-    const blocks = page.blocks.map((b) => b.id);
     let touched = 0;
-    for (const id of blocks) {
-      const key = ovKeyFor(id, page, page.lang);
+    // The page's own SEO edit lives in the same store under a reserved key — "undo my edits on this
+    // page" has to mean that one too.
+    for (const [key, id] of [
+      ...page.blocks.map((b) => [ovKeyFor(b.id, page, page.lang), b.id] as const),
+      [page.id, META_KEY] as const,
+    ]) {
       if (overrides.current[key]?.[id] == null && draftOv.current[key]?.[id] == null) continue;
       writeBlock(key, id, null);
       touched++;
