@@ -13,6 +13,7 @@ import { previewDoc } from "../editor/preview";
 import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides, type PageOverrides } from "../editor/realStore";
 import { fetchPublishedOverrides } from "../editor/overridesClient";
 import { fetchDraft, saveDraftPage, draftConfigured, type DraftMeta } from "../editor/draftClient";
+import { toCanonical, toPreview, canonicalizeOverrides } from "../editor/assetPaths";
 import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, type SiteBp, type PageBp } from "../editor/bpStore";
 import { indexMediaFromDoc } from "../editor/media";
@@ -86,7 +87,13 @@ export function SiteEditor() {
   const [pagesOpen, setPagesOpen] = useState(true);   // collapsible left-panel sections
   const [blocksOpen, setBlocksOpen] = useState(true);
 
-  useEffect(() => { overrides.current = loadOverrides(TENANT, SITE); bpOverrides.current = loadBp(TENANT, SITE); }, [SITE]);
+  // canonicalizeOverrides heals blocks saved by the older code path, which stored the iframe's
+  // /site-assets/* preview paths (and grew another prefix on every save).
+  useEffect(() => {
+    overrides.current = canonicalizeOverrides(loadOverrides(TENANT, SITE));
+    bpOverrides.current = loadBp(TENANT, SITE);
+    saveOverrides(TENANT, SITE, overrides.current); // persist the healed copy
+  }, [SITE]);
 
   // Pull the PUBLISHED edits (shared state) so the editor matches the live site and shows the client's
   // published edits — not just this browser's local ones. Published = base, local unpublished edits win
@@ -95,7 +102,7 @@ export function SiteEditor() {
     let cancelled = false;
     fetchPublishedOverrides("allclean").then((pub) => {
       if (!pub || cancelled) return;
-      pubOverrides.current = pub.overrides;
+      pubOverrides.current = canonicalizeOverrides(pub.overrides);
       pubBp.current = pub.breakpoints;
       setSyncTick((t) => t + 1); // re-render the current page with the merged (published + local) edits
     });
@@ -129,7 +136,7 @@ export function SiteEditor() {
     if (!draftConfigured()) { setDraftState("off"); return; }
     const d = await fetchDraft("allclean");
     if (!d) { setDraftState("error"); return; }
-    draftOv.current = d.overrides;
+    draftOv.current = canonicalizeOverrides(d.overrides);
     draftBp.current = d.breakpoints;
     draftMeta.current = d.meta;
     setDraftState("synced");
@@ -234,6 +241,10 @@ export function SiteEditor() {
           future.current = [];
           lastEditAt.current = now;
         }
+        // The iframe serves assets under /site-assets/*, so its innerHTML carries preview paths.
+        // Strip them back to canonical root paths BEFORE storing — otherwise every save appended
+        // another prefix and the published page pointed at a path nothing serves (404 video/images).
+        d.html = toCanonical(d.html);
         lastHtml.current[d.id] = d.html;
         (overrides.current[page.id] ??= {})[d.id] = d.html;
         setSaveState("saving");
@@ -335,11 +346,13 @@ export function SiteEditor() {
 
   const applyHtml = (blockId: string, html: string) => {
     if (!page) return;
+    html = toCanonical(html);            // store canonical…
     lastHtml.current[blockId] = html;
     (overrides.current[page.id] ??= {})[blockId] = html;
     saveOverrides(TENANT, SITE, overrides.current);
     scheduleDraft(page.id);
-    frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html }, "*");
+    // …but the iframe serves assets from /site-assets, so it needs the preview form to display them.
+    frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html: toPreview(html) }, "*");
     setSelEl(null); setTextSel(null); setSaveState("saved");
   };
   const undo = () => {
@@ -670,7 +683,9 @@ export function SiteEditor() {
           tenant={TENANT}
           accept={mediaPick.accept}
           onPick={(url, type) => {
-            frameRef.current?.contentWindow?.postMessage({ type: "lg-media-set", blockId: mediaPick.blockId, el: mediaPick.el, src: url, mediaType: type }, "*");
+            // Library urls are canonical; the iframe needs the preview form to actually show them.
+            // (The runtime's save then round-trips it back to canonical, so publishing stays correct.)
+            frameRef.current?.contentWindow?.postMessage({ type: "lg-media-set", blockId: mediaPick.blockId, el: mediaPick.el, src: toPreview(url), mediaType: type }, "*");
             setMediaPick(null);
           }}
           onClose={() => setMediaPick(null)}

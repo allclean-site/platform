@@ -9,6 +9,7 @@
  */
 
 import { downscale, putToStorage, blobToDataUrl } from "./image";
+import { toCanonical, hasPreviewPath } from "./assetPaths";
 
 export type MediaType = "image" | "video";
 export interface MediaAsset {
@@ -74,7 +75,9 @@ export function indexMediaFromDoc(tenant: string, doc: Document): number {
     if (!u || u.startsWith("data:") || u.startsWith("blob:") || u.startsWith("#")) return;
     // Skip SVGs — those are logos/UI icons (phone, viber, telegram…), not swappable photos.
     if (type === "image" && /\.svg(\?|$)/i.test(u)) return;
-    found.push({ url: u, type });
+    // We read these out of the editor IFRAME, where assets are served under /site-assets/*. Store the
+    // canonical site path instead, or picking from the gallery would publish a url nothing serves.
+    found.push({ url: toCanonical(u), type });
   };
   doc.querySelectorAll("img").forEach((el) => { push(el.getAttribute("src"), "image"); });
   doc.querySelectorAll("video").forEach((el) => { push(el.getAttribute("src"), "video"); });
@@ -93,8 +96,11 @@ export function indexMediaFromDoc(tenant: string, doc: Document): number {
   const seen = new Set<string>();
   const cleaned: MediaAsset[] = [];
   let removed = 0;
+  let fixed = 0;
   for (const m of loadMedia(tenant)) {
     if (m.type === "image" && /\.svg(\?|$)/i.test(m.url)) { removed++; continue; }
+    // Heal entries saved with the iframe's preview prefix (incl. ones that accumulated several).
+    if (hasPreviewPath(m.url)) { m.url = toCanonical(m.url); fixed++; }
     if (seen.has(m.url)) { removed++; continue; }
     seen.add(m.url);
     cleaned.push(m);
@@ -106,7 +112,7 @@ export function indexMediaFromDoc(tenant: string, doc: Document): number {
     seen.add(f.url);
     additions.push({ id: uid(), url: f.url, type: f.type, name: fileNameOf(f.url), at: new Date().toISOString() });
   }
-  if (additions.length || removed) save(tenant, [...additions, ...cleaned]);
+  if (additions.length || removed || fixed) save(tenant, [...additions, ...cleaned]);
   return additions.length;
 }
 

@@ -603,9 +603,24 @@ ${CORE_INLINE}
       var isVid = mel.tagName === "VIDEO";
       var want = d.mediaType || (isVid ? "video" : "image");
       if (want === "video" && isVid){
-        var vs = mel.querySelector("source");
-        if (vs) vs.setAttribute("src", d.src); else mel.setAttribute("src", d.src);
-        try { mel.load(); } catch(e){}
+        // Replace ALL sources, not just the first. A Webflow background video ships mp4 + webm
+        // fallbacks; setting only one left the other pointing at the previous file, so the browser
+        // could still pick the old video (or fail over to it). The old poster has to go too —
+        // otherwise the previous frame stays on screen and reads as "the video is broken/white".
+        var olds = mel.querySelectorAll("source");
+        for (var oi = olds.length - 1; oi >= 0; oi--) olds[oi].parentNode.removeChild(olds[oi]);
+        mel.removeAttribute("poster");
+        mel.removeAttribute("src");
+        var ns = document.createElement("source");
+        ns.setAttribute("src", d.src);
+        var ext = (d.src.split("?")[0].split(".").pop() || "").toLowerCase();
+        if (ext === "mp4" || ext === "webm" || ext === "ogg") ns.setAttribute("type", "video/" + ext);
+        mel.appendChild(ns);
+        // A background video only looks right if it actually plays: keep it muted+autoplay+loop.
+        mel.muted = true;
+        mel.setAttribute("muted",""); mel.setAttribute("autoplay",""); mel.setAttribute("loop","");
+        mel.setAttribute("playsinline",""); mel.setAttribute("preload","auto");
+        try { mel.load(); var pr = mel.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
         save(d.blockId); return;
       }
       if (want === "image" && !isVid){

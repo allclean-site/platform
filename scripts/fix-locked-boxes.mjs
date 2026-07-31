@@ -39,16 +39,34 @@ function cleanStyle(style) {
   return { style: kept.join("; "), dropped };
 }
 
-/** Strip layout-locks from inline styles on text elements. Returns the new html + what was removed. */
+/**
+ * The editor iframe serves assets under /site-assets/*, and an older save path stored that preview
+ * prefix into the block HTML — gaining another prefix on every save and finally publishing a url
+ * nothing serves (the hero video 404'd and rendered as a white box). Collapse any number of prefixes
+ * back to the canonical root path. Mirrors src/editor/assetPaths.ts.
+ */
+const ASSET_DIRS = "images|video|fonts|js";
+function healAssetPaths(html) {
+  const before = html;
+  const out = html
+    .replace(new RegExp(`(?:/site-assets)+/(${ASSET_DIRS})/`, "g"), "/$1/")
+    .replace(/(?:\/site-assets)+\/logo\.svg/g, "/logo.svg");
+  return { html: out, fixed: out !== before };
+}
+
+/** Strip layout-locks from inline styles on text elements, and repair mangled asset paths. */
 export function healHtml(html) {
   const removed = [];
-  const out = html.replace(new RegExp(`<(${TEXT_TAG})\\b([^>]*)>`, "gi"), (tag) =>
+  let out = html.replace(new RegExp(`<(${TEXT_TAG})\\b([^>]*)>`, "gi"), (tag) =>
     tag.replace(/\sstyle="([^"]*)"/i, (_m, val) => {
       const { style, dropped } = cleanStyle(val);
       if (dropped.length) removed.push(...dropped);
       return style ? ` style="${style}"` : "";
     })
   );
+  const paths = healAssetPaths(out);
+  out = paths.html;
+  if (paths.fixed) removed.push("исправлены пути к файлам (/site-assets/…)");
   return { html: out, removed };
 }
 
@@ -92,6 +110,10 @@ if (process.argv.includes("--self-test")) {
   // An image with a deliberate size must NOT be touched.
   const img = `<img src="/a.jpg" style="width: 300px; height: 200px;">`;
   checks.push(["non-text element untouched", healHtml(img).html === img]);
+  // The real corrupted video source from the live site (seven accumulated prefixes).
+  const vid = `<source src="/site-assets/site-assets/site-assets/site-assets/site-assets/site-assets/site-assets/video/hero.webm">`;
+  checks.push(["mangled asset path repaired", healHtml(vid).html === `<source src="/video/hero.webm">`]);
+  checks.push(["clean asset path untouched", healHtml(`<img src="/images/a.jpg">`).html === `<img src="/images/a.jpg">`]);
   // A plain paragraph keeps its colour while losing the lock.
   const p = `<p style="color: red; height: 90px;">hi</p>`;
   const ph = healHtml(p).html;

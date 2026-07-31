@@ -50,6 +50,12 @@ export function fluidFont(v) {
  */
 export function cleanHtml(html, keepIds) {
   return html
+    // The editor iframe serves assets under /site-assets/*; an older save path stored that preview
+    // prefix into the block (gaining one more on every save) and published a url nothing serves —
+    // a 404'd hero video showing as a white box. Collapsing it here means every build self-heals,
+    // whatever is already saved in the database.
+    .replace(/(?:\/site-assets)+\/(images|video|fonts|js)\//g, "/$1/")
+    .replace(/(?:\/site-assets)+\/logo\.svg/g, "/logo.svg")
     .replace(/\s+contenteditable="true"/g, "")
     .replace(/\s+spellcheck="false"/g, "")
     .replace(/\s+data-lg-el="[^"]*"/g, "")
