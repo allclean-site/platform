@@ -400,3 +400,20 @@
    edited pages are already usable above it. */
 .pub__scanline { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 12.5px;
   color: var(--text-muted); }
+
+/* Published version history — the way back from the one action a client cannot undo. */
+.pub__history { border-top: 1px solid var(--glass-brd); padding: 10px 0 0; margin: 6px 0 0; }
+.pub__history-toggle { border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 13px;
+  font-weight: 600; cursor: pointer; padding: 4px 0; }
+.pub__history-toggle:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: 4px; }
+.pub__history-body { margin-top: 6px; }
+.pub__versions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
+  max-height: 190px; overflow-y: auto; }
+.pub__version { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: var(--r-md);
+  background: var(--surface-2); font-size: 12.5px; }
+.pub__version-when { font-weight: 600; white-space: nowrap; }
+.pub__version-meta { flex: 1; min-width: 0; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pub__version-btn { flex: none; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font: inherit; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: var(--r-sm); cursor: pointer; }
+.pub__version-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.pub__version-btn:disabled { opacity: .5; cursor: default; }

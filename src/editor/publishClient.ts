@@ -14,7 +14,8 @@ export function publishConfigured(): boolean {
 
 export interface PublishResult { ok: boolean; message: string; detail?: string }
 
-export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteBp): Promise<PublishResult> {
+/** `by` is recorded with the restore point so the history says who published what. */
+export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteBp, by = ""): Promise<PublishResult> {
   const p = publishConfig();
   if (!p.endpoint) return { ok: false, message: "Публикация не настроена (Настройки → Публикация)." };
   if (!p.editKey) return {
@@ -26,7 +27,7 @@ export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteB
     const res = await fetch(p.endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ editKey: p.editKey, project: "allclean", overrides, breakpoints }),
+      body: JSON.stringify({ editKey: p.editKey, project: "allclean", overrides, breakpoints, by }),
     });
     const raw = await res.text();
     let data: { error?: string; rebuild?: boolean; pages?: number } = {};

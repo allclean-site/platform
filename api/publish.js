@@ -51,6 +51,27 @@ export default async function handler(req, res) {
     if (!r.ok) return res.status(502).json({ error: "save failed: " + (await r.text()) });
   }
 
+  // Record what we just shipped, so this publish becomes a point the client can come back to.
+  // Publishing is the only irreversible action in the product; without a snapshot a regretted change
+  // could only be undone by rebuilding it from memory. Failing to record must never fail the publish.
+  try {
+    const edits = Object.values(overrides).reduce((n, o) => n + Object.keys(o || {}).length, 0);
+    await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_versions`, {
+      method: "POST",
+      headers: {
+        apikey: SERVICE, Authorization: `Bearer ${SERVICE}`,
+        "content-type": "application/json", Prefer: "return=minimal",
+      },
+      body: JSON.stringify([{
+        project,
+        created_by: String(body.by || "").slice(0, 80),
+        note: `${rows.length} стр., ${edits} правок`,
+        pages: rows.length,
+        snapshot: { overrides, breakpoints },
+      }]),
+    });
+  } catch { /* history is a convenience — never block the publish on it */ }
+
   let rebuild = false;
   if (DEPLOY_HOOK) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
   return res.status(200).json({ ok: true, pages: rows.length, rebuild });

@@ -15,9 +15,10 @@ import type { SiteBp } from "../editor/bpStore";
 import { reportForPage, type PageReport } from "../editor/publish";
 import { publishConfigured, publishToSite } from "../editor/publishClient";
 import { Dialog } from "../components/Dialog";
+import { listVersions, restoreVersion, type SiteVersion } from "../editor/versionsClient";
 
 export function PublishDialog({
-  index, dataBase, overrides, bp, onDownload, onClose,
+  index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "",
 }: {
   index: SiteIndex;
   dataBase: string;
@@ -25,6 +26,8 @@ export function PublishDialog({
   bp: SiteBp;
   onDownload: () => void;
   onClose: () => void;
+  /** Shown in the version history as who published. */
+  publishedBy?: string;
 }) {
   const [reports, setReports] = useState<PageReport[] | null>(null);
   const [progress, setProgress] = useState(0);
@@ -33,15 +36,38 @@ export function PublishDialog({
   const [pubMsg, setPubMsg] = useState("");
   const [pubDetail, setPubDetail] = useState("");
   const [copied, setCopied] = useState(false);
+  const [versions, setVersions] = useState<SiteVersion[] | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [restoreMsg, setRestoreMsg] = useState("");
   const canPublish = publishConfigured();
 
   const doPublish = async () => {
     setPubState("publishing"); setPubMsg(""); setPubDetail(""); setCopied(false);
-    const r = await publishToSite(overrides, bp);
+    const r = await publishToSite(overrides, bp, publishedBy);
     setPubState(r.ok ? "done" : "error");
     setPubMsg(r.message);
     setPubDetail(r.detail ?? "");
+    if (r.ok) setVersions(null);     // a new restore point exists now
   };
+  const openHistory = async () => {
+    setShowHistory((v) => !v);
+    if (versions === null) setVersions(await listVersions());
+  };
+  const doRestore = async (v: SiteVersion) => {
+    const when = new Date(v.createdAt).toLocaleString("ru-RU");
+    if (!window.confirm(`Вернуть версию от ${when}?
+
+Сайт будет пересобран и посетители увидят её. Текущая версия останется в истории.`)) return;
+    setRestoring(v.id); setRestoreMsg("");
+    const r = await restoreVersion(v.id);
+    setRestoring(null);
+    setRestoreMsg(r.ok
+      ? `Версия от ${when} возвращена — сайт пересобирается (1–2 минуты).`
+      : "Не удалось вернуть версию. Проверьте связь и попробуйте ещё раз.");
+    if (r.ok) setVersions(await listVersions());
+  };
+
   const copyError = () => {
     navigator.clipboard?.writeText(`${pubMsg}\n\n${pubDetail}`).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
@@ -138,6 +164,35 @@ export function PublishDialog({
                 </div>
               ))}
             </div>
+
+            {canPublish && (
+              <div className="pub__history">
+                <button type="button" className="pub__history-toggle" onClick={openHistory} aria-expanded={showHistory}>
+                  История публикаций{versions ? ` · ${versions.length}` : ""}
+                </button>
+                {showHistory && (
+                  <div className="pub__history-body">
+                    {versions === null ? <p className="pub__note">Загружаю…</p>
+                      : versions.length === 0 ? <p className="pub__note">Пока нет сохранённых версий — они появятся после первой публикации.</p>
+                      : (
+                        <ul className="pub__versions">
+                          {versions.map((v) => (
+                            <li key={v.id} className="pub__version">
+                              <span className="pub__version-when">{new Date(v.createdAt).toLocaleString("ru-RU")}</span>
+                              <span className="pub__version-meta">{v.note}{v.createdBy ? ` · ${v.createdBy}` : ""}</span>
+                              <button type="button" className="pub__version-btn" disabled={restoring !== null}
+                                onClick={() => doRestore(v)}>
+                                {restoring === v.id ? "Возвращаю…" : "Вернуть"}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    {restoreMsg && <p className="pub__note" role="status" aria-live="polite">{restoreMsg}</p>}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="pub__foot">
               {canPublish ? (

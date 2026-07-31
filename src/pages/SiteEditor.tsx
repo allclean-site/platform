@@ -915,6 +915,7 @@ export function SiteEditor() {
         <PublishDialog
           index={index}
           dataBase={DATA}
+          publishedBy={session?.name || ""}
           overrides={allOverrides()}
           bp={allBp()}
           onDownload={exportEdits}
