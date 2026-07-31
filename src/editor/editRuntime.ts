@@ -154,7 +154,14 @@ ${CORE_INLINE}
   // regardless of which other blocks were edited.
   function stampIds(root, blockId){
     var all = root.querySelectorAll("*");
-    for (var i=0;i<all.length;i++){ if (!all[i].getAttribute("data-lg-id")) all[i].setAttribute("data-lg-id", blockId + "~" + i); }
+    // Allocate above whatever ids the markup already carries, so an id is assigned ONCE and keeps
+    // pointing at the same element for the life of the block.
+    var next = 0, pre = "" + blockId + "~";
+    for (var j=0;j<all.length;j++){
+      var cur = all[j].getAttribute("data-lg-id");
+      if (cur && cur.indexOf(pre) === 0){ var n = parseInt(cur.slice(pre.length), 10); if (n >= next) next = n + 1; }
+    }
+    for (var i=0;i<all.length;i++){ if (!all[i].getAttribute("data-lg-id")) all[i].setAttribute("data-lg-id", pre + (next++)); }
   }
   function label(el){
     var t = el.tagName;
@@ -549,13 +556,16 @@ ${CORE_INLINE}
     // none of the attrs above — old runtimes (incl. the Astro editor.js) left inline outline styles and
     // stray selection classes baked into saved html -> "лишние обводки" on some elements after reload.
     var dirty = w.querySelectorAll(
-      ".lg-selected,.lg-hoverbox,.lg-hovertag,.lg-handle,.lg-dropline,.lg-selbox," +
-      "[contenteditable],[spellcheck],[data-lg-el],[data-lg-id],[style*='outline'],[style*='Outline']");
+      ".lg-selected,.lg-hoverbox,.lg-hovertag,.lg-handle,.lg-dropline,.lg-selbox,.lg-dragging," +
+      "[contenteditable],[spellcheck],[data-lg-el],[style*='outline'],[style*='Outline']");
     for (var i=0;i<dirty.length;i++){
       var e = dirty[i];
-      e.classList.remove("lg-selected","lg-hoverbox","lg-hovertag","lg-handle","lg-dropline","lg-selbox");
+      e.classList.remove("lg-selected","lg-hoverbox","lg-hovertag","lg-handle","lg-dropline","lg-selbox","lg-dragging");
       e.removeAttribute("contenteditable"); e.removeAttribute("spellcheck");
-      e.removeAttribute("data-lg-el"); e.removeAttribute("data-lg-id");
+      e.removeAttribute("data-lg-el");
+      // data-lg-id is NOT stripped: it is this element's identity, and every per-device rule is keyed
+      // to it. Wiping and re-deriving ids from document order meant that deleting or reordering one
+      // element shifted every id after it, so the rules silently landed on the wrong nodes.
       // Outline is never a legitimate content style here — strip any leaked inline outline so old
       // editor cruft self-heals on load (keeps every other inline style intact).
       if (e.style){
@@ -629,8 +639,20 @@ ${CORE_INLINE}
       var wbd = ed.closest(W);
       if (selected === ed){ selected = null; ed.classList.remove("lg-selected"); }
       hideSelBox(); hideHover(); if (handle) handle.style.display = "none";
+      // Drop the deleted element's generated rules too — leaving them behind means a stylesheet that
+      // keeps growing with rules for nodes that no longer exist.
+      txnBegin();
+      var gone = [d.el], sub = ed.querySelectorAll("[data-lg-id]");
+      for (var gi = 0; gi < sub.length; gi++) gone.push(sub[gi].getAttribute("data-lg-id"));
+      var dl = ["base","tablet","mobile","hover","active"], dirtyBp = false;
+      for (var di = 0; di < dl.length; di++){
+        var st = bp[dl[di]]; if (!st) continue;
+        for (var gj = 0; gj < gone.length; gj++) if (st[gone[gj]]){ delete st[gone[gj]]; dirtyBp = true; }
+      }
       ed.parentNode && ed.parentNode.removeChild(ed);
+      if (dirtyBp){ renderOverrides(); parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*"); }
       if (wbd) save(wbd.getAttribute("data-lg-block"));
+      txnEnd();
       parent.postMessage({ type:"lg-elem-deleted", blockId:d.blockId, el:d.el }, "*");
       return;
     }

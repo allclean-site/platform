@@ -10,12 +10,13 @@ import { useParams, Link } from "react-router-dom";
 import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw, ChevronDown, Plus, ChevronUp, X } from "lucide-react";
 import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
-import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides, type PageOverrides } from "../editor/realStore";
+import { applyOverrides, loadOverrides, saveOverrides, mergeOverrideLayers,
+  type SiteOverrides, type PageOverrides, type StoredSiteOverrides } from "../editor/realStore";
 import { fetchPublishedOverrides } from "../editor/overridesClient";
 import { fetchDraft, saveDraftPage, draftConfigured, type DraftMeta } from "../editor/draftClient";
 import { toCanonical, toPreview, canonicalizeOverrides } from "../editor/assetPaths";
 import { useAuth } from "../auth/AuthContext";
-import { loadBp, saveBp, bpCount, emptyPageBp, type SiteBp, type PageBp } from "../editor/bpStore";
+import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
 import { indexMediaFromDoc } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
@@ -63,11 +64,11 @@ export function SiteEditor() {
   const [err, setErr] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [frameH, setFrameH] = useState(900);
-  const overrides = useRef<SiteOverrides>({});        // LOCAL edits (this browser, localStorage)
+  const overrides = useRef<StoredSiteOverrides>({});   // LOCAL edits (this browser, localStorage)
   const bpOverrides = useRef<SiteBp>({});
-  const pubOverrides = useRef<SiteOverrides>({});      // PUBLISHED edits from Supabase (shared, read-only base)
+  const pubOverrides = useRef<StoredSiteOverrides>({}); // PUBLISHED edits from Supabase (shared, read-only base)
   const pubBp = useRef<SiteBp>({});
-  const draftOv = useRef<SiteOverrides>({});           // SHARED DRAFT (unpublished, live between cabinets)
+  const draftOv = useRef<StoredSiteOverrides>({});     // SHARED DRAFT (unpublished, live between cabinets)
   const draftBp = useRef<SiteBp>({});
   const draftMeta = useRef<Record<string, DraftMeta>>({});
   const [draftState, setDraftState] = useState<"off" | "syncing" | "synced" | "error">("off");
@@ -87,11 +88,12 @@ export function SiteEditor() {
   // touches (once), and closing the transaction pushes ONE step covering both stores.
   //
   // Only touched keys are captured, so a step costs a few strings rather than a clone of the page.
-  type Snap = { blocks: Record<string, string | null>; bp: PageBp | null | undefined };
+  // undefined = this layer had no entry · null = tombstone · string = override html
+  type Snap = { blocks: Record<string, string | null | undefined>; bp: PageBp | null | undefined };
   type Step = { pageId: string; before: Snap; after: Snap };
   const history = useRef<Step[]>([]);
   const future = useRef<Step[]>([]);
-  const txn = useRef<{ pageId: string; blocks: Record<string, string | null>; bp: PageBp | null | undefined } | null>(null);
+  const txn = useRef<{ pageId: string; blocks: Record<string, string | null | undefined>; bp: PageBp | null | undefined } | null>(null);
   const txnDepth = useRef(0);          // >0 while a gesture (drag) is in progress
   const txnTimer = useRef<number | undefined>(undefined);
   const lastHtml = useRef<Record<string, string>>({});
@@ -128,9 +130,26 @@ export function SiteEditor() {
   // Layers, weakest first: PUBLISHED (live site) → SHARED DRAFT (everyone's unpublished work) → LOCAL
   // (this browser, freshest). Local wins per block because it is what the user is typing right now.
   const mergedOv = (pid: string): PageOverrides =>
-    ({ ...pubOverrides.current[pid], ...draftOv.current[pid], ...overrides.current[pid] });
-  const mergedBp = (pid: string): PageBp | undefined =>
-    bpOverrides.current[pid] ?? draftBp.current[pid] ?? pubBp.current[pid];
+    mergeOverrideLayers(pubOverrides.current[pid], draftOv.current[pid], overrides.current[pid]);
+
+  /**
+   * Breakpoint rules merge PER ELEMENT, per layer — not whole-object. Taking the first layer that had
+   * anything meant a single stale rule left in one browser hid, and then overwrote, every tablet and
+   * phone rule someone else had made on that page.
+   */
+  const mergedBp = (pid: string): PageBp | undefined => {
+    const sources = [pubBp.current[pid], draftBp.current[pid], bpOverrides.current[pid]].filter(Boolean) as PageBp[];
+    if (!sources.length) return undefined;
+    const out = emptyPageBp();
+    for (const src of sources) {
+      for (const layer of BP_LAYERS) {
+        const rec = src[layer];
+        if (!rec) continue;
+        for (const id of Object.keys(rec)) out[layer][id] = rec[id];   // later layer wins for THAT element
+      }
+    }
+    return out;
+  };
   // Full merged maps for publish/export so publishing preserves others' published + drafted edits.
   const allOverrides = (): SiteOverrides => {
     const out: SiteOverrides = {};
@@ -175,13 +194,28 @@ export function SiteEditor() {
     // shared draft and the other side never saw them.
     window.clearTimeout(draftTimers.current[pageId]);
     draftTimers.current[pageId] = window.setTimeout(async () => {
-      const ov = { ...draftOv.current[pageId], ...overrides.current[pageId] };
-      const bp = bpOverrides.current[pageId] ?? draftBp.current[pageId];
+      // Merge (not spread) so a tombstone REMOVES the block from what we push: undoing an edit that
+      // already reached the draft has to delete it there too, or the next sync brings it back and
+      // publishing ships it anyway.
+      const pushedLocal = { ...overrides.current[pageId] };
+      const ov = mergeOverrideLayers(draftOv.current[pageId], overrides.current[pageId]);
+      const bp = mergedBp(pageId);
       const at = await saveDraftPage("allclean", pageId, ov, bp, session?.name || "");
       if (!at) { setDraftState("error"); return; }
       // Keep the local mirror of the draft in step so a later pull can't resurrect stale blocks.
       draftOv.current[pageId] = ov;
       if (bp) draftBp.current[pageId] = bp;
+      // The shared draft now owns these edits, so drop this browser's copy: a local layer that is
+      // never cleared keeps shadowing — and eventually overwriting — a collaborator's newer work.
+      // Only entries that are still exactly what we pushed are cleared, so edits made during the
+      // request survive.
+      const stillLocal = overrides.current[pageId];
+      if (stillLocal) {
+        for (const k of Object.keys(pushedLocal)) if (stillLocal[k] === pushedLocal[k]) delete stillLocal[k];
+        if (!Object.keys(stillLocal).length) delete overrides.current[pageId];
+      }
+      if (bpOverrides.current[pageId]) { delete bpOverrides.current[pageId]; saveBp(TENANT, SITE, bpOverrides.current); }
+      saveOverrides(TENANT, SITE, overrides.current);
       draftMeta.current[pageId] = { updatedAt: at, updatedBy: session?.name || "" };
       setDraftState("synced");
     }, 1200);
@@ -195,7 +229,7 @@ export function SiteEditor() {
   const recordBlock = (pageId: string, blockId: string) => {
     const t = txn.current;
     if (!t || t.pageId !== pageId || blockId in t.blocks) return;
-    t.blocks[blockId] = overrides.current[pageId]?.[blockId] ?? null;
+    t.blocks[blockId] = overrides.current[pageId]?.[blockId];
   };
   const recordBp = (pageId: string) => {
     const t = txn.current;
@@ -212,7 +246,7 @@ export function SiteEditor() {
     const after: Snap = { blocks: {}, bp: undefined };
     let changed = false;
     for (const bid of Object.keys(t.blocks)) {
-      const now = overrides.current[t.pageId]?.[bid] ?? null;
+      const now = overrides.current[t.pageId]?.[bid];
       after.blocks[bid] = now;
       if (now !== t.blocks[bid]) changed = true;
     }
@@ -256,8 +290,9 @@ export function SiteEditor() {
   const writeBlock = (pageId: string, blockId: string, html: string | null) => {
     openTxn(pageId); recordBlock(pageId, blockId);
     const page = (overrides.current[pageId] ??= {});
-    if (html === null) { delete page[blockId]; if (!Object.keys(page).length) delete overrides.current[pageId]; }
-    else page[blockId] = html;
+    // A tombstone, not a deletion: "this block has no override" has to be stated so it survives the
+    // merge with the shared draft and the published layer (that is what makes undo stick for others).
+    page[blockId] = html;
     saveOverrides(TENANT, SITE, overrides.current);
     scheduleDraft(pageId);
     autoCommit();
@@ -293,7 +328,7 @@ export function SiteEditor() {
         // Pristine markup, before any override — undoing back to "no edit" restores from this instead
         // of reloading the whole page.
         baseHtml.current = Object.fromEntries(p.blocks.map((b) => [b.id, b.content.html]));
-        const blocks = applyOverrides(p.blocks, { ...pubOverrides.current[p.id], ...draftOv.current[p.id], ...overrides.current[p.id] });
+        const blocks = applyOverrides(p.blocks, mergedOv(p.id));
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));
         // Only a move to a DIFFERENT page starts a new history. This function also runs when the page
         // is merely re-rendered — after an undo, a section delete, or a draft sync when the window
@@ -468,12 +503,12 @@ export function SiteEditor() {
     for (const blockId of Object.keys(snap.blocks)) {
       const html = snap.blocks[blockId];
       const pageOv = (overrides.current[pageId] ??= {});
-      if (html === null) { delete pageOv[blockId]; }
-      else { pageOv[blockId] = html; }
+      if (html === undefined) delete pageOv[blockId];   // there was no entry here before
+      else pageOv[blockId] = html;                      // an override, or a tombstone
       if (!Object.keys(pageOv).length) delete overrides.current[pageId];
       // No override left = back to the site's own markup. Push that directly: reloading the page to
       // get it would throw away the editing state (and used to clear the history along with it).
-      const shown = html ?? baseHtml.current[blockId] ?? "";
+      const shown = (typeof html === "string" ? html : undefined) ?? mergedOv(pageId)[blockId] ?? baseHtml.current[blockId] ?? "";
       lastHtml.current[blockId] = shown;
       pushHtmlToFrame(blockId, shown);
     }
@@ -584,9 +619,6 @@ export function SiteEditor() {
     if (!page) return;
     writeBlock(page.id, blockId, null);   // drop the override → back to the base markup
     commitTxn();
-    // Also drop it from the shared draft — otherwise the next pull would resurrect the deleted section.
-    const dpo = draftOv.current[page.id];
-    if (dpo) { delete dpo[blockId]; if (!Object.keys(dpo).length) delete draftOv.current[page.id]; }
     setSaveState("saved");
     loadPage(activeFile);
   };

@@ -45,8 +45,9 @@ export function hasPreviewPath(s: string): boolean {
   return new RegExp(`(?:${BASE})+/(?:${DIRS})/|(?:${BASE})+/logo\\.svg`).test(s);
 }
 
-/** Canonicalise every value of a pageId → blockId → html map (heals stored overrides on load). */
-export function canonicalizeOverrides<T extends Record<string, Record<string, string>>>(all: T): T {
+/** Canonicalise every value of a pageId → blockId → html map (heals stored overrides on load).
+ *  Tombstones (null) carry no markup, so they pass through untouched. */
+export function canonicalizeOverrides<T extends Record<string, Record<string, string | null>>>(all: T): T {
   for (const pid of Object.keys(all)) {
     const page = all[pid];
     for (const bid of Object.keys(page)) {

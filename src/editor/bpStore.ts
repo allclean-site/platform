@@ -19,6 +19,10 @@ const key = (tenant: string, site: string) => `editor-v2:real-bp:${tenant}:${sit
 
 export const emptyPageBp = (): PageBp => ({ base: {}, tablet: {}, mobile: {}, hover: {}, active: {} });
 
+/** The layers of a page's generated rules, in cascade order. Exported so merging can walk them all
+ *  instead of guessing — a forgotten layer silently drops that kind of edit. */
+export const BP_LAYERS = ["base", "tablet", "mobile", "hover", "active"] as const;
+
 export function loadBp(tenant: string, site: string): SiteBp {
   try {
     const raw = localStorage.getItem(key(tenant, site));
