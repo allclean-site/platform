@@ -78,7 +78,6 @@ export function SiteEditor() {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<number | undefined>(undefined);
-  // Undo/redo: per-block html commands. lastHtml = current html per block (baseline for next command).
   // ---- undo/redo: transactions, not per-message snapshots ----------------------------------------
   // A page's state lives in TWO stores: block HTML (content + desktop inline styles) and the
   // per-device rule layers. One user gesture routinely writes to both — resizing a row sets an inline
@@ -98,6 +97,9 @@ export function SiteEditor() {
   const lastHtml = useRef<Record<string, string>>({});
   const lastEditAt = useRef(0); // for coalescing rapid typing into one undo entry
   const [histLen, setHistLen] = useState(0);
+  const [futLen, setFutLen] = useState(0);        // redo availability must be STATE, not a ref read
+  const baseHtml = useRef<Record<string, string>>({});   // pristine block markup for "undo to unedited"
+  const loadedPageId = useRef<string | null>(null);
   const [pagesOpen, setPagesOpen] = useState(true);   // collapsible left-panel sections
   const [blocksOpen, setBlocksOpen] = useState(true);
 
@@ -219,7 +221,7 @@ export function SiteEditor() {
     if (!changed) return;
     history.current.push({ pageId: t.pageId, before, after });
     if (history.current.length > 100) history.current.shift();
-    future.current = [];
+    future.current = []; setFutLen(0);
     setHistLen(history.current.length);
   };
   /** Discrete edits (a keystroke, a slider tick) have no gesture end — close them on a short idle,
@@ -266,9 +268,18 @@ export function SiteEditor() {
     fetch(`${DATA}/${file}.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`page ${r.status}`))))
       .then((p: ImportedPage) => {
-        const blocks = applyOverrides(p.blocks, { ...pubOverrides.current[p.id], ...overrides.current[p.id] });
+        // Pristine markup, before any override — undoing back to "no edit" restores from this instead
+        // of reloading the whole page.
+        baseHtml.current = Object.fromEntries(p.blocks.map((b) => [b.id, b.content.html]));
+        const blocks = applyOverrides(p.blocks, { ...pubOverrides.current[p.id], ...draftOv.current[p.id], ...overrides.current[p.id] });
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));
-        history.current = []; future.current = []; setHistLen(0);
+        // Only a move to a DIFFERENT page starts a new history. This function also runs when the page
+        // is merely re-rendered — after an undo, a section delete, or a draft sync when the window
+        // regains focus — and wiping the stack there is what made undo/redo "stop working".
+        if (loadedPageId.current !== p.id) {
+          loadedPageId.current = p.id;
+          history.current = []; future.current = []; setHistLen(0); setFutLen(0);
+        }
         setPage({ ...p, blocks });
       })
       .catch((e) => setErr(String(e)));
@@ -429,10 +440,13 @@ export function SiteEditor() {
       const html = snap.blocks[blockId];
       const pageOv = (overrides.current[pageId] ??= {});
       if (html === null) { delete pageOv[blockId]; }
-      else { pageOv[blockId] = html; lastHtml.current[blockId] = html; }
+      else { pageOv[blockId] = html; }
       if (!Object.keys(pageOv).length) delete overrides.current[pageId];
-      // A removed override means "back to the base markup" — reload the page to get it verbatim.
-      if (html === null) { loadPage(activeFile); } else { pushHtmlToFrame(blockId, html); }
+      // No override left = back to the site's own markup. Push that directly: reloading the page to
+      // get it would throw away the editing state (and used to clear the history along with it).
+      const shown = html ?? baseHtml.current[blockId] ?? "";
+      lastHtml.current[blockId] = shown;
+      pushHtmlToFrame(blockId, shown);
     }
     if (snap.bp !== undefined) {
       const rules = (snap.bp ?? emptyPageBp()) as PageBp;
@@ -449,12 +463,12 @@ export function SiteEditor() {
   const undo = () => {
     commitTxn();                                  // close anything still open, so it can be undone
     const s = history.current.pop(); if (!s) return;
-    future.current.push(s); setHistLen(history.current.length);
+    future.current.push(s); setHistLen(history.current.length); setFutLen(future.current.length);
     applySnap(s.pageId, s.before);
   };
   const redo = () => {
     const s = future.current.pop(); if (!s) return;
-    history.current.push(s); setHistLen(history.current.length);
+    history.current.push(s); setHistLen(history.current.length); setFutLen(future.current.length);
     applySnap(s.pageId, s.after);
   };
   useEffect(() => {
@@ -587,7 +601,7 @@ export function SiteEditor() {
 
         <div className="se__undo">
           <button className="se__icon" disabled={!histLen} title="Отменить (Ctrl+Z)" onClick={undo}><Undo2 size={16} /></button>
-          <button className="se__icon" disabled={!future.current.length} title="Повторить (Ctrl+Shift+Z)" onClick={redo}><Redo2 size={16} /></button>
+          <button className="se__icon" disabled={!futLen} title="Повторить (Ctrl+Shift+Z)" onClick={redo}><Redo2 size={16} /></button>
         </div>
         <button className={"se__toggle" + (edit ? " is-on" : "")} onClick={() => setEdit((v) => !v)}>
           {edit ? <><Pencil size={15} /> Правка</> : <><Eye size={15} /> Просмотр</>}
