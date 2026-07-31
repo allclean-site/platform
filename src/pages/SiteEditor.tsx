@@ -12,6 +12,8 @@ import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
 import { applyOverrides, loadOverrides, saveOverrides, type SiteOverrides, type PageOverrides } from "../editor/realStore";
 import { fetchPublishedOverrides } from "../editor/overridesClient";
+import { fetchDraft, saveDraftPage, draftConfigured, type DraftMeta } from "../editor/draftClient";
+import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, type SiteBp, type PageBp } from "../editor/bpStore";
 import { indexMediaFromDoc } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
@@ -22,8 +24,10 @@ import type { ElStyle, SelectedEl, Breakpoint, SelectOption } from "../editor/el
 import "./site-editor.css";
 
 const DATA = "/import/allclean";
-const DEVICE_W = { desktop: 1920, tablet: 834, mobile: 390 } as const;
-const DESK_WIDTHS = [1920, 1600, 1440, 1366, 1280] as const;
+const DEVICE_W = { desktop: 1440, tablet: 834, mobile: 390 } as const;
+// Default canvas = a REAL laptop width (1440), not 1920 — so a size that looks balanced on the canvas
+// also fits the viewer's actual screen (WYSIWYG). Wider options stay available in the picker.
+const DESK_WIDTHS = [1440, 1366, 1280, 1600, 1920] as const;
 type Device = keyof typeof DEVICE_W;
 const TENANT = "tenant-allclean";
 const clampZoom = (z: number) => Math.min(2, Math.max(0.2, z));
@@ -40,12 +44,13 @@ interface TextSel {
 export function SiteEditor() {
   const { siteId = "allclean" } = useParams();
   const SITE = `site-${siteId}`;
+  const { session } = useAuth(); // name is stamped on shared-draft saves ("кто правил последним")
   const [index, setIndex] = useState<SiteIndex | null>(null);
   const [locale, setLocale] = useState("ru");
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [page, setPage] = useState<ImportedPage | null>(null);
   const [device, setDevice] = useState<Device>("desktop");
-  const [deskW, setDeskW] = useState<number>(1920); // desktop canvas width (shown scaled-to-fit, Tilda-like)
+  const [deskW, setDeskW] = useState<number>(1440); // desktop canvas width (shown scaled-to-fit, Tilda-like)
   const [edit, setEdit] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [selEl, setSelEl] = useState<SelectedEl | null>(null);
@@ -61,7 +66,13 @@ export function SiteEditor() {
   const bpOverrides = useRef<SiteBp>({});
   const pubOverrides = useRef<SiteOverrides>({});      // PUBLISHED edits from Supabase (shared, read-only base)
   const pubBp = useRef<SiteBp>({});
-  const [syncTick, setSyncTick] = useState(0);         // bump when published edits arrive → re-render
+  const draftOv = useRef<SiteOverrides>({});           // SHARED DRAFT (unpublished, live between cabinets)
+  const draftBp = useRef<SiteBp>({});
+  const draftMeta = useRef<Record<string, DraftMeta>>({});
+  const [draftState, setDraftState] = useState<"off" | "syncing" | "synced" | "error">("off");
+  const [draftWho, setDraftWho] = useState<string>("");  // "кто правил последним" for the current page
+  const draftTimer = useRef<number | undefined>(undefined);
+  const [syncTick, setSyncTick] = useState(0);         // bump when published/draft edits arrive → re-render
   const [, setBpTick] = useState(0); // bump to re-render device-tab dots after a bp change
   const frameRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -91,20 +102,64 @@ export function SiteEditor() {
     return () => { cancelled = true; };
   }, [SITE]);
 
-  // published base + local (local wins per block).
-  const mergedOv = (pid: string): PageOverrides => ({ ...pubOverrides.current[pid], ...overrides.current[pid] });
-  const mergedBp = (pid: string): PageBp | undefined => bpOverrides.current[pid] ?? pubBp.current[pid];
-  // Full merged maps for publish/export so publishing preserves others' published edits (not just local).
+  // Layers, weakest first: PUBLISHED (live site) → SHARED DRAFT (everyone's unpublished work) → LOCAL
+  // (this browser, freshest). Local wins per block because it is what the user is typing right now.
+  const mergedOv = (pid: string): PageOverrides =>
+    ({ ...pubOverrides.current[pid], ...draftOv.current[pid], ...overrides.current[pid] });
+  const mergedBp = (pid: string): PageBp | undefined =>
+    bpOverrides.current[pid] ?? draftBp.current[pid] ?? pubBp.current[pid];
+  // Full merged maps for publish/export so publishing preserves others' published + drafted edits.
   const allOverrides = (): SiteOverrides => {
     const out: SiteOverrides = {};
-    new Set([...Object.keys(pubOverrides.current), ...Object.keys(overrides.current)]).forEach((pid) => { out[pid] = mergedOv(pid); });
+    new Set([...Object.keys(pubOverrides.current), ...Object.keys(draftOv.current), ...Object.keys(overrides.current)])
+      .forEach((pid) => { out[pid] = mergedOv(pid); });
     return out;
   };
   const allBp = (): SiteBp => {
     const out: SiteBp = {};
-    new Set([...Object.keys(pubBp.current), ...Object.keys(bpOverrides.current)]).forEach((pid) => { const m = mergedBp(pid); if (m) out[pid] = m; });
+    new Set([...Object.keys(pubBp.current), ...Object.keys(draftBp.current), ...Object.keys(bpOverrides.current)])
+      .forEach((pid) => { const m = mergedBp(pid); if (m) out[pid] = m; });
     return out;
   };
+
+  // ---- live editing: pull the SHARED draft, push our edits into it -------------------------------
+  // Without this the client's in-progress work stayed in their browser and the agency saw something
+  // else. Pull on open and on window focus (so switching back to the tab shows the other side's work).
+  const pullDraft = useCallback(async () => {
+    if (!draftConfigured()) { setDraftState("off"); return; }
+    const d = await fetchDraft("allclean");
+    if (!d) { setDraftState("error"); return; }
+    draftOv.current = d.overrides;
+    draftBp.current = d.breakpoints;
+    draftMeta.current = d.meta;
+    setDraftState("synced");
+    setSyncTick((t) => t + 1);
+  }, []);
+
+  useEffect(() => { void pullDraft(); }, [pullDraft, SITE]);
+  useEffect(() => {
+    const onFocus = () => { void pullDraft(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [pullDraft]);
+
+  /** Mirror this page's current state into the shared draft (debounced — we save on every keystroke). */
+  const scheduleDraft = useCallback((pageId: string) => {
+    if (!draftConfigured() || !pageId) return;
+    setDraftState("syncing");
+    window.clearTimeout(draftTimer.current);
+    draftTimer.current = window.setTimeout(async () => {
+      const ov = { ...draftOv.current[pageId], ...overrides.current[pageId] };
+      const bp = bpOverrides.current[pageId] ?? draftBp.current[pageId];
+      const at = await saveDraftPage("allclean", pageId, ov, bp, session?.name || "");
+      if (!at) { setDraftState("error"); return; }
+      // Keep the local mirror of the draft in step so a later pull can't resurrect stale blocks.
+      draftOv.current[pageId] = ov;
+      if (bp) draftBp.current[pageId] = bp;
+      draftMeta.current[pageId] = { updatedAt: at, updatedBy: session?.name || "" };
+      setDraftState("synced");
+    }, 1200);
+  }, [session?.name]);
 
   useEffect(() => {
     fetch(`${DATA}/_pages.json`)
@@ -135,6 +190,8 @@ export function SiteEditor() {
   }, []);
 
   useEffect(() => { loadPage(activeFile); }, [activeFile, loadPage, syncTick]);
+  // Who touched the current page's shared draft last (shown next to the sync status).
+  useEffect(() => { setDraftWho(page ? (draftMeta.current[page.id]?.updatedBy || "") : ""); }, [page, syncTick]);
 
   useEffect(() => {
     function onMsg(e: MessageEvent) {
@@ -158,6 +215,7 @@ export function SiteEditor() {
         setSaveState("saving");
         clearTimeout(saveTimer.current);
         saveTimer.current = window.setTimeout(() => { saveBp(TENANT, SITE, bpOverrides.current); setSaveState("saved"); }, 400);
+        scheduleDraft(page.id);
       }
       else if (d.type === "lg-edit" && page) {
         const before = lastHtml.current[d.id];
@@ -184,11 +242,12 @@ export function SiteEditor() {
           saveOverrides(TENANT, SITE, overrides.current);
           setSaveState("saved");
         }, 500);
+        scheduleDraft(page.id);
       }
     }
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [page, SITE, device, zoom]);
+  }, [page, SITE, device, zoom, scheduleDraft]);
 
   const localePages = useMemo(
     () => (index?.pages ?? []).filter((p) => p.lang === locale).sort((a, b) => a.slug.localeCompare(b.slug)),
@@ -279,6 +338,7 @@ export function SiteEditor() {
     lastHtml.current[blockId] = html;
     (overrides.current[page.id] ??= {})[blockId] = html;
     saveOverrides(TENANT, SITE, overrides.current);
+    scheduleDraft(page.id);
     frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html }, "*");
     setSelEl(null); setTextSel(null); setSaveState("saved");
   };
@@ -362,6 +422,7 @@ export function SiteEditor() {
     if (!window.confirm("Удалить эту секцию? Её можно вернуть кнопкой ↩ в списке блоков.")) return;
     (overrides.current[page.id] ??= {})[blockId] = "";
     saveOverrides(TENANT, SITE, overrides.current);
+    scheduleDraft(page.id);
     if (selected === blockId) { setSelected(null); setSelEl(null); }
     setSaveState("saved");
     loadPage(activeFile);
@@ -371,7 +432,11 @@ export function SiteEditor() {
     if (!page) return;
     const po = overrides.current[page.id];
     if (po) { delete po[blockId]; if (!Object.keys(po).length) delete overrides.current[page.id]; }
+    // Also drop it from the shared draft — otherwise the next pull would resurrect the deleted section.
+    const dpo = draftOv.current[page.id];
+    if (dpo) { delete dpo[blockId]; if (!Object.keys(dpo).length) delete draftOv.current[page.id]; }
     saveOverrides(TENANT, SITE, overrides.current);
+    scheduleDraft(page.id);
     setSaveState("saved");
     loadPage(activeFile);
   };
@@ -426,6 +491,17 @@ export function SiteEditor() {
           {edit ? <><Pencil size={15} /> Правка</> : <><Eye size={15} /> Просмотр</>}
         </button>
         <span className="se__save">{saveState === "saving" ? "сохраняю…" : saveState === "saved" ? <><Check size={14} /> сохранено</> : ""}</span>
+        {/* Shared-draft status: makes it visible that edits are synced between the client and the
+            agency (live editing), instead of silently living in one browser. */}
+        {draftState !== "off" && (
+          <span className={"se__draft se__draft--" + draftState} title={
+            draftState === "error" ? "Нет связи с сервером — правки сохранены в этом браузере и уйдут позже"
+              : draftWho ? `Последним правил: ${draftWho}` : "Черновик виден и вам, и клиенту"}>
+            {draftState === "syncing" ? "синхронизирую…"
+              : draftState === "error" ? "нет синхронизации"
+              : <>общий черновик{draftWho ? ` · ${draftWho}` : ""}</>}
+          </span>
+        )}
         <button className="se__publish" onClick={() => setPublishing(true)}>
           <Rocket size={15} /> Опубликовать{totalEdited ? ` (${totalEdited})` : ""}
         </button>
