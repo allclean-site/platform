@@ -204,6 +204,77 @@ export function reassemble(p) {
 }
 
 /** The final published HTML for one page — what the editor previews AND what the publisher writes. */
+/* ---- page meta ----------------------------------------------------------------------------------
+ * The client can rewrite an H1 but not the <title> the search engine shows, so a page's heading and
+ * its result in Google drift apart — the "edit, publish, get reindexed" promise was only half wired.
+ * The edited meta rides in the SAME overrides map under a reserved key, tagged so it can never be
+ * mistaken for block HTML, which means the draft, publish, version and undo paths need no changes.
+ */
+
+export const META_KEY = "__meta";
+const META_TAG = "lgmeta:1:";
+
+export function encodeMeta(meta) {
+  return META_TAG + JSON.stringify(meta);
+}
+export function decodeMeta(value) {
+  if (typeof value !== "string" || value.indexOf(META_TAG) !== 0) return null;
+  try {
+    const m = JSON.parse(value.slice(META_TAG.length));
+    return m && typeof m === "object" ? m : null;
+  } catch {
+    return null;
+  }
+}
+
+const attrEsc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const textEsc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const unesc = (s) => String(s).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
+/** What the page's head says today — used to prefill the editor with the site's own values. */
+export function readMeta(html) {
+  const head = html.slice(0, Math.max(0, html.indexOf("</head>")) || html.length);
+  const t = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(head);
+  const d = /<meta[^>]*name=["']description["'][^>]*>/i.exec(head);
+  const dc = d && /content=["']([^"']*)["']/i.exec(d[0]);
+  return { title: t ? unesc(t[1].trim()) : "", description: dc ? unesc(dc[1]) : "" };
+}
+
+function setMetaTag(head, matcher, value) {
+  const re = new RegExp('<meta[^>]*' + matcher + '[^>]*>', "i");
+  if (!re.test(head)) return null;
+  return head.replace(re, (tag) =>
+    /content=["']/i.test(tag)
+      ? tag.replace(/content=["'][^"']*["']/i, 'content="' + attrEsc(value) + '"')
+      : tag.replace(/\/?>$/, ' content="' + attrEsc(value) + '">')
+  );
+}
+
+/** Write the client's title/description into the page head (and the social tags that mirror them). */
+export function applyMeta(html, meta) {
+  if (!meta || (!meta.title && !meta.description)) return html;
+  const at = html.indexOf("</head>");
+  if (at < 0) return html;
+  let head = html.slice(0, at);
+  const rest = html.slice(at);
+  if (meta.title) {
+    head = head.replace(/<title[^>]*>[\s\S]*?<\/title>/i, "<title>" + textEsc(meta.title) + "</title>");
+    for (const m of ['property=["\']og:title["\']', 'name=["\']twitter:title["\']']) {
+      head = setMetaTag(head, m, meta.title) ?? head;
+    }
+  }
+  if (meta.description) {
+    let next = setMetaTag(head, 'name=["\']description["\']', meta.description);
+    // A page that never had a description gets one — that is an SEO error the client can now fix.
+    if (next == null) next = head + '<meta name="description" content="' + attrEsc(meta.description) + '">';
+    head = next;
+    for (const m of ['property=["\']og:description["\']', 'name=["\']twitter:description["\']']) {
+      head = setMetaTag(head, m, meta.description) ?? head;
+    }
+  }
+  return head + rest;
+}
+
 export function exportPageHtml(page, overrides, pageBp) {
   const keep = keptIds(pageBp);
   const withOv = overrides ? applyOverrides(page.blocks, overrides) : page.blocks;
@@ -215,5 +286,5 @@ export function exportPageHtml(page, overrides, pageBp) {
     const tag = `<style id="lgcms-overrides">${css}</style>`;
     doc = doc.includes("</head>") ? doc.replace("</head>", `${tag}</head>`) : doc.replace(/<body/, `${tag}<body`);
   }
-  return doc;
+  return applyMeta(doc, overrides ? decodeMeta(overrides[META_KEY]) : null);
 }

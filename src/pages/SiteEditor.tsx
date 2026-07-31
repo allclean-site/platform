@@ -19,6 +19,7 @@ import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
 import { loadHistory, saveHistory, type Snap, type Step } from "../editor/historyStore";
 import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared } from "../editor/sharedBlocks";
+import { META_KEY, readMeta, decodeMeta, encodeMeta, type PageMeta } from "../editor/renderCore.js";
 import { indexMediaFromDoc } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
@@ -114,6 +115,7 @@ export function SiteEditor() {
   const loadedPageId = useRef<string | null>(null);
   const [pagesOpen, setPagesOpen] = useState(true);   // collapsible left-panel sections
   const [blocksOpen, setBlocksOpen] = useState(true);
+  const [seoOpen, setSeoOpen] = useState(false);
   // First run: explain the editor once, instead of leaving the client to discover it by clicking.
   const [intro, setIntro] = useState(() => introUnseen());
 
@@ -549,6 +551,20 @@ export function SiteEditor() {
     [index, locale]
   );
   const activeEntry = index?.pages.find((p) => p.file === activeFile);
+  // ---- page SEO (title + description) ------------------------------------------------------------
+  // The client could rewrite the heading on the page but not the title a search engine shows, so the
+  // two drifted apart with nothing in the cabinet to fix it.
+  const baseMeta = useMemo(() => (page ? readMeta(page.prefix) : { title: "", description: "" }), [page]);
+  const metaEdit = page ? decodeMeta(mergedOv(page.id)[META_KEY]) : null;
+  const meta = { title: metaEdit?.title ?? baseMeta.title, description: metaEdit?.description ?? baseMeta.description };
+  const setMeta = (patch: Partial<PageMeta>) => {
+    if (!page) return;
+    const next = { title: meta.title, description: meta.description, ...patch };
+    // Back to exactly what the site shipped = no override at all, rather than a copy of the original.
+    if (next.title === baseMeta.title && next.description === baseMeta.description) writeBlock(page.id, META_KEY, null);
+    else writeBlock(page.id, META_KEY, encodeMeta(next));
+  };
+
   // Does this page carry unpublished edits of ours (its own, or via the shared header/footer layer)?
   const pageHasEdits = Boolean(page && page.blocks.some((b) => {
     const key = ovKeyFor(b.id, page, page.lang);
@@ -954,6 +970,41 @@ export function SiteEditor() {
             <ChevronDown size={13} className={"se__chev" + (blocksOpen ? "" : " is-collapsed")} />
             Блоки{edit ? " · клик = к блоку" : ""}
           </button>
+          {edit && page && (
+            <>
+              <button className="se__section se__section--toggle" onClick={() => setSeoOpen((v) => !v)}>
+                <ChevronDown size={13} className={"se__chev" + (seoOpen ? "" : " is-collapsed")} />
+                SEO страницы{metaEdit ? " · изменено" : ""}
+              </button>
+              {seoOpen && (
+                <div className="se__seo">
+                  {/* What the page looks like in search results — the reason these two fields matter. */}
+                  <div className="se__snippet">
+                    <div className="se__snippet-url">{index.domain}{activeEntry?.slug === "/" ? "" : activeEntry?.slug}</div>
+                    <div className="se__snippet-title">{meta.title || "Заголовок страницы"}</div>
+                    <div className="se__snippet-desc">{meta.description || "Описание, которое видно под заголовком в поиске."}</div>
+                  </div>
+                  <label className="se__seo-lbl">
+                    Заголовок <span className={"se__seo-count" + (meta.title.length > 60 ? " is-over" : "")}>{meta.title.length}/60</span>
+                  </label>
+                  <input className="se__seo-inp" value={meta.title} onChange={(e) => setMeta({ title: e.target.value })}
+                    placeholder="Например: Уборка квартир в Кишинёве — AllClean" />
+                  <label className="se__seo-lbl">
+                    Описание <span className={"se__seo-count" + (meta.description.length > 158 ? " is-over" : "")}>{meta.description.length}/158</span>
+                  </label>
+                  <textarea className="se__seo-inp se__seo-area" rows={3} value={meta.description}
+                    onChange={(e) => setMeta({ description: e.target.value })}
+                    placeholder="Коротко о странице: что предлагаете, для кого, город." />
+                  {metaEdit && (
+                    <button className="se__seo-reset" onClick={() => writeBlock(page.id, META_KEY, null)}>
+                      <RotateCcw size={13} /> Вернуть исходные
+                    </button>
+                  )}
+                  <p className="se__seo-note">Появится в результатах поиска и при отправке ссылки в мессенджер — после публикации.</p>
+                </div>
+              )}
+            </>
+          )}
           {edit && pageHasEdits && (
             /* Between Ctrl+Z (this session only) and restoring the whole site there was nothing. */
             <button className="se__revert" onClick={revertPage}

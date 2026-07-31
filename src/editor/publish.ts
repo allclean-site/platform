@@ -8,6 +8,7 @@
  */
 
 import { exportPageHtml } from "./exportSite";
+import { META_KEY, decodeMeta, readMeta } from "./renderCore.js";
 import type { ImportedPage } from "./reassemble";
 import type { PageOverrides } from "./realStore";
 import type { PageBp } from "./bpStore";
@@ -129,6 +130,13 @@ export function changesForPage(
   const ov = overrides[page.id];
   if (!ov) return [];
   const out: BlockChange[] = [];
+  // The page's own title/description live in the same map under a reserved key.
+  const meta = decodeMeta(ov[META_KEY]);
+  if (meta) {
+    const was = readMeta(page.prefix);
+    if (meta.title && meta.title !== was.title) out.push({ blockId: META_KEY + ":t", label: "Заголовок в поиске", before: was.title, after: meta.title, shared: false });
+    if (meta.description && meta.description !== was.description) out.push({ blockId: META_KEY + ":d", label: "Описание в поиске", before: was.description, after: meta.description, shared: false });
+  }
   for (const b of page.blocks) {
     const edited = ov[b.id];
     if (edited == null) continue;

@@ -32,6 +32,15 @@ export declare function fluidFont(v: string): string;
 export declare function safeHref(v: string): string;
 export declare function cleanHtml(html: string, keepIds?: Set<string>): string;
 export declare function overridesCss(pageBp?: PageBp): string;
+
+/** The page's own title/description, edited by the client and stored under this key in the overrides. */
+export interface PageMeta { title?: string; description?: string }
+export declare const META_KEY: string;
+export declare function encodeMeta(meta: PageMeta): string;
+export declare function decodeMeta(value: string | null | undefined): PageMeta | null;
+/** What the page's head says today (prefills the editor). */
+export declare function readMeta(html: string): { title: string; description: string };
+export declare function applyMeta(html: string, meta: PageMeta | null): string;
 export declare function keptIds(pageBp?: PageBp): Set<string>;
 
 export declare function applyOverrides<T extends { id: string; content: { html: string } }>(
