@@ -79,8 +79,14 @@ export function SiteEditor() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   // Undo/redo: per-block html commands. lastHtml = current html per block (baseline for next command).
-  const history = useRef<{ blockId: string; before: string; after: string }[]>([]);
-  const future = useRef<{ blockId: string; before: string; after: string }[]>([]);
+  // An undo step is either a block's HTML (desktop edits) or a snapshot of the page's breakpoint
+  // rules (tablet/phone edits). Both must be undoable — style changes made on a device used to be
+  // invisible to Ctrl+Z, so a client could not step back out of a resize.
+  type Cmd =
+    | { kind: "html"; blockId: string; before: string; after: string }
+    | { kind: "bp"; pageId: string; before: string; after: string };
+  const history = useRef<Cmd[]>([]);
+  const future = useRef<Cmd[]>([]);
   const lastHtml = useRef<Record<string, string>>({});
   const lastEditAt = useRef(0); // for coalescing rapid typing into one undo entry
   const [histLen, setHistLen] = useState(0);
@@ -217,6 +223,15 @@ export function SiteEditor() {
         win?.postMessage({ type: "lg-zoom", zoom }, "*");
       }
       else if (d.type === "lg-bp-changed" && page) {
+        // Record the change so Ctrl+Z can step back out of a tablet/phone style edit too.
+        const beforeBp = JSON.stringify(bpOverrides.current[page.id] ?? mergedBp(page.id) ?? emptyPageBp());
+        const afterBp = JSON.stringify(d.rules);
+        if (beforeBp !== afterBp) {
+          history.current.push({ kind: "bp", pageId: page.id, before: beforeBp, after: afterBp });
+          if (history.current.length > 200) history.current.shift();
+          future.current = [];
+          setHistLen(history.current.length);
+        }
         bpOverrides.current[page.id] = d.rules as PageBp;
         setBpTick((t) => t + 1);
         setSaveState("saving");
@@ -231,10 +246,10 @@ export function SiteEditor() {
           const top = history.current[history.current.length - 1];
           // Coalesce: successive edits to the same block within 800ms extend the same undo entry
           // (so typing a word is one undo, not one-per-keystroke-pause).
-          if (top && top.blockId === d.id && now - lastEditAt.current < 800) {
+          if (top && top.kind === "html" && top.blockId === d.id && now - lastEditAt.current < 800) {
             top.after = d.html;
           } else {
-            history.current.push({ blockId: d.id, before, after: d.html });
+            history.current.push({ kind: "html", blockId: d.id, before, after: d.html });
             if (history.current.length > 200) history.current.shift();
             setHistLen(history.current.length);
           }
@@ -355,15 +370,28 @@ export function SiteEditor() {
     frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html: toPreview(html) }, "*");
     setSelEl(null); setTextSel(null); setSaveState("saved");
   };
+  /** Put a page's breakpoint rules back and re-render the generated stylesheet in the iframe. */
+  const applyBp = (pageId: string, snapshot: string) => {
+    const rules = JSON.parse(snapshot) as PageBp;
+    bpOverrides.current[pageId] = rules;
+    saveBp(TENANT, SITE, bpOverrides.current);
+    scheduleDraft(pageId);
+    frameRef.current?.contentWindow?.postMessage({ type: "lg-bp-init", rules }, "*");
+    setBpTick((t) => t + 1);
+    setSaveState("saved");
+  };
+  const step = (cmd: Cmd, to: "before" | "after") =>
+    cmd.kind === "html" ? applyHtml(cmd.blockId, cmd[to]) : applyBp(cmd.pageId, cmd[to]);
+
   const undo = () => {
     const cmd = history.current.pop(); if (!cmd) return;
     future.current.push(cmd); setHistLen(history.current.length);
-    applyHtml(cmd.blockId, cmd.before);
+    step(cmd, "before");
   };
   const redo = () => {
     const cmd = future.current.pop(); if (!cmd) return;
     history.current.push(cmd); setHistLen(history.current.length);
-    applyHtml(cmd.blockId, cmd.after);
+    step(cmd, "after");
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

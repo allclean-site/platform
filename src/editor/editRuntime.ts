@@ -256,6 +256,52 @@ ${CORE_INLINE}
     }
     return null;
   }
+  // ---- auto layout ---------------------------------------------------------------------------
+  // Elements sitting side by side belong together: shrinking the text tile must shrink the video
+  // next to it, and everything below should follow, keeping its spacing — auto layout, like Figma.
+  // Sizing one box in isolation is what tore the hero apart (a 400px column beside a 656px one).
+  // rowGroup finds that shared row: the nearest ancestor that is a grid/flex item sharing its row
+  // with at least one visible sibling, together with the container holding them.
+  function rowGroup(el){
+    var cur = el;
+    while (cur && cur.parentElement && !cur.hasAttribute("data-lg-block")){
+      var par = cur.parentElement;
+      if (par.hasAttribute("data-lg-block")) break;
+      var dsp = getComputedStyle(par).display;
+      if (dsp==="flex"||dsp==="grid"||dsp==="inline-flex"||dsp==="inline-grid"){
+        var items = [], ch = par.children, mine = null;
+        for (var i=0;i<ch.length;i++){
+          var c = ch[i];
+          if (c.nodeType !== 1) continue;
+          if (String(c.className||"").indexOf("lg-") === 0) continue;  // editor overlay
+          if (getComputedStyle(c).display === "none") continue;
+          var rr = c.getBoundingClientRect();
+          if (rr.width < 2 || rr.height < 2) continue;
+          var rec = { el: c, r: rr };
+          items.push(rec);
+          if (c === cur) mine = rec;
+        }
+        if (mine && items.length >= 2){
+          var row = [];
+          for (var k=0;k<items.length;k++){
+            var o = items[k];
+            var ov = Math.min(o.r.bottom, mine.r.bottom) - Math.max(o.r.top, mine.r.top);
+            if (ov > Math.min(o.r.height, mine.r.height) * 0.5) row.push(o);  // shares this row
+          }
+          if (row.length >= 2) return { parent: par, item: cur, row: row };
+        }
+      }
+      cur = par;
+    }
+    return null;
+  }
+  // Write a value into a specific breakpoint layer regardless of which device is being shown.
+  function setBpProp(elId, layer, prop, val){
+    if (!elId) return;
+    var store = bp[layer] || (bp[layer] = {}), rec = store[elId] || (store[elId] = {});
+    if (val === "") delete rec[prop]; else rec[prop] = val;
+    if (!Object.keys(rec).length) delete store[elId];
+  }
   function startDrag(e){
     e.preventDefault(); e.stopPropagation();
     var el = handleEl; if (!el || !el.parentElement) return;
@@ -369,13 +415,20 @@ ${CORE_INLINE}
     var el = selected; if (!el) return;
     var dir = e.currentTarget.getAttribute("data-dir");
     var r = el.getBoundingClientRect(), startX = e.clientX, startY = e.clientY, startW = r.width, startH = r.height;
+    // A vertical drag resizes the whole ROW, so every column follows and the content below moves with
+    // it, instead of one box changing height on its own and breaking the alignment.
+    var rg = isAutoText(el) ? null : rowGroup(el);
+    var vTarget = rg ? rg.parent : el;
+    var vStartH = vTarget.getBoundingClientRect().height;
+    var vId = vTarget.getAttribute("data-lg-id");
+    var touchedBp = false;
     isDragging = true; hideHover();
     function move(ev){
       var dw = ev.clientX - startX, dh = ev.clientY - startY, w = startW, h = startH;
       if (dir.indexOf("e") >= 0) w = Math.max(20, startW + dw);
       if (dir.indexOf("w") >= 0) w = Math.max(20, startW - dw);
-      if (dir.indexOf("s") >= 0) h = Math.max(16, startH + dh);
-      if (dir.indexOf("n") >= 0) h = Math.max(16, startH - dh);
+      if (dir.indexOf("s") >= 0) h = Math.max(24, vStartH + dh);
+      if (dir.indexOf("n") >= 0) h = Math.max(24, vStartH - dh);
       if (dir.indexOf("e") >= 0 || dir.indexOf("w") >= 0){
         // Never let the box grow past the frame edge — on ANY device. Otherwise it overflows the page
         // and its resize handles land off the visible canvas where they can't be grabbed ("уходит за
@@ -388,12 +441,33 @@ ${CORE_INLINE}
         setStyleProp(el, "width", Math.round(w) + "px");
         unclampWidth(el);
       }
-      if ((dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0) && !isAutoText(el)){ setStyleProp(el, "height", Math.round(h) + "px"); setStyleProp(el, "flex-shrink", "0", "important"); }
+      if ((dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0) && !isAutoText(el)){
+        setStyleProp(vTarget, "height", Math.round(h) + "px");
+        if (rg){
+          // Let the columns fill the row instead of holding their own heights, so they move together.
+          setStyleProp(vTarget, "align-items", "stretch");
+          for (var q = 0; q < rg.row.length; q++) setStyleProp(rg.row[q].el, "height", "");
+          // A desktop height must not squash the phone, where the same row stacks and needs MORE
+          // room: release it below the desktop breakpoints (inline styles otherwise leak downward).
+          if (curBp === "desktop" && vId){
+            setBpProp(vId, "tablet", "height", "auto");
+            setBpProp(vId, "mobile", "height", "auto");
+            touchedBp = true;
+            renderOverrides();
+          }
+        } else {
+          setStyleProp(el, "flex-shrink", "0", "important");
+        }
+      }
       positionSelBox(el);
     }
     function up(){
       window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
-      isDragging = false; commitStyle(el); select(el); // refresh panel (width/height changed)
+      isDragging = false;
+      commitStyle(el);
+      // The auto tablet/mobile release above lives in the breakpoint layers — persist it too.
+      if (touchedBp) parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*");
+      select(el); // refresh panel (width/height changed)
     }
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   }
