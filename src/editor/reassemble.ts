@@ -53,17 +53,6 @@ export interface SiteIndex {
   pages: PageIndexEntry[];
 }
 
-const html = (p: ImportedPage) =>
-  p.blocks.find((b) => b.content.region === "header")?.content.html ?? "";
-
-export function reassemble(p: ImportedPage): string {
-  if (!p.wrapped) {
-    return p.prefix + p.blocks.map((b) => b.content.html).join("") + p.suffix;
-  }
-  const header = html(p);
-  const footer = p.blocks.find((b) => b.content.region === "footer")?.content.html ?? "";
-  const mains = p.blocks.filter((b) => b.content.region === "main").map((b) => b.content.html).join("");
-  const body =
-    p.bodyPrefix + p.pwOpen + header + p.mainOpen + mains + p.mainClose + footer + p.pwClose + p.tailScripts;
-  return p.prefix + body + p.suffix;
-}
+// The assembly itself lives in ./renderCore.js — the one copy shared with the Node publisher and the
+// in-iframe runtime, so an edit to the assembly can never apply to only some of the render paths.
+export { reassemble } from "./renderCore.js";

@@ -49,6 +49,33 @@ export function checkSeo(html: string): SeoIssue[] {
   return issues;
 }
 
+/**
+ * Layout safety check — catches the class of edit that broke the live hero: a text box pinned to a
+ * fixed pixel box. A height (or a width with its max-width neutralised) is only correct at the width
+ * it was dragged at; on a narrower screen the text overflows its section. The editor no longer creates
+ * these, so this mainly flags edits published before that fix.
+ */
+export function checkLayout(html: string): SeoIssue[] {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const issues: SeoIssue[] = [];
+  const texts = Array.from(doc.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6,p,li,blockquote"));
+
+  const label = (el: HTMLElement) => {
+    const t = (el.textContent || "").trim().replace(/\s+/g, " ");
+    return t ? `«${t.slice(0, 32)}${t.length > 32 ? "…" : ""}»` : `<${el.tagName.toLowerCase()}>`;
+  };
+
+  for (const el of texts) {
+    const s = el.getAttribute("style") || "";
+    if (/(^|;)\s*height\s*:\s*\d/i.test(s)) {
+      issues.push({ level: "warn", msg: `Текст ${label(el)} с фиксированной высотой — на узких экранах может переполнить блок` });
+    } else if (/(^|;)\s*width\s*:\s*\d/i.test(s) && /max-width\s*:\s*none/i.test(s)) {
+      issues.push({ level: "warn", msg: `Текст ${label(el)} с жёсткой шириной — на узких экранах может выйти за край` });
+    }
+  }
+  return issues;
+}
+
 /** How many edits landed on this page (content overrides + per-breakpoint/state rules). */
 export function countPageEdits(pageId: string, overrides: Record<string, PageOverrides>, bp: Record<string, PageBp>): number {
   const ov = overrides[pageId] ? Object.keys(overrides[pageId]).length : 0;
@@ -71,6 +98,6 @@ export function reportForPage(
     lang: page.lang,
     title: page.meta.title,
     edits: countPageEdits(page.id, overrides, bp),
-    issues: checkSeo(html),
+    issues: [...checkSeo(html), ...checkLayout(html)],
   };
 }

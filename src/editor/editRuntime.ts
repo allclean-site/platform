@@ -11,12 +11,23 @@
  */
 
 import type { ImportedBlock, ImportedPage } from "./reassemble";
+// The iframe runs as a plain script and cannot import modules, so the shared render core is injected
+// by SOURCE (`?raw` = the real file text, unminified even in a production build). That makes the CSS
+// the editing canvas generates literally the same code the publisher runs — the drift this project
+// kept hitting is impossible by construction, not by remembering to patch three copies.
+import renderCoreSrc from "./renderCore.js?raw";
+
+/** The core, ready to paste inside the runtime IIFE (module `export` keywords removed). */
+const CORE_INLINE = renderCoreSrc.replace(/^export\s+/gm, "");
 
 /** JS injected into the iframe. Makes text editable inline AND drives a clean per-element panel
  *  (select any element → the parent shows labeled Текст/Ссылка/Фото/Стиль controls; changes apply
  *  back here). No raw JSON — the client edits understandable properties on the real site. */
 export const EDIT_RUNTIME = `
 (function(){
+  // ---- shared render core (same source the publisher imports) -----------------------------------
+${CORE_INLINE}
+  // -----------------------------------------------------------------------------------------------
   var W = "[data-lg-block]";
   var seq = 0, selected = null, lastRange = null;
   // ---- Per-breakpoint overrides ----------------------------------------------------------------
@@ -31,7 +42,7 @@ export const EDIT_RUNTIME = `
   // base is a STYLESHEET rule (not inline !important on descendants) so tablet/mobile @media rules —
   // later in source order — can still override it. Inline !important could never be overridden.
   var bp = { base:{}, tablet:{}, mobile:{}, hover:{}, active:{} };   // layer -> { elId -> { cssProp -> value } }
-  var MQ = { tablet:"(max-width: 991px)", mobile:"(max-width: 479px)" };
+  // MQ / CASCADE / fluidFont / overridesCss all come from the injected render core above.
   // ElStyle key -> CSS property. bold & weight both map to font-weight.
   var KEY2CSS = { fontSize:"font-size", color:"color", weight:"font-weight", bold:"font-weight",
     align:"text-align", lineHeight:"line-height", letterSpacing:"letter-spacing", width:"width", height:"height", background:"background",
@@ -59,7 +70,7 @@ export const EDIT_RUNTIME = `
   // their OWN letter-spacing/font-size/etc from a class, which beats inheritance — so styling the
   // heading does nothing visible. For these props we also force every descendant (inline !important),
   // so "change the whole heading's look" actually applies.
-  var CASCADE = { "color":1, "font-size":1, "font-weight":1, "line-height":1, "letter-spacing":1, "text-align":1, "font-style":1, "text-transform":1, "text-decoration":1, "font-family":1 };
+  // CASCADE + fluidFont + overridesCss come from the injected render core (top of this IIFE).
   function cascadeDesc(el, prop, val){
     var kids = el.querySelectorAll("*");
     for (var i=0;i<kids.length;i++){
@@ -69,56 +80,13 @@ export const EDIT_RUNTIME = `
     }
   }
   function renderOverrides(){
-    // NOTE: id is "lgcms-overrides", NOT "lg-overrides" — the real allclean home page already ships a
-    // <style id="lg-overrides"> (its own live responsive edits); reusing it would WIPE them. Ours is
-    // appended after, so it wins conflicts by source order + !important while theirs stays intact.
+    // id is "lgcms-overrides", NOT "lg-overrides" — the real allclean home page ships its own
+    // <style id="lg-overrides">; reusing that id would WIPE it. Ours is appended after, so it wins
+    // conflicts by source order + !important while theirs stays intact.
     var sheet = document.getElementById("lgcms-overrides");
     if (!sheet){ sheet = document.createElement("style"); sheet.id = "lgcms-overrides"; document.head.appendChild(sheet); }
-    var css = "";
-    // Specificity boost: :not(#lgcmsx) adds ID-level weight (no real element has that id), so our rules
-    // (1,x,0) beat Webflow's class-based !important responsive rules (0,x,0) — otherwise mobile @media
-    // width/size edits silently lose to the site's own @media rules and "don't apply".
-    var B = ":not(#lgcmsx)";
-    // Hover + active rules first (base pseudo-states, no media query).
-    [["hover",":hover"],["active",":active"]].forEach(function(pair){
-      var layer = bp[pair[0]] || {};
-      for (var pid in layer){
-        var pp = layer[pid], pdecl = "";
-        for (var pk in pp){ if (pp[pk] !== "") pdecl += pk+":"+pp[pk]+" !important;"; }
-        if (pdecl) css += '[data-lg-id="'+pid+'"]'+B+pair[1]+'{'+pdecl+'}';
-      }
-    });
-    // Base desktop cascade (no media query) → forces inheritable props onto nested spans at ALL widths.
-    // Emitted BEFORE the @media blocks so tablet/mobile (later source order, same specificity) win.
-    var baseLayer = bp.base || {};
-    for (var bid in baseLayer){
-      var bprops = baseLayer[bid], bdecl = "";
-      for (var bk in bprops){ if (bprops[bk] !== "") bdecl += bk+":"+bprops[bk]+" !important;"; }
-      if (bdecl) css += '[data-lg-id="'+bid+'"] *'+B+'{'+bdecl+'}';
-    }
-    // tablet first, then mobile, so mobile wins by source order at ≤479px (desktop-first cascade).
-    ["tablet","mobile"].forEach(function(dev){
-      var elems = bp[dev] || {}, body = "";
-      for (var id in elems){
-        var props = elems[id], decl = "", cdecl = "";
-        // !important is REQUIRED: base edits are inline styles, and only !important beats inline.
-        for (var p in props){
-          if (props[p] === "") continue;
-          var pv2 = props[p];
-          // Never let a phone/tablet width overflow the viewport (even a stale wide value from an old
-          // resize) — cap to the VIEWPORT (100vw), NOT 100% (= the PARENT). 100% blocked widening a
-          // text box past its container on tablet/mobile ("не тянется вправо", while desktop does),
-          // since desktop has no cap. 100vw still stops a stale value overflowing the device screen.
-          if (p === "width" && /px$/.test(pv2)) pv2 = "min("+pv2+",100vw)";
-          decl += p+":"+pv2+" !important;";
-          if (CASCADE[p]) cdecl += p+":"+props[p]+" !important;"; // also override nested spans
-        }
-        if (decl) body += '[data-lg-id="'+id+'"]'+B+'{'+decl+'}';
-        if (cdecl) body += '[data-lg-id="'+id+'"] *'+B+'{'+cdecl+'}';
-      }
-      if (body) css += "@media "+MQ[dev]+"{"+body+"}";
-    });
-    sheet.textContent = css;
+    // ONE implementation, shared with the publisher → the canvas and the live page cannot disagree.
+    sheet.textContent = overridesCss(bp);
   }
   // Which ElStyle keys are overridden for this element at the CURRENT breakpoint (for panel dots).
   function bpKeysFor(elId){
@@ -390,6 +358,12 @@ export const EDIT_RUNTIME = `
     setStyleProp(el, "max-width", "none", "important");
     setStyleProp(el, "min-width", "0", "important");
   }
+  // Auto-height TEXT = a heading/paragraph or any contenteditable field. Its height must FOLLOW its
+  // content — never a locked px value, or a client's vertical drag bakes e.g. height:506px that
+  // overflows at other widths / font sizes (the live hero bug). Vertical resize on text is a no-op.
+  function isAutoText(el){
+    return el.isContentEditable || /^(H[1-6]|P|LI|BLOCKQUOTE|FIGCAPTION|DT|DD)$/.test(el.tagName);
+  }
   function startResize(e){
     e.preventDefault(); e.stopPropagation();
     var el = selected; if (!el) return;
@@ -414,7 +388,7 @@ export const EDIT_RUNTIME = `
         setStyleProp(el, "width", Math.round(w) + "px");
         unclampWidth(el);
       }
-      if (dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0){ setStyleProp(el, "height", Math.round(h) + "px"); setStyleProp(el, "flex-shrink", "0", "important"); }
+      if ((dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0) && !isAutoText(el)){ setStyleProp(el, "height", Math.round(h) + "px"); setStyleProp(el, "flex-shrink", "0", "important"); }
       positionSelBox(el);
     }
     function up(){

@@ -4,8 +4,9 @@
 // writes out/ (RO at root, RU under /ru), copies assets, and emits sitemap.xml + robots.txt (auto-SEO).
 // This is the "build" half of publish; the deploy half (push out/ + trigger rebuild) plugs in on top.
 //
-// Pure logic below is a Node port of src/editor/{reassemble,realStore,exportSite}.ts — kept byte-faithful
-// on unedited blocks so the mirror invariant holds (no edits → identical to the crawled live pages).
+// The render logic is IMPORTED from src/editor/renderCore.js — the same module the editor renders
+// with — so this stays byte-faithful on unedited blocks (no edits → identical to the crawled live
+// pages) and a change to rendering can never reach the site without also reaching the editor.
 import { readFile, writeFile, mkdir, rm, readdir, cp, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -16,92 +17,12 @@ const ASSETS = join(ROOT, "public", "site-assets");
 const OUT = join(ROOT, "out");
 const SITE = "https://allclean.md";
 
-// ---- pure ports ---------------------------------------------------------------------------------
-const MQ = { tablet: "(max-width: 991px)", mobile: "(max-width: 479px)" };
-const CASCADE = { "color":1,"font-size":1,"font-weight":1,"line-height":1,"letter-spacing":1,"text-align":1,"font-style":1,"text-transform":1,"text-decoration":1,"font-family":1 };
-
-function applyOverrides(blocks, ov) {
-  if (!ov) return blocks;
-  return blocks.map((b) => (ov[b.id] != null ? { ...b, content: { ...b.content, html: ov[b.id] } } : b));
-}
-
-function cleanHtml(html, keepIds) {
-  return html
-    .replace(/\s+contenteditable="true"/g, "")
-    .replace(/\s+spellcheck="false"/g, "")
-    .replace(/\s+data-lg-el="[^"]*"/g, "")
-    .replace(/\s+data-lg-id="([^"]*)"/g, (m, id) => (keepIds && keepIds.has(id) ? m : ""))
-    .replace(/\sclass="([^"]*lg-selected[^"]*)"/g, (_m, val) => {
-      const cls = val.split(/\s+/).filter((c) => c && c !== "lg-selected");
-      return cls.length ? ` class="${cls.join(" ")}"` : "";
-    });
-}
-
-function overridesCss(bp) {
-  if (!bp) return "";
-  let css = "";
-  // Specificity boost (mirror editRuntime): :not(#lgcmsx) → ID-level, beats Webflow class !important rules.
-  const B = ":not(#lgcmsx)";
-  for (const [layer, sel] of [["hover", ":hover"], ["active", ":active"]]) {
-    const els = bp[layer] || {};
-    for (const id of Object.keys(els)) {
-      let decl = "";
-      for (const p of Object.keys(els[id])) if (els[id][p] !== "") decl += `${p}:${els[id][p]} !important;`;
-      if (decl) css += `[data-lg-id="${id}"]${B}${sel}{${decl}}`;
-    }
-  }
-  // Base desktop cascade (no media query) → nested spans; before @media so tablet/mobile override it.
-  const baseLayer = bp.base || {};
-  for (const id of Object.keys(baseLayer)) {
-    let bdecl = "";
-    for (const p of Object.keys(baseLayer[id])) if (baseLayer[id][p] !== "") bdecl += `${p}:${baseLayer[id][p]} !important;`;
-    if (bdecl) css += `[data-lg-id="${id}"] *${B}{${bdecl}}`;
-  }
-  for (const dev of ["tablet", "mobile"]) {
-    const els = bp[dev] || {};
-    let body = "";
-    for (const id of Object.keys(els)) {
-      let decl = "", cdecl = "";
-      for (const p of Object.keys(els[id])) {
-        if (els[id][p] === "") continue;
-        const v = p === "width" && /px$/.test(els[id][p]) ? `min(${els[id][p]},100vw)` : els[id][p];
-        decl += `${p}:${v} !important;`;
-        if (CASCADE[p]) cdecl += `${p}:${els[id][p]} !important;`;
-      }
-      if (decl) body += `[data-lg-id="${id}"]${B}{${decl}}`;
-      if (cdecl) body += `[data-lg-id="${id}"] *${B}{${cdecl}}`;
-    }
-    if (body) css += `@media ${MQ[dev]}{${body}}`;
-  }
-  return css;
-}
-
-function keptIds(bp) {
-  const s = new Set();
-  if (bp) for (const d of ["base", "tablet", "mobile", "hover", "active"]) Object.keys(bp[d] || {}).forEach((id) => s.add(id));
-  return s;
-}
-
-function reassemble(p) {
-  if (!p.wrapped) return p.prefix + p.blocks.map((b) => b.content.html).join("") + p.suffix;
-  const header = p.blocks.find((b) => b.content.region === "header")?.content.html ?? "";
-  const footer = p.blocks.find((b) => b.content.region === "footer")?.content.html ?? "";
-  const mains = p.blocks.filter((b) => b.content.region === "main").map((b) => b.content.html).join("");
-  return p.prefix + p.bodyPrefix + p.pwOpen + header + p.mainOpen + mains + p.mainClose + footer + p.pwClose + p.tailScripts + p.suffix;
-}
-
-function exportPageHtml(page, overrides, bp) {
-  const keep = keptIds(bp);
-  const withOv = overrides ? applyOverrides(page.blocks, overrides) : page.blocks;
-  const blocks = withOv.map((b) => ({ ...b, content: { ...b.content, html: cleanHtml(b.content.html, keep) } }));
-  let doc = reassemble({ ...page, blocks });
-  const css = overridesCss(bp);
-  if (css) {
-    const tag = `<style id="lgcms-overrides">${css}</style>`;
-    doc = doc.includes("</head>") ? doc.replace("</head>", `${tag}</head>`) : doc.replace(/<body/, `${tag}<body`);
-  }
-  return doc;
-}
+// ---- render core --------------------------------------------------------------------------------
+// The assembly / cleaning / override-CSS logic is NOT re-implemented here any more. It is imported
+// from the same module the editor uses, so the published page and the editor canvas cannot drift.
+import {
+  applyOverrides, cleanHtml, overridesCss, keptIds, reassemble, exportPageHtml,
+} from "../src/editor/renderCore.js";
 
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");

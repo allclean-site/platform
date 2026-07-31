@@ -7,3 +7,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** `?raw` imports the file's SOURCE TEXT (unminified, even in a production build). Used to inject the
+ *  shared render core into the editor's in-iframe runtime, which cannot import modules. */
+declare module "*?raw" {
+  const src: string;
+  export default src;
+}

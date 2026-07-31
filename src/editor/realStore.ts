@@ -25,11 +25,6 @@ export function saveOverrides(tenant: string, site: string, all: SiteOverrides):
   localStorage.setItem(key(tenant, site), JSON.stringify(all));
 }
 
-/** Apply a page's overrides onto its freshly-fetched blocks (mutates copies' content.html). */
-export function applyOverrides<T extends { id: string; content: { html: string } }>(
-  blocks: T[],
-  overrides: PageOverrides | undefined
-): T[] {
-  if (!overrides) return blocks;
-  return blocks.map((b) => (overrides[b.id] != null ? { ...b, content: { ...b.content, html: overrides[b.id] } } : b));
-}
+// Applying overrides is part of the shared render core (same code the publisher runs), so the editor
+// and the published site can never disagree about what an override means.
+export { applyOverrides } from "./renderCore.js";
