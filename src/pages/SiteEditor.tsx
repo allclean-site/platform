@@ -591,7 +591,11 @@ export function SiteEditor() {
    * into the live document block by block — see loadPage. Recomputing this on every state change
    * silently reloaded the iframe, because React writes the new string to the srcDoc attribute.
    */
-  const docKey = `${activeFile}|${edit}`;
+  // Keyed by the page that is actually LOADED, never by the one being requested: `activeFile` changes
+  // the moment the client clicks, while `page` still holds the previous one, so keying on the click
+  // built the document from the OLD page and then never rebuilt it — the panel said /about while the
+  // canvas still showed the home page.
+  const docKey = page ? `${page.id}|${edit}` : "";
   const docRef = useRef<{ key: string; html: string }>({ key: "", html: "" });
   if (page && docRef.current.key !== docKey) {
     docRef.current = { key: docKey, html: previewDoc(page, edit, edit ? undefined : mergedBp(page.id)) };
@@ -1093,7 +1097,7 @@ export function SiteEditor() {
               <div className="se__stage" style={{ width: frameW, height: frameH, transform: `scale(${zoom})` }}>
                 <iframe
                   ref={frameRef}
-                  key={activeFile + String(edit)}
+                  key={docKey}
                   className="se__frame"
                   title="Страница сайта — редактируемый холст"
                   style={{ width: frameW, height: frameH }}
