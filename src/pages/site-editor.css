@@ -379,6 +379,9 @@
 .pub__gate p { display: flex; align-items: center; gap: 8px; margin: 0; padding: 9px 12px; border-radius: var(--r-md); font-size: 13px; font-weight: 600; }
 .pub__gate-ok { background: rgba(16, 185, 129, .1); color: var(--success); }
 .pub__gate-err { background: rgba(239, 68, 68, .1); color: var(--danger); }
+.pub__gate-warn { background: rgba(245, 158, 11, .12); color: var(--warning); align-items: flex-start !important;
+  font-weight: 600; line-height: 1.5; }
+.pub__gate-warn svg { flex: none; margin-top: 2px; }
 
 .pub__list { flex: 1; overflow-y: auto; padding: 6px 20px; }
 .pub__page { padding: 8px 0; border-bottom: 1px solid var(--border); }

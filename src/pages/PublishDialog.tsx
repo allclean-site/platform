@@ -7,7 +7,7 @@
  * so this dialog never deploys on its own.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { X, CheckCircle2, AlertTriangle, XCircle, Download, Loader2, Rocket, Copy } from "lucide-react";
 import type { SiteIndex, ImportedPage } from "../editor/reassemble";
 import type { SiteOverrides } from "../editor/realStore";
@@ -16,6 +16,8 @@ import { reportForPage, type PageReport } from "../editor/publish";
 import { publishConfigured, publishToSite } from "../editor/publishClient";
 import { Dialog } from "../components/Dialog";
 import { listVersions, restoreVersion, type SiteVersion } from "../editor/versionsClient";
+import { isSharedKey, langOfSharedKey, resolveShared } from "../editor/sharedBlocks";
+import type { PageOverrides } from "../editor/realStore";
 
 export function PublishDialog({
   index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "",
@@ -24,7 +26,8 @@ export function PublishDialog({
   dataBase: string;
   overrides: SiteOverrides;
   bp: SiteBp;
-  onDownload: () => void;
+  /** Receives the FINAL overrides (shared header/footer edits already expanded per page). */
+  onDownload: (overrides: SiteOverrides) => void;
   onClose: () => void;
   /** Shown in the version history as who published. */
   publishedBy?: string;
@@ -40,6 +43,8 @@ export function PublishDialog({
   const [showHistory, setShowHistory] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreMsg, setRestoreMsg] = useState("");
+  /** Pages where a shared header/footer edit could not be placed — named rather than silently dropped. */
+  const [missed, setMissed] = useState<string[]>([]);
   const canPublish = publishConfigured();
   // Nothing was changed anywhere (this browser, the shared draft, or what is already live). Scanning
   // 38 pages to tell someone that is ten seconds spent proving there is nothing to say.
@@ -48,9 +53,53 @@ export function PublishDialog({
     Object.values(bp).every((p) => !p || (!Object.keys(p.tablet ?? {}).length && !Object.keys(p.mobile ?? {}).length
       && !Object.keys(p.hover ?? {}).length && !Object.keys(p.active ?? {}).length));
 
+  /**
+   * Header and footer edits are stored once per locale as a patch. The site and the static build know
+   * nothing about that — they take plain per-page HTML — so the patch is expanded here, against each
+   * page's OWN copy of the block, which is also the only place that already loads every page.
+   */
+  const expanded = useRef<SiteOverrides>({});
+  const scanned = useRef<Set<string>>(new Set());
+  const missedOn = useRef<Set<string>>(new Set());
+  const hasShared = Object.keys(overrides).some(isSharedKey);
+
+  const expandForPage = (p: ImportedPage): PageOverrides => {
+    const out: PageOverrides = { ...(overrides[p.id] || {}) };
+    for (const key of Object.keys(overrides)) {
+      if (!isSharedKey(key) || langOfSharedKey(key) !== p.lang) continue;
+      for (const blockId of Object.keys(overrides[key])) {
+        const val = overrides[key][blockId];
+        if (val == null || out[blockId] != null) continue;   // a page-specific edit is more specific
+        const base = p.blocks.find((b) => b.id === blockId)?.content.html;
+        if (base == null) continue;
+        const r = resolveShared(base, val);
+        out[blockId] = r.html;
+        if (r.missed) missedOn.current.add(p.slug);
+      }
+    }
+    return out;
+  };
+  const noteScanned = (p: ImportedPage) => {
+    expanded.current[p.id] = expandForPage(p);
+    scanned.current.add(p.id);
+  };
+  /** Pages the scan has not reached yet still have to be expanded before anything is published. */
+  const ensureExpanded = async (): Promise<SiteOverrides> => {
+    if (!hasShared) return overrides;
+    for (const entry of index.pages) {
+      if (scanned.current.has(entry.id)) continue;
+      try {
+        const p: ImportedPage = await fetch(`${dataBase}/${entry.file}.json`).then((r) => r.json());
+        noteScanned(p);
+      } catch { /* a page we cannot read keeps whatever it already had */ }
+    }
+    return expanded.current;
+  };
+
   const doPublish = async () => {
     setPubState("publishing"); setPubMsg(""); setPubDetail(""); setCopied(false);
-    const r = await publishToSite(overrides, bp, publishedBy);
+    const payload = await ensureExpanded();
+    const r = await publishToSite(payload, bp, publishedBy);
     setPubState(r.ok ? "done" : "error");
     setPubMsg(r.message);
     setPubDetail(r.detail ?? "");
@@ -80,18 +129,24 @@ export function PublishDialog({
 
   useEffect(() => {
     if (nothingToPublish) { setScanning(false); return; }
+    expanded.current = Object.fromEntries(Object.entries(overrides).filter(([k]) => !isSharedKey(k)));
     let cancelled = false;
     (async () => {
       const out: PageReport[] = [];
       // Check the pages the client actually changed FIRST. Scanning all 38 before showing anything
       // meant a ten-second wait for someone who edited one heading; now their pages — the only ones
       // whose result can change the decision — are on screen almost immediately.
-      const edited = (e: { id: string }) => (overrides[e.id] && Object.keys(overrides[e.id]).length) || (bp[e.id] ? 1 : 0);
+      const edited = (e: { id: string; lang: string }) =>
+        (overrides[e.id] && Object.keys(overrides[e.id]).length) || (bp[e.id] ? 1 : 0) ||
+        // a shared header/footer edit changes every page of that locale
+        (Object.keys(overrides).some((k) => isSharedKey(k) && langOfSharedKey(k) === e.lang) ? 1 : 0);
       const order = [...index.pages].sort((a, b) => Number(!!edited(b)) - Number(!!edited(a)));
       for (const entry of order) {
         try {
           const p: ImportedPage = await fetch(`${dataBase}/${entry.file}.json`).then((r) => r.json());
-          out.push(reportForPage(p, overrides, bp));
+          noteScanned(p);
+          // Report on what will ACTUALLY be published for this page — shared edits included.
+          out.push(reportForPage(p, expanded.current, bp));
         } catch {
           out.push({ id: entry.id, file: entry.file, slug: entry.slug, lang: entry.lang, title: entry.title, edits: 0, issues: [{ level: "error", msg: "Не удалось загрузить страницу" }] });
         }
@@ -99,7 +154,7 @@ export function PublishDialog({
         setProgress(out.length);
         setReports([...out]);      // show results as they arrive instead of one long blank wait
       }
-      if (!cancelled) setScanning(false);
+      if (!cancelled) { setScanning(false); setMissed([...missedOn.current]); }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,6 +205,15 @@ export function PublishDialog({
               <div className={"pub__stat" + (warns ? " pub__stat--warn" : "")}><b>{warns}</b><span>предупреждений</span></div>
             </div>
 
+            {missed.length > 0 && (
+              <div className="pub__gate">
+                <p className="pub__gate-warn">
+                  <AlertTriangle size={16} /> Правку в шапке или подвале не удалось перенести на {missed.length}{" "}
+                  {missed.length === 1 ? "страницу" : "страниц(ы)"} — там этот блок свёрстан иначе: {missed.slice(0, 4).join(", ")}
+                  {missed.length > 4 ? "…" : ""}. Проверьте их и при необходимости повторите правку на такой странице.
+                </p>
+              </div>
+            )}
             <div className="pub__gate">
               {errors === 0
                 ? <p className="pub__gate-ok"><CheckCircle2 size={16} /> Проверка SEO пройдена — критичных проблем нет, сайт готов к публикации.</p>
@@ -242,7 +306,7 @@ export function PublishDialog({
               )}
               <div className="pub__actions">
                 <button className="pub__btn-ghost" onClick={onClose}>Закрыть</button>
-                <button className="pub__btn-ghost" onClick={onDownload}>
+                <button className="pub__btn-ghost" onClick={() => { void ensureExpanded().then(onDownload); }}>
                   <Download size={15} /> Скачать пакет
                 </button>
                 {canPublish && (

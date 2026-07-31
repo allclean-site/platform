@@ -18,6 +18,7 @@ import { toCanonical, toPreview, canonicalizeOverrides } from "../editor/assetPa
 import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
 import { loadHistory, saveHistory, type Snap, type Step } from "../editor/historyStore";
+import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared } from "../editor/sharedBlocks";
 import { indexMediaFromDoc } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
@@ -161,6 +162,36 @@ export function SiteEditor() {
     }
     return out;
   };
+  /**
+   * Which store a block's edits belong to. The header and the footer exist as a separate copy inside
+   * every page, so an edit there is stored ONCE in a per-locale shared layer — otherwise changing the
+   * phone number on one page left the other 37 with the old one, published and silent.
+   */
+  const ovKeyFor = useCallback((blockId: string, p: ImportedPage | null, lang: string) => {
+    const region = p?.blocks.find((b) => b.id === blockId)?.content.region;
+    return isSharedRegion(region) ? sharedKey(lang) : (p?.id ?? "");
+  }, []);
+
+  /**
+   * A page's overrides with the shared header/footer edits folded in — each resolved against THIS
+   * page's own copy of the block, so per-page details (the language-toggle href, image alts, the
+   * different footer on article pages) survive an edit made somewhere else.
+   */
+  const resolveForPage = useCallback((p: ImportedPage, lang: string): PageOverrides => {
+    const own = mergedOv(p.id);
+    const out: PageOverrides = { ...own };
+    const shared = mergedOv(sharedKey(lang));
+    for (const blockId of Object.keys(shared)) {
+      const val = shared[blockId];
+      if (val == null || own[blockId] != null) continue;   // a page-specific edit is the more specific one
+      const base = p.blocks.find((b) => b.id === blockId)?.content.html;
+      if (base == null) continue;
+      out[blockId] = resolveShared(base, val).html;
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Full merged maps for publish/export so publishing preserves others' published + drafted edits.
   const allOverrides = (): SiteOverrides => {
     const out: SiteOverrides = {};
@@ -286,11 +317,18 @@ export function SiteEditor() {
     if (pid) saveHistory(TENANT, SITE, pid, history.current, future.current);
   }, [SITE]);
 
+  /** A transaction can touch two stores at once — the page and the shared header/footer layer — so a
+   *  recorded key names both. */
+  const CK_SEP = "\u0001";
+  const ck = (ovKey: string, blockId: string) => ovKey + CK_SEP + blockId;
+  const unck = (key: string) => key.split(CK_SEP) as [string, string];
+
   /** Remember a key's previous value the FIRST time this transaction touches it. */
-  const recordBlock = (pageId: string, blockId: string) => {
+  const recordBlock = (ovKey: string, blockId: string) => {
     const t = txn.current;
-    if (!t || t.pageId !== pageId || blockId in t.blocks) return;
-    t.blocks[blockId] = overrides.current[pageId]?.[blockId];
+    const key = ck(ovKey, blockId);
+    if (!t || key in t.blocks) return;
+    t.blocks[key] = overrides.current[ovKey]?.[blockId];
   };
   const recordBp = (pageId: string) => {
     const t = txn.current;
@@ -306,10 +344,11 @@ export function SiteEditor() {
     const before: Snap = { blocks: t.blocks, bp: t.bp };
     const after: Snap = { blocks: {}, bp: undefined };
     let changed = false;
-    for (const bid of Object.keys(t.blocks)) {
-      const now = overrides.current[t.pageId]?.[bid];
-      after.blocks[bid] = now;
-      if (now !== t.blocks[bid]) changed = true;
+    for (const key of Object.keys(t.blocks)) {
+      const [ovKey, bid] = unck(key);
+      const now = overrides.current[ovKey]?.[bid];
+      after.blocks[key] = now;
+      if (now !== t.blocks[key]) changed = true;
     }
     if (t.bp !== undefined) {
       const now = bpOverrides.current[t.pageId] ?? null;
@@ -349,20 +388,21 @@ export function SiteEditor() {
     };
   }, [endGesture]);
 
-  const writeBlock = (pageId: string, blockId: string, html: string | null) => {
-    openTxn(pageId); recordBlock(pageId, blockId);
+  /** @param ovKey the store this block belongs to: the page id, or the shared header/footer layer. */
+  const writeBlock = (ovKey: string, blockId: string, html: string | null) => {
+    openTxn(loadedPageId.current || ovKey); recordBlock(ovKey, blockId);
     setSaveState("saving");
-    const page = (overrides.current[pageId] ??= {});
+    const store = (overrides.current[ovKey] ??= {});
     // A tombstone, not a deletion: "this block has no override" has to be stated so it survives the
     // merge with the shared draft and the published layer (that is what makes undo stick for others).
-    page[blockId] = html;
+    store[blockId] = html;
     if (!saveOverrides(TENANT, SITE, overrides.current)) {
       setSaveState("idle");
       say("Не удалось сохранить правку в этом браузере: закончилось место. Опубликуйте изменения или очистите данные сайта.");
       return;
     }
     setSaveState("saved");
-    scheduleDraft(pageId);
+    scheduleDraft(ovKey);
     autoCommit();
   };
   const writeBp = (pageId: string, rules: PageBp) => {
@@ -397,7 +437,8 @@ export function SiteEditor() {
         // Pristine markup, before any override — undoing back to "no edit" restores from this instead
         // of reloading the whole page.
         baseHtml.current = Object.fromEntries(p.blocks.map((b) => [b.id, b.content.html]));
-        const blocks = applyOverrides(p.blocks, mergedOv(p.id));
+        // resolveForPage folds in the shared header/footer edits, rebuilt against THIS page's copy.
+        const blocks = applyOverrides(p.blocks, resolveForPage(p, p.lang));
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));
         // Only a move to a DIFFERENT page starts a new history. This function also runs when the page
         // is merely re-rendered — after an undo, a section delete, or a draft sync when the window
@@ -464,7 +505,21 @@ export function SiteEditor() {
         d.html = toCanonical(d.html);
         if (d.html === lastHtml.current[d.id]) return;   // nothing actually changed
         lastHtml.current[d.id] = d.html;
-        writeBlock(page.id, d.id, d.html);
+        const region = page.blocks.find((b) => b.id === d.id)?.content.region;
+        if (isSharedRegion(region)) {
+          // The header and the footer live in all 38 pages. Store WHAT CHANGED once for the locale, so
+          // the client's new phone number reaches every page instead of only the one they were on.
+          const base = baseHtml.current[d.id];
+          const patches = base != null ? diffPatches(base, d.html) : null;
+          if (patches && patches.length) writeBlock(sharedKey(page.lang), d.id, encodePatches(patches));
+          else if (patches) writeBlock(sharedKey(page.lang), d.id, null);   // typed back to the original
+          else {
+            // The two copies cannot be compared at all — keep the edit on this page rather than guess,
+            // and say so instead of quietly limiting it.
+            writeBlock(page.id, d.id, d.html);
+            say("Эта правка сохранена только для текущей страницы: на других страницах блок свёрстан иначе.");
+          }
+        } else writeBlock(page.id, d.id, d.html);
         setSaveState("saved");
       }
     }
@@ -561,6 +616,18 @@ export function SiteEditor() {
   const selectCrumb = (id: string) =>
     frameRef.current?.contentWindow?.postMessage({ type: "lg-select-el", el: id }, "*");
 
+  /** What this block should look like on the page currently open: a page-specific override, else the
+   *  shared header/footer edit rebuilt against this page's copy, else the site's own markup. */
+  const htmlForBlockNow = (blockId: string): string => {
+    const pid = loadedPageId.current ?? "";
+    const own = mergedOv(pid)[blockId];
+    if (own != null) return own;
+    const base = baseHtml.current[blockId] ?? "";
+    const shared = page ? mergedOv(sharedKey(page.lang))[blockId] : undefined;
+    if (shared != null && base) return resolveShared(base, shared).html;
+    return base;
+  };
+
   /** Push a block's HTML into the iframe (assets in preview form) — used by history and by edits. */
   const pushHtmlToFrame = (blockId: string, html: string) =>
     frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html: toPreview(html) }, "*");
@@ -572,15 +639,22 @@ export function SiteEditor() {
    * bypasses the transaction gateway and re-renders from the restored state instead.
    */
   const applySnap = (pageId: string, snap: Snap) => {
-    for (const blockId of Object.keys(snap.blocks)) {
-      const html = snap.blocks[blockId];
-      const pageOv = (overrides.current[pageId] ??= {});
-      if (html === undefined) delete pageOv[blockId];   // there was no entry here before
-      else pageOv[blockId] = html;                      // an override, or a tombstone
-      if (!Object.keys(pageOv).length) delete overrides.current[pageId];
-      // No override left = back to the site's own markup. Push that directly: reloading the page to
-      // get it would throw away the editing state (and used to clear the history along with it).
-      const shown = (typeof html === "string" ? html : undefined) ?? mergedOv(pageId)[blockId] ?? baseHtml.current[blockId] ?? "";
+    const touched = new Set<string>();       // ov keys to re-sync
+    const blocks = new Set<string>();        // block ids to re-render on the canvas
+    for (const key of Object.keys(snap.blocks)) {
+      const [ovKey, blockId] = unck(key);
+      const html = snap.blocks[key];
+      const store = (overrides.current[ovKey] ??= {});
+      if (html === undefined) delete store[blockId];    // there was no entry here before
+      else store[blockId] = html;                       // an override, or a tombstone
+      if (!Object.keys(store).length) delete overrides.current[ovKey];
+      touched.add(ovKey); blocks.add(blockId);
+    }
+    // Push the block's CURRENT html for the page on screen — resolved through the shared layer, since
+    // a step may have restored a header edit that has to be rebuilt against this page's own copy.
+    // Pushing directly (instead of reloading the page to get it) keeps the editing state alive.
+    for (const blockId of blocks) {
+      const shown = htmlForBlockNow(blockId);
       lastHtml.current[blockId] = shown;
       pushHtmlToFrame(blockId, shown);
     }
@@ -590,9 +664,10 @@ export function SiteEditor() {
       saveBp(TENANT, SITE, bpOverrides.current);
       frameRef.current?.contentWindow?.postMessage({ type: "lg-bp-init", rules }, "*");
       setBpTick((t) => t + 1);
+      touched.add(pageId);
     }
     saveOverrides(TENANT, SITE, overrides.current);
-    scheduleDraft(pageId);
+    touched.forEach((k) => scheduleDraft(k));
     setSelEl(null); setTextSel(null); setSaveState("saved");
   };
 
@@ -687,14 +762,15 @@ export function SiteEditor() {
   // Section delete/restore. A removed section is stored as an EMPTY-STRING override for its block —
   // it renders nothing in the editor and is applied (→ empty) by the publish build, so it flows through
   // the existing overrides pipeline with no schema change. Restore just drops the override (back to base).
-  const isRemoved = (blockId: string) => page != null && mergedOv(page.id)[blockId] === "";
+  const isRemoved = (blockId: string) =>
+    page != null && (mergedOv(page.id)[blockId] === "" || mergedOv(sharedKey(page.lang))[blockId] === "");
 
   const deleteBlock = (blockId: string) => {
     if (!page) return;
     // No confirmation: this is undoable (Ctrl+Z, or ↩ in the block list). Apple's guidance is to warn
     // only about destructive actions that CANNOT be undone — asking every time teaches people to
     // click through warnings, which is what makes the dangerous ones stop working.
-    writeBlock(page.id, blockId, "");
+    writeBlock(ovKeyFor(blockId, page, page.lang), blockId, "");
     commitTxn();                       // deleting a section is one deliberate step
     if (selected === blockId) { setSelected(null); setSelEl(null); }
     setSaveState("saved");
@@ -703,15 +779,16 @@ export function SiteEditor() {
 
   const restoreBlock = (blockId: string) => {
     if (!page) return;
-    writeBlock(page.id, blockId, null);   // drop the override → back to the base markup
+    writeBlock(ovKeyFor(blockId, page, page.lang), blockId, null);   // drop the override → back to the base markup
     commitTxn();
     setSaveState("saved");
     loadPage(activeFile);
   };
 
-  const exportEdits = () => {
+  /** @param ov the FINAL per-page overrides from the publish dialog (shared edits already expanded). */
+  const exportEdits = (ov?: SiteOverrides) => {
     // Both edit layers: content overrides (per-block html) + breakpoint overrides (@media rules).
-    const payload = { overrides: allOverrides(), breakpoints: allBp() };
+    const payload = { overrides: ov ?? allOverrides(), breakpoints: allBp() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     // The anchor has to be in the document, and the URL must outlive the click, or the download
     // silently never starts outside Chromium — and this is the only publish route when the endpoint
@@ -826,7 +903,8 @@ export function SiteEditor() {
               const removed = isRemoved(b.id);
               const region = page?.blocks.find((pb) => pb.id === b.id)?.content.region;
               const canDelete = edit && region !== "header" && region !== "footer";
-              const edited = !removed && overrides.current[page?.id ?? ""]?.[b.id] != null;
+              const edited = !removed && page != null &&
+                (overrides.current[page.id]?.[b.id] != null || overrides.current[sharedKey(page.lang)]?.[b.id] != null);
               return (
                 <li key={b.id}
                   className={"se__block" + (selected === b.id ? " is-selected" : "") + (removed ? " is-removed" : "")}>
