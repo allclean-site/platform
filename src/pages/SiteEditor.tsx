@@ -72,7 +72,7 @@ export function SiteEditor() {
   const draftMeta = useRef<Record<string, DraftMeta>>({});
   const [draftState, setDraftState] = useState<"off" | "syncing" | "synced" | "error">("off");
   const [draftWho, setDraftWho] = useState<string>("");  // "кто правил последним" for the current page
-  const draftTimer = useRef<number | undefined>(undefined);
+  const draftTimers = useRef<Record<string, number>>({});   // one debounce per page
   const [syncTick, setSyncTick] = useState(0);         // bump when published/draft edits arrive → re-render
   const [, setBpTick] = useState(0); // bump to re-render device-tab dots after a bp change
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -170,8 +170,11 @@ export function SiteEditor() {
   const scheduleDraft = useCallback((pageId: string) => {
     if (!draftConfigured() || !pageId) return;
     setDraftState("syncing");
-    window.clearTimeout(draftTimer.current);
-    draftTimer.current = window.setTimeout(async () => {
+    // One timer PER PAGE: a single shared timer meant that editing one page and moving to another
+    // within the debounce window cancelled the first page's push, so those edits never reached the
+    // shared draft and the other side never saw them.
+    window.clearTimeout(draftTimers.current[pageId]);
+    draftTimers.current[pageId] = window.setTimeout(async () => {
       const ov = { ...draftOv.current[pageId], ...overrides.current[pageId] };
       const bp = bpOverrides.current[pageId] ?? draftBp.current[pageId];
       const at = await saveDraftPage("allclean", pageId, ov, bp, session?.name || "");
@@ -294,6 +297,9 @@ export function SiteEditor() {
       const d = e.data;
       if (!d || typeof d !== "object") return;
       if (d.type === "lg-select") setSelected(d.id);
+      // Ctrl+Z pressed while the cursor is in the canvas — the iframe forwards it here.
+      else if (d.type === "lg-undo") undoRef.current();
+      else if (d.type === "lg-redo") redoRef.current();
       else if (d.type === "lg-elem-select") { setSelEl(d as SelectedEl); setSelected(d.blockId); }
       else if (d.type === "lg-elem-deleted") setSelEl(null);
       else if (d.type === "lg-text-sel") { setTextSel(d.rect ? (d as TextSel) : null); if (!d.rect) setLinkPop(null); }
@@ -466,11 +472,15 @@ export function SiteEditor() {
     future.current.push(s); setHistLen(history.current.length); setFutLen(future.current.length);
     applySnap(s.pageId, s.before);
   };
+  // Kept in refs so the iframe message handler (registered once) always calls the current versions.
+  const undoRef = useRef<() => void>(() => {});
+  const redoRef = useRef<() => void>(() => {});
   const redo = () => {
     const s = future.current.pop(); if (!s) return;
     history.current.push(s); setHistLen(history.current.length); setFutLen(future.current.length);
     applySnap(s.pageId, s.after);
   };
+  undoRef.current = undo; redoRef.current = redo;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;

@@ -383,6 +383,21 @@ ${CORE_INLINE}
   function txnBegin(){ parent.postMessage({ type:"lg-txn-begin" }, "*"); }
   function txnEnd(){ parent.postMessage({ type:"lg-txn-end" }, "*"); }
 
+  // Undo/redo from INSIDE the canvas. The editor's shortcuts live on the parent window, but while you
+  // are typing in the page the keyboard belongs to this document, so Ctrl+Z never reached them — undo
+  // appeared dead exactly when it is needed most. Worse, the browser's own contenteditable undo would
+  // run instead and silently pull the DOM out of step with our history, so we suppress it and hand the
+  // gesture to the editor.
+  document.addEventListener("keydown", function(e){
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var k = (e.key || "").toLowerCase();
+    if (k === "z" || k === "y"){
+      e.preventDefault();
+      var redo = (k === "y") || e.shiftKey;
+      parent.postMessage({ type: redo ? "lg-redo" : "lg-undo" }, "*");
+    }
+  }, true);
+
   // Remember an element's ORIGINAL inline style the first time we touch it, so "reset" can restore
   // exactly what the site shipped instead of guessing which declarations were ours.
   function stashOriginal(el){
