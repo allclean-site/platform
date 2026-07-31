@@ -201,6 +201,22 @@ export function SiteEditor() {
       .forEach((pid) => { out[pid] = mergedOv(pid); });
     return out;
   };
+  /**
+   * Pages whose pending edits are not this browser's work — they arrived through the shared draft.
+   * Publishing has always pushed the merged state, so a client pressing «Опубликовать» also ships
+   * whatever the agency happens to have in progress. The dialog now says which pages those are, and
+   * lets them be left out.
+   */
+  const othersPages = (): string[] => {
+    const out: string[] = [];
+    for (const key of Object.keys(draftOv.current)) {
+      const theirs = draftOv.current[key] || {};
+      const mine = overrides.current[key] || {};
+      if (Object.keys(theirs).some((b) => theirs[b] != null && mine[b] === undefined)) out.push(key);
+    }
+    return out;
+  };
+
   const allBp = (): SiteBp => {
     const out: SiteBp = {};
     new Set([...Object.keys(pubBp.current), ...Object.keys(draftBp.current), ...Object.keys(bpOverrides.current)])
@@ -747,6 +763,23 @@ export function SiteEditor() {
     return () => window.removeEventListener("keydown", onKey);
   }, [page]);
 
+  /**
+   * The editor is a three-column desktop tool: the canvas is dragged with a mouse and the panels need
+   * the width. On a phone or a tablet it half-works, which is worse than saying so — a client would
+   * otherwise conclude the product is broken.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const coarse = window.matchMedia?.("(pointer: coarse)").matches;
+    const narrow = window.innerWidth < 1100;
+    if (!coarse && !narrow) return;
+    try {
+      if (sessionStorage.getItem("leadgenium:editor:touch-note")) return;
+      sessionStorage.setItem("leadgenium:editor:touch-note", "1");
+    } catch { /* private mode: it just shows again */ }
+    say("Редактор рассчитан на компьютер с мышью — с планшета или телефона часть действий (перетаскивание, изменение размеров) недоступна.");
+  }, [say]);
+
   // Notices clear themselves — nobody should have to dismiss a hint to keep editing.
   useEffect(() => {
     if (!notice) return;
@@ -1146,7 +1179,8 @@ export function SiteEditor() {
           <span className="rtb__sep" />
           <label className="rtb__btn rtb__color" title="Цвет выделенного текста">
             <span className="rtb__swatch" />
-            <input type="color" onChange={(e) => textCmd("color", e.target.value)} />
+            {/* the label wraps the input but has no text, so the control had no accessible name */}
+            <input type="color" aria-label="Цвет выделенного текста" onChange={(e) => textCmd("color", e.target.value)} />
           </label>
           <button className={"rtb__btn" + (textSel.state.link ? " is-active" : "")} title="Ссылка (Ctrl+K)"
             onClick={() => setLinkPop((p) => (p ? null : { url: textSel.state.href || "https://", newTab: textSel.state.newTab }))}><Link2 size={15} /></button>
@@ -1186,6 +1220,7 @@ export function SiteEditor() {
           publishedBy={session?.name || ""}
           overrides={allOverrides()}
           bp={allBp()}
+          othersPages={othersPages()}
           onDownload={exportEdits}
           onClose={() => setPublishing(false)}
         />

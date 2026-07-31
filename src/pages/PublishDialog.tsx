@@ -20,7 +20,7 @@ import { isSharedKey, langOfSharedKey, resolveShared } from "../editor/sharedBlo
 import type { PageOverrides } from "../editor/realStore";
 
 export function PublishDialog({
-  index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "",
+  index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "", othersPages = [],
 }: {
   index: SiteIndex;
   dataBase: string;
@@ -31,7 +31,16 @@ export function PublishDialog({
   onClose: () => void;
   /** Shown in the version history as who published. */
   publishedBy?: string;
+  /** Override keys whose pending edits came from the shared draft — someone else's work in progress. */
+  othersPages?: string[];
 }) {
+  // Publishing pushes the merged state, so a client can end up shipping the agency's unfinished work
+  // (and the other way round). Every edited page can be left out of this publish instead.
+  const [skip, setSkip] = useState<Set<string>>(() => new Set());
+  const toggleSkip = (id: string) =>
+    setSkip((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const others = new Set(othersPages);
+  const sharedFromOthers = othersPages.some(isSharedKey);
   const [reports, setReports] = useState<PageReport[] | null>(null);
   const [progress, setProgress] = useState(0);
   const [scanning, setScanning] = useState(true);
@@ -96,10 +105,24 @@ export function PublishDialog({
     return expanded.current;
   };
 
+  /** Only the pages the client left checked. Untouched pages carry nothing, so they cost nothing. */
+  const selected = (all: SiteOverrides): SiteOverrides => {
+    if (!skip.size) return all;
+    const out: SiteOverrides = {};
+    for (const pid of Object.keys(all)) if (!skip.has(pid)) out[pid] = all[pid];
+    return out;
+  };
+  const selectedBp = (): SiteBp => {
+    if (!skip.size) return bp;
+    const out: SiteBp = {};
+    for (const pid of Object.keys(bp)) if (!skip.has(pid)) out[pid] = bp[pid];
+    return out;
+  };
+
   const doPublish = async () => {
     setPubState("publishing"); setPubMsg(""); setPubDetail(""); setCopied(false);
-    const payload = await ensureExpanded();
-    const r = await publishToSite(payload, bp, publishedBy);
+    const payload = selected(await ensureExpanded());
+    const r = await publishToSite(payload, selectedBp(), publishedBy);
     setPubState(r.ok ? "done" : "error");
     setPubMsg(r.message);
     setPubDetail(r.detail ?? "");
@@ -141,16 +164,25 @@ export function PublishDialog({
         // a shared header/footer edit changes every page of that locale
         (Object.keys(overrides).some((k) => isSharedKey(k) && langOfSharedKey(k) === e.lang) ? 1 : 0);
       const order = [...index.pages].sort((a, b) => Number(!!edited(b)) - Number(!!edited(a)));
-      for (const entry of order) {
-        try {
-          const p: ImportedPage = await fetch(`${dataBase}/${entry.file}.json`).then((r) => r.json());
+      // In batches: 38 pages fetched strictly one after another spent most of the wait idle on the
+      // network. The order is preserved, so edited pages still come first.
+      const CHUNK = 6;
+      for (let i = 0; i < order.length; i += CHUNK) {
+        const batch = order.slice(i, i + CHUNK);
+        const loaded = await Promise.all(
+          batch.map((e) => fetch(`${dataBase}/${e.file}.json`).then((r) => r.json() as Promise<ImportedPage>).catch(() => null))
+        );
+        if (cancelled) return;
+        loaded.forEach((p, k) => {
+          const entry = batch[k];
+          if (!p) {
+            out.push({ id: entry.id, file: entry.file, slug: entry.slug, lang: entry.lang, title: entry.title, edits: 0, changes: [], issues: [{ level: "error", msg: "Не удалось загрузить страницу" }] });
+            return;
+          }
           noteScanned(p);
           // Report on what will ACTUALLY be published for this page — shared edits included.
           out.push(reportForPage(p, expanded.current, bp));
-        } catch {
-          out.push({ id: entry.id, file: entry.file, slug: entry.slug, lang: entry.lang, title: entry.title, edits: 0, changes: [], issues: [{ level: "error", msg: "Не удалось загрузить страницу" }] });
-        }
-        if (cancelled) return;
+        });
         setProgress(out.length);
         setReports([...out]);      // show results as they arrive instead of one long blank wait
       }
@@ -214,6 +246,15 @@ export function PublishDialog({
                 </p>
               </div>
             )}
+            {(others.size > 0 || sharedFromOthers) && (
+              <div className="pub__gate">
+                <p className="pub__gate-warn">
+                  <AlertTriangle size={16} /> В публикацию попадут и правки из общего черновика —
+                  {sharedFromOthers ? " в том числе в шапке или подвале." : " они отмечены «правки коллеги»."}
+                  {" "}Снимите галочку у страницы, если её публиковать пока рано.
+                </p>
+              </div>
+            )}
             <div className="pub__gate">
               {errors === 0
                 ? <p className="pub__gate-ok"><CheckCircle2 size={16} /> Проверка SEO пройдена — критичных проблем нет, сайт готов к публикации.</p>
@@ -224,6 +265,12 @@ export function PublishDialog({
               {reports.map((r) => (
                 <div key={r.id} className="pub__page">
                   <div className="pub__page-head">
+                    {r.edits > 0 && (
+                      <label className="pub__page-pick" title={skip.has(r.id) ? "Не публиковать эту страницу сейчас" : "Опубликовать эту страницу"}>
+                        <input type="checkbox" checked={!skip.has(r.id)} onChange={() => toggleSkip(r.id)}
+                          aria-label={`Публиковать страницу ${r.title.replace(/ [—|].*$/, "")}`} />
+                      </label>
+                    )}
                     {r.issues.some((i) => i.level === "error")
                       ? <XCircle size={15} className="pub__ic pub__ic--err" />
                       : r.issues.length
@@ -234,6 +281,7 @@ export function PublishDialog({
                         clients "/ru/ru/about" in the one place they check what is going live */}
                     <span className="pub__page-slug">{r.slug}</span>
                     {r.edits > 0 && <span className="pub__page-edits">{r.edits} правок</span>}
+                    {others.has(r.id) && <span className="pub__page-who" title="Эти правки пришли из общего черновика — их сделал кто-то другой">правки коллеги</span>}
                   </div>
                   {r.changes.length > 0 && (
                     <ul className="pub__changes">
@@ -321,7 +369,8 @@ export function PublishDialog({
                   <Download size={15} /> Скачать пакет
                 </button>
                 {canPublish && (
-                  <button className="pub__btn-primary" onClick={doPublish} disabled={pubState === "publishing"}>
+                  <button className="pub__btn-primary" onClick={doPublish}
+                    disabled={pubState === "publishing" || (reports != null && reports.every((r) => r.edits === 0 || skip.has(r.id)))}>
                     {pubState === "publishing" ? <><Loader2 size={15} className="pub__spin" /> Публикую…</> : <><Rocket size={15} /> Опубликовать на сайт</>}
                   </button>
                 )}
