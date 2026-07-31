@@ -19,9 +19,16 @@ export function Login() {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
-  const submit = (e: React.FormEvent) => {
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = signIn(email, pw);
+    if (busy) return;
+    setBusy(true);
+    // The password is checked on the server now, so this is a real round trip — say that it is running
+    // instead of leaving a button that looks like it did nothing.
+    const res = await signIn(email, pw);
+    setBusy(false);
     if (res.ok && res.session) {
       nav(res.session.role === "agency" ? "/app/agency" : "/app", { replace: true });
     } else {
@@ -56,17 +63,20 @@ export function Login() {
           value={pw} placeholder="Пароль"
           onChange={(e) => { setPw(e.target.value); setErr(null); }}
         />
-        {err && <div className="login__err">{err}</div>}
-        <button className="login__btn" type="submit">Войти</button>
+        {err && <div className="login__err" role="alert">{err}</div>}
+        <button className="login__btn" type="submit" disabled={busy}>{busy ? "Проверяю…" : "Войти"}</button>
 
-        <div className="login__demo">
-          <span className="muted">Демо-вход:</span>
-          {DEMO_HINTS.map((h) => (
-            <button type="button" key={h.email} className="login__chip" onClick={() => fill(h)}>
-              {h.label}
-            </button>
-          ))}
-        </div>
+        {/* Local development only: DEMO_HINTS is empty in every build we ship. */}
+        {DEMO_HINTS.length > 0 && (
+          <div className="login__demo">
+            <span className="muted">Демо-вход:</span>
+            {DEMO_HINTS.map((h) => (
+              <button type="button" key={h.email} className="login__chip" onClick={() => fill(h)}>
+                {h.label}
+              </button>
+            ))}
+          </div>
+        )}
       </form>
     </div>
   );

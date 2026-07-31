@@ -14,7 +14,7 @@ interface AuthCtx {
   session: Session | null;
   /** Which client's cabinet is in view. Clients: always their own tenant. Agency: the entered client (or null on the console). */
   activeClientId: string | null;
-  signIn: (email: string, password: string) => SignInResult;
+  signIn: (email: string, password: string) => Promise<SignInResult>;
   signOut: () => void;
   /** Agency: open a client's cabinet. */
   enterClient: (id: string) => void;
@@ -32,8 +32,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return getActiveClientId();
   });
 
-  const signIn = useCallback((email: string, password: string): SignInResult => {
-    const res = doSignIn(email, password);
+  const signIn = useCallback(async (email: string, password: string): Promise<SignInResult> => {
+    const res = await doSignIn(email, password);
     if (res.ok && res.session) {
       setSession(res.session);
       if (res.session.role === "client") {

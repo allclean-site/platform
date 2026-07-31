@@ -5,6 +5,7 @@
  */
 
 import type { Subscription } from "../lib/plans";
+import { getEditKey } from "../auth/sessionKey";
 
 export type Channel = "inapp" | "email" | "telegram" | "whatsapp";
 export interface NotifRow { inapp: boolean; email: boolean; telegram: boolean; whatsapp: boolean }
@@ -101,8 +102,10 @@ export function publishConfig(): { endpoint: string; editKey: string } {
   const env = import.meta.env as Record<string, string | undefined>;
   return {
     endpoint: (p?.endpoint || env.VITE_PUBLISH_ENDPOINT || "https://allclean.md/api/publish").trim(),
-    // env-first: the build key (agency-managed) wins over any stale value left in a client's localStorage
-    // (there's no Settings field for it anymore, so a stale wrong key couldn't otherwise be corrected).
-    editKey: (env.VITE_PUBLISH_KEY || p?.editKey || "").trim(),
+    // The key the SESSION was given at sign-in comes first: it exists only in a browser whose user
+    // passed a server-checked password. The Settings field is the agency's manual override, and the
+    // build-time env is the legacy path — ⚠️ a key baked into the bundle is readable by every visitor,
+    // so drop VITE_PUBLISH_KEY from the cabinet deployment once /api/login is configured.
+    editKey: (getEditKey() || p?.editKey || env.VITE_PUBLISH_KEY || "").trim(),
   };
 }

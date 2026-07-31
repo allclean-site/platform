@@ -1,14 +1,22 @@
 /**
- * Auth store — session model + a local-demo authenticator.
+ * Auth store — session model + sign-in.
  *
  * Roles: "agency" = our staff (see the agency console, can enter any client's cabinet);
  *        "client" = a single tenant editing their own site.
  *
- * This is a MOCK adapter for development: accounts live in-file and "passwords" are demo-only. The real
- * backend is Supabase Auth — swap `signIn` for a Supabase call and derive role/tenant from a `members`
- * table when the realm is chosen (see memory: master-registry projects table). Everything above this
- * module (context, Login, console, shell) is realm-agnostic, so only this file changes.
+ * Sign-in happens on the SERVER (/api/login, credentials in the deployment's environment). It used to
+ * happen here, against accounts compiled into the bundle and offered as one-click chips on the login
+ * screen — so the deployed cabinet let in anyone who knew its address, with the publish key that also
+ * shipped in the bundle. The demo accounts still exist for local development only: `import.meta.env.DEV`
+ * decides, so they cannot reach a production build.
+ *
+ * The edit key now arrives WITH the session, which is what makes an anonymous visitor powerless. Full
+ * per-user tokens and revocation come with the real auth realm (Supabase Auth); everything above this
+ * module (context, Login, console, shell) stays realm-agnostic.
  */
+
+import { postSiteApi } from "../editor/siteApi";
+import { setEditKey, clearEditKey } from "./sessionKey";
 
 export type Role = "agency" | "client";
 
@@ -25,20 +33,24 @@ interface DemoAccount extends Session {
   password: string;
 }
 
-/** Demo accounts. Passwords are placeholders for the mock — real auth uses Supabase. */
-const DEMO: DemoAccount[] = [
-  { userId: "a1", name: "Sergiu", email: "dev@leadgenium.pro", role: "agency", password: "agency" },
-  { userId: "c1", name: "AllClean", email: "info@allclean.md", role: "client", tenantId: "allclean", password: "client" },
-];
+/** Local development only — `DEV` is false in every build we ship, so these never reach a real user. */
+const DEMO: DemoAccount[] = import.meta.env.DEV
+  ? [
+      { userId: "a1", name: "Sergiu", email: "dev@leadgenium.pro", role: "agency", password: "agency" },
+      { userId: "c1", name: "AllClean", email: "info@allclean.md", role: "client", tenantId: "allclean", password: "client" },
+    ]
+  : [];
 
 const KEY = "leadgenium:session";
 const LEGACY_GATE = "leadgenium:auth"; // old shared-password flag
 
-/** Public demo hints shown on the Login screen (never the real password once Supabase is wired). */
-export const DEMO_HINTS = [
-  { role: "agency" as Role, label: "Сотрудник агентства", email: "dev@leadgenium.pro", password: "agency" },
-  { role: "client" as Role, label: "Клиент (AllClean)", email: "info@allclean.md", password: "client" },
-];
+/** Shown on the Login screen during local development only — never in a shipped build. */
+export const DEMO_HINTS = import.meta.env.DEV
+  ? [
+      { role: "agency" as Role, label: "Сотрудник агентства", email: "dev@leadgenium.pro", password: "agency" },
+      { role: "client" as Role, label: "Клиент (AllClean)", email: "info@allclean.md", password: "client" },
+    ]
+  : [];
 
 function stripPw(a: DemoAccount): Session {
   const { password: _pw, ...s } = a;
@@ -69,6 +81,7 @@ export function setSession(s: Session): void {
 export function clearSession(): void {
   localStorage.removeItem(KEY);
   localStorage.removeItem(LEGACY_GATE);
+  clearEditKey();   // signing out must also take away the right to publish
 }
 
 export interface SignInResult {
@@ -77,13 +90,34 @@ export interface SignInResult {
   error?: string;
 }
 
-/** Local-demo authenticator. Replace with a Supabase Auth call when the realm is chosen. */
-export function signIn(email: string, password: string): SignInResult {
-  const acc = DEMO.find((d) => d.email.toLowerCase() === email.trim().toLowerCase());
-  if (!acc || acc.password !== password) {
+/**
+ * Sign in against the server. The response carries the session AND the edit key — that key is what
+ * lets this browser publish, and it is handed out only after a correct password.
+ *
+ * In local development, with no /api/login reachable, the in-file demo accounts stand in.
+ */
+export async function signIn(email: string, password: string): Promise<SignInResult> {
+  const r = await postSiteApi<{ session?: Session; editKey?: string }>("login", { email: email.trim(), password });
+  if (r.ok && r.data?.session) {
+    setEditKey(r.data.editKey || "");
+    setSession(r.data.session);
+    return { ok: true, session: r.data.session };
+  }
+  if (r.status === 401 || r.status === 400) return { ok: false, error: r.error || "Неверный email или пароль" };
+
+  if (import.meta.env.DEV) {
+    const acc = DEMO.find((d) => d.email.toLowerCase() === email.trim().toLowerCase());
+    if (acc && acc.password === password) {
+      const s = stripPw(acc);
+      setSession(s);
+      return { ok: true, session: s };
+    }
     return { ok: false, error: "Неверный email или пароль" };
   }
-  const s = stripPw(acc);
-  setSession(s);
-  return { ok: true, session: s };
+  return {
+    ok: false,
+    error: r.status === 503
+      ? (r.error || "Вход ещё не настроен на сервере.")
+      : "Сервер входа недоступен. Проверьте связь и попробуйте ещё раз.",
+  };
 }
