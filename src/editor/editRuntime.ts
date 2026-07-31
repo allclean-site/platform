@@ -603,6 +603,28 @@ ${CORE_INLINE}
     var vStartH = vTarget.getBoundingClientRect().height;
     var vId = vTarget.getAttribute("data-lg-id");
     var touchedBp = false;
+    // A horizontal drag inside a GRID row has to re-split the row's columns, or the neighbour keeps
+    // its track and the dragged box simply overflows it. Capture the row's real track widths up front.
+    var gridPair = null;
+    if (rg && /grid/.test(getComputedStyle(rg.parent).display || "")){
+      var tpl = getComputedStyle(rg.parent).gridTemplateColumns || "";
+      var tracks = tpl.split(" ").map(parseFloat);
+      if (tracks.length > 1 && tracks.every(function(t){ return isFinite(t) && t > 0; })){
+        // Which track holds the dragged item: walk the row by left edge.
+        var pr = rg.parent.getBoundingClientRect();
+        var gap = parseFloat(getComputedStyle(rg.parent).columnGap) || 0;
+        var x = pr.left + (parseFloat(getComputedStyle(rg.parent).paddingLeft) || 0), idx = -1;
+        for (var t2 = 0; t2 < tracks.length; t2++){
+          if (rg.item.getBoundingClientRect().left < x + tracks[t2] + gap / 2){ idx = t2; break; }
+          x += tracks[t2] + gap;
+        }
+        // Pair with the neighbour on the side being dragged, so the row's total width never changes.
+        var mate = dir.indexOf("e") >= 0 ? idx + 1 : idx - 1;
+        if (idx >= 0 && mate >= 0 && mate < tracks.length){
+          gridPair = { tracks: tracks.slice(), idx: idx, mate: mate, id: rg.parent.getAttribute("data-lg-id"), el: rg.parent };
+        }
+      }
+    }
     isDragging = true; hideHover(); txnBegin();   // whole drag = one undo step
     function move(ev){
       var dw = ev.clientX - startX, dh = ev.clientY - startY, w = startW, h = startH;
@@ -619,8 +641,32 @@ ${CORE_INLINE}
         var maxW = vpW - Math.max(0, r.left) - 6;
         if (maxW < 40) maxW = vpW - 12;
         if (w > maxW) w = maxW;
-        setStyleProp(el, "width", Math.round(w) + "px");
-        unclampWidth(el);
+        if (gridPair){
+          // Move the boundary between two columns: what one gains, the neighbour gives up, so the row
+          // keeps its total width and everything below stays put.
+          var delta = Math.round(w) - Math.round(startW);
+          var own = gridPair.tracks[gridPair.idx] + delta;
+          var other = gridPair.tracks[gridPair.mate] - delta;
+          if (own >= 40 && other >= 40){
+            var line = gridPair.tracks.slice();
+            line[gridPair.idx] = own; line[gridPair.mate] = other;
+            var value = line.map(function(t){ return Math.round(t) + "px"; }).join(" ");
+            // Written as a RULE, not an inline style: an inline value would also apply on tablet and
+            // phone, where this row stacks and must not keep desktop columns.
+            if (curBp === "desktop" && gridPair.id){
+              setBpProp(gridPair.id, "base", "grid-template-columns", value);
+              setBpProp(gridPair.id, "tablet", "grid-template-columns", "none");
+              setBpProp(gridPair.id, "mobile", "grid-template-columns", "none");
+              touchedBp = true;
+              renderOverrides();
+            } else {
+              setStyleProp(gridPair.el, "grid-template-columns", value);
+            }
+          }
+        } else {
+          setStyleProp(el, "width", Math.round(w) + "px");
+          unclampWidth(el);
+        }
       }
       if ((dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0) && !isAutoText(el)){
         setStyleProp(vTarget, "height", Math.round(h) + "px");

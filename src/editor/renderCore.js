@@ -140,16 +140,22 @@ export function overridesCss(pageBp) {
   const baseLayer = pageBp.base || {};
   for (const id of Object.keys(baseLayer)) {
     const props = baseLayer[id];
-    let bdecl = "";
+    let self = "", inherited = "";
     for (const p of Object.keys(props)) {
       if (props[p] === "") continue;
       const sv = safeValue(props[p]); if (!sv) continue;
-      bdecl += `${p}:${p === "font-size" ? fluidFont(sv) : sv} !important;`;
+      const decl = `${p}:${p === "font-size" ? fluidFont(sv) : sv} !important;`;
+      // The element ITSELF always gets the declaration: a desktop edit also writes a flat inline px
+      // value, and a stylesheet `!important` beats that non-important inline, so a plain <h2> scales
+      // fluidly too — not just split-text headings whose visible text sits in children.
+      self += decl;
+      // Only INHERITABLE text properties are forced onto descendants (that is what the cascade is for).
+      // A layout property must not be: `grid-template-columns` pushed onto every nested grid would
+      // rewrite layouts the client never touched.
+      if (CASCADE[p]) inherited += decl;
     }
-    // Target the element ITSELF as well as its descendants. A desktop edit also writes a flat inline
-    // px value on the element; a stylesheet `!important` rule beats that non-important inline, so a
-    // plain <h2> scales fluidly too — not just split-text headings whose visible text sits in children.
-    if (bdecl) css += `[data-lg-id="${id}"]${B},[data-lg-id="${id}"] *${B}{${bdecl}}`;
+    if (self) css += `[data-lg-id="${id}"]${B}{${self}}`;
+    if (inherited) css += `[data-lg-id="${id}"] *${B}{${inherited}}`;
   }
   for (const dev of ["tablet", "mobile"]) {
     const elems = pageBp[dev] || {};
