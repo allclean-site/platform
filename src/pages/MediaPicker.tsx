@@ -24,7 +24,10 @@ export function MediaPicker({
   onPick: (url: string, type: MediaType) => void;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("gallery");
+  // Open on the compact "upload" action, not the big gallery grid — replacing an image usually means
+  // uploading a new one. Галерея/Корзина stay one click away. (The modal is content-sized, so the
+  // upload view is a small popup instead of a wall of cards.)
+  const [tab, setTab] = useState<Tab>("upload");
   const [rev, force] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
