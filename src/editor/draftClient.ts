@@ -11,7 +11,7 @@
  * editing, their local cache is pushed as soon as the connection works again.
  */
 
-import { publishConfig } from "../settings/store";
+import { postSiteApi, beaconSiteApi, siteApiReady } from "./siteApi";
 import type { SiteOverrides, PageOverrides } from "./realStore";
 import type { SiteBp, PageBp } from "./bpStore";
 
@@ -23,34 +23,24 @@ export interface DraftState {
 }
 
 /** The draft endpoint sits next to /api/publish (same deployment, same EDIT_KEY gate). */
-function endpointFor(publishEndpoint: string): string {
-  return /\/api\/publish\/?$/.test(publishEndpoint)
-    ? publishEndpoint.replace(/\/api\/publish\/?$/, "/api/draft")
-    : publishEndpoint.replace(/\/$/, "") + "/../draft";
-}
+interface DraftReply { ok?: boolean; conflict?: boolean; updatedAt?: string; updatedBy?: string;
+  overrides?: SiteOverrides; breakpoints?: SiteBp; meta?: Record<string, DraftMeta> }
 
-async function call(payload: Record<string, unknown>): Promise<any | null> {
-  const p = publishConfig();
-  if (!p.endpoint || !p.editKey) return null;
-  try {
-    const res = await fetch(endpointFor(p.endpoint), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ editKey: p.editKey, ...payload }),
-    });
-    const data = await res.json().catch(() => null);
-    if (res.status === 409 && data) return { ...data, conflict: true };   // someone else changed it
-    if (!res.ok) return null;
-    return data && data.ok ? data : null;
-  } catch {
-    return null;
-  }
+/**
+ * Unlike the other clients this one cannot use the plain graceful call: a 409 is not a failure but an
+ * answer — "someone else changed this page, here is who" — and must reach the caller intact.
+ */
+async function call(payload: Record<string, unknown>): Promise<DraftReply | null> {
+  if (!siteApiReady()) return null;
+  const r = await postSiteApi<DraftReply>("draft", payload);
+  if (r.status === 409 && r.data) return { ...r.data, conflict: true };
+  if (!r.ok || !r.data || r.data.ok !== true) return null;
+  return r.data;
 }
 
 /** True when a shared draft is reachable (endpoint + key configured). */
 export function draftConfigured(): boolean {
-  const p = publishConfig();
-  return Boolean(p.endpoint && p.editKey);
+  return siteApiReady();
 }
 
 /** Read the whole project's shared draft. null = not configured / unreachable. */
@@ -84,7 +74,7 @@ export async function saveDraftPage(
   const d = await call({ project, action: "save", pageId, overrides, breakpoints: breakpoints || {}, by, expectedAt });
   if (!d) return null;
   if (d.conflict) return { conflict: true, conflictBy: d.updatedBy || "", updatedAt: d.updatedAt };
-  return { updatedAt: d.updatedAt as string };
+  return { updatedAt: d.updatedAt };
 }
 
 /**
@@ -99,16 +89,7 @@ export function beaconDraftPage(
   breakpoints: PageBp | undefined,
   by: string
 ): boolean {
-  const p = publishConfig();
-  if (!p.endpoint || !p.editKey || typeof navigator === "undefined" || !navigator.sendBeacon) return false;
-  const body = JSON.stringify({
-    editKey: p.editKey, project, action: "save", pageId, overrides, breakpoints: breakpoints || {}, by,
-  });
-  try {
-    return navigator.sendBeacon(endpointFor(p.endpoint), new Blob([body], { type: "application/json" }));
-  } catch {
-    return false;
-  }
+  return beaconSiteApi("draft", { project, action: "save", pageId, overrides, breakpoints: breakpoints || {}, by });
 }
 
 /** Drop the shared draft (whole project, or one page) — used after a successful publish. */

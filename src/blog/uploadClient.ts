@@ -4,7 +4,7 @@
  * inline data URL if the endpoint isn't configured or the upload fails, so the editor keeps working.
  */
 
-import { publishConfig } from "../settings/store";
+import { postSiteApi, siteApiConfigured } from "../editor/siteApi";
 import { downscale } from "../editor/image";
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -29,22 +29,11 @@ export function pickAndUploadImage(): Promise<{ url: string | null; note?: strin
       if (!file) return resolve({ url: null });
       try {
         const { blob, ext, type } = await downscale(file);
-        const p = publishConfig();
-        if (p.endpoint) {
-          const endpoint = p.endpoint.replace(/\/publish\/?$/, "/upload");
-          try {
-            const dataBase64 = await blobToBase64(blob);
-            const res = await fetch(endpoint, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ editKey: p.editKey, file: { name: `cover.${ext}`, type, dataBase64 } }),
-            });
-            const data = await res.json().catch(() => ({} as any));
-            if (res.ok && data.url) return resolve({ url: data.url });
-            return resolve({ url: await blobToDataUrl(blob), note: data.error ? `Загружено локально (сервер: ${data.error})` : "Загружено локально (сервер недоступен)" });
-          } catch {
-            return resolve({ url: await blobToDataUrl(blob), note: "Загружено локально (сервер недоступен)" });
-          }
+        if (siteApiConfigured()) {
+          const dataBase64 = await blobToBase64(blob);
+          const r = await postSiteApi<{ url?: string }>("upload", { file: { name: `cover.${ext}`, type, dataBase64 } });
+          if (r.ok && r.data?.url) return resolve({ url: r.data.url });
+          return resolve({ url: await blobToDataUrl(blob), note: r.error ? `Загружено локально (сервер: ${r.error})` : "Загружено локально (сервер недоступен)" });
         }
         return resolve({ url: await blobToDataUrl(blob), note: "Загружено локально — настройте публикацию для хранилища" });
       } catch {
