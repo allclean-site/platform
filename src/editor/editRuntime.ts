@@ -704,9 +704,13 @@ ${CORE_INLINE}
     if (d.type === "lg-set-html"){
       var wb = document.querySelector('[data-lg-block="'+d.blockId+'"]');
       if (wb){
+        // Only the selection INSIDE this block dies with it. Blocks are now updated one at a time
+        // (a collaborator's edit, an undo), and dropping the selection every time would take the
+        // inspector away from someone working in a different part of the page.
+        var hadSel = selected && wb.contains(selected);
         wb.innerHTML = d.html;
         cleanBlock(wb); stampIds(wb, d.blockId); editableWithin(wb);
-        if (selected){ selected = null; hideSelBox(); hideHover(); if (handle) handle.style.display = "none"; }
+        if (hadSel){ selected = null; hideSelBox(); hideHover(); if (handle) handle.style.display = "none"; }
       }
       return;
     }

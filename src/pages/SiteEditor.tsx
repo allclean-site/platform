@@ -439,7 +439,20 @@ export function SiteEditor() {
         baseHtml.current = Object.fromEntries(p.blocks.map((b) => [b.id, b.content.html]));
         // resolveForPage folds in the shared header/footer edits, rebuilt against THIS page's copy.
         const blocks = applyOverrides(p.blocks, resolveForPage(p, p.lang));
+        const samePage = loadedPageId.current === p.id;
+        const prev = lastHtml.current;
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));
+        // Already looking at this page? Update the blocks that actually changed instead of handing the
+        // iframe a new document. Rebuilding it reloads 770 KB and 2600 elements: the canvas flashes, the
+        // selection and the scroll position are gone, and the client loses their place — which is what
+        // happened on every section delete AND every time a collaborator's edit arrived.
+        if (samePage) {
+          for (const b of blocks) {
+            if (prev[b.id] === b.content.html) continue;
+            pushHtmlToFrame(b.id, b.content.html);
+          }
+          window.setTimeout(measure, 60);
+        }
         // Only a move to a DIFFERENT page starts a new history. This function also runs when the page
         // is merely re-rendered — after an undo, a section delete, or a draft sync when the window
         // regains focus — and wiping the stack there is what made undo/redo "stop working".
@@ -541,7 +554,17 @@ export function SiteEditor() {
     const key = ovKeyFor(b.id, page, page.lang);
     return overrides.current[key]?.[b.id] != null || draftOv.current[key]?.[b.id] != null;
   }));
-  const srcDoc = useMemo(() => (page ? previewDoc(page, edit, edit ? undefined : mergedBp(page.id)) : ""), [page, edit]); // eslint-disable-line react-hooks/exhaustive-deps
+  /**
+   * The canvas document is built ONCE per page (and per edit/preview mode). Later edits are pushed
+   * into the live document block by block — see loadPage. Recomputing this on every state change
+   * silently reloaded the iframe, because React writes the new string to the srcDoc attribute.
+   */
+  const docKey = `${activeFile}|${edit}`;
+  const docRef = useRef<{ key: string; html: string }>({ key: "", html: "" });
+  if (page && docRef.current.key !== docKey) {
+    docRef.current = { key: docKey, html: previewDoc(page, edit, edit ? undefined : mergedBp(page.id)) };
+  }
+  const srcDoc = page ? docRef.current.html : "";
   const frameW = device === "desktop" ? deskW : DEVICE_W[device];
   const totalEdited =
     Object.values(allOverrides()).reduce((n, o) => n + Object.keys(o).length, 0) +
