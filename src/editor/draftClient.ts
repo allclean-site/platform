@@ -38,8 +38,9 @@ async function call(payload: Record<string, unknown>): Promise<any | null> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ editKey: p.editKey, ...payload }),
     });
-    if (!res.ok) return null;
     const data = await res.json().catch(() => null);
+    if (res.status === 409 && data) return { ...data, conflict: true };   // someone else changed it
+    if (!res.ok) return null;
     return data && data.ok ? data : null;
   } catch {
     return null;
@@ -60,15 +61,30 @@ export async function fetchDraft(project = "allclean"): Promise<DraftState | nul
 }
 
 /** Push one page's current state to the shared draft. Returns the server timestamp, or null. */
+export interface DraftSaveResult {
+  /** Server timestamp of the saved row. */
+  updatedAt?: string;
+  /** Someone else changed this page since `expectedAt` — nothing was written. */
+  conflict?: boolean;
+  conflictBy?: string;
+}
+
+/**
+ * @param expectedAt the `updated_at` this browser last saw for the page. When it no longer matches,
+ * the server refuses rather than overwriting the other session's work.
+ */
 export async function saveDraftPage(
   project: string,
   pageId: string,
   overrides: PageOverrides,
   breakpoints: PageBp | undefined,
-  by: string
-): Promise<string | null> {
-  const d = await call({ project, action: "save", pageId, overrides, breakpoints: breakpoints || {}, by });
-  return d ? (d.updatedAt as string) : null;
+  by: string,
+  expectedAt?: string
+): Promise<DraftSaveResult | null> {
+  const d = await call({ project, action: "save", pageId, overrides, breakpoints: breakpoints || {}, by, expectedAt });
+  if (!d) return null;
+  if (d.conflict) return { conflict: true, conflictBy: d.updatedBy || "", updatedAt: d.updatedAt };
+  return { updatedAt: d.updatedAt as string };
 }
 
 /**

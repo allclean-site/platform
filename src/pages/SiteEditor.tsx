@@ -71,7 +71,8 @@ export function SiteEditor() {
   const draftOv = useRef<StoredSiteOverrides>({});     // SHARED DRAFT (unpublished, live between cabinets)
   const draftBp = useRef<SiteBp>({});
   const draftMeta = useRef<Record<string, DraftMeta>>({});
-  const [draftState, setDraftState] = useState<"off" | "syncing" | "synced" | "error">("off");
+  const [draftState, setDraftState] = useState<"off" | "syncing" | "synced" | "error" | "conflict">("off");
+  const [conflictBy, setConflictBy] = useState("");
   const [draftWho, setDraftWho] = useState<string>("");  // "кто правил последним" for the current page
   const draftTimers = useRef<Record<string, number>>({});   // one debounce per page
   const [syncTick, setSyncTick] = useState(0);         // bump when published/draft edits arrive → re-render
@@ -200,7 +201,19 @@ export function SiteEditor() {
       const pushedLocal = { ...overrides.current[pageId] };
       const ov = mergeOverrideLayers(draftOv.current[pageId], overrides.current[pageId]);
       const bp = mergedBp(pageId);
-      const at = await saveDraftPage("allclean", pageId, ov, bp, session?.name || "");
+      const res = await saveDraftPage("allclean", pageId, ov, bp, session?.name || "",
+        draftMeta.current[pageId]?.updatedAt);
+      if (!res) { setDraftState("error"); return; }
+      if (res.conflict) {
+        // Someone else (another tab, the client on their phone) changed this page since we last read
+        // it. Nothing was written — take their version and keep ours on top, rather than silently
+        // replacing their work.
+        setDraftState("conflict");
+        setConflictBy(res.conflictBy || "");
+        await pullDraft();
+        return;
+      }
+      const at = res.updatedAt;
       if (!at) { setDraftState("error"); return; }
       // Keep the local mirror of the draft in step so a later pull can't resurrect stale blocks.
       draftOv.current[pageId] = ov;
@@ -639,7 +652,9 @@ export function SiteEditor() {
 
   const deleteBlock = (blockId: string) => {
     if (!page) return;
-    if (!window.confirm("Удалить эту секцию? Её можно вернуть кнопкой ↩ в списке блоков.")) return;
+    // No confirmation: this is undoable (Ctrl+Z, or ↩ in the block list). Apple's guidance is to warn
+    // only about destructive actions that CANNOT be undone — asking every time teaches people to
+    // click through warnings, which is what makes the dangerous ones stop working.
     writeBlock(page.id, blockId, "");
     commitTxn();                       // deleting a section is one deliberate step
     if (selected === blockId) { setSelected(null); setSelEl(null); }
@@ -715,9 +730,11 @@ export function SiteEditor() {
             agency (live editing), instead of silently living in one browser. */}
         {draftState !== "off" && (
           <span role="status" aria-live="polite" className={"se__draft se__draft--" + draftState} title={
-            draftState === "error" ? "Нет связи с сервером — правки сохранены в этом браузере и уйдут позже"
+            draftState === "conflict" ? "Эту страницу изменили в другом окне. Мы подтянули общую версию — ваши несохранённые правки остались поверх неё."
+              : draftState === "error" ? "Нет связи с сервером — правки сохранены в этом браузере и уйдут позже"
               : draftWho ? `Последним правил: ${draftWho}` : "Черновик виден и вам, и клиенту"}>
             {draftState === "syncing" ? "синхронизирую…"
+              : draftState === "conflict" ? `страницу изменил${conflictBy ? " " + conflictBy : "и"} — показана общая версия`
               : draftState === "error" ? "нет синхронизации"
               : <>общий черновик{draftWho ? ` · ${draftWho}` : ""}</>}
           </span>

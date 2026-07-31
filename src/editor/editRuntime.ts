@@ -379,6 +379,7 @@ ${CORE_INLINE}
     // Counter-scale the frame + handles so they stay ~9px on screen at any canvas zoom.
     var z = curZoom || 1;
     selBox.style.setProperty("--hs", (9 / z) + "px");
+    selBox.style.setProperty("--ht", (24 / z) + "px");   // grabbable area, WCAG 2.5.8
     selBox.style.setProperty("--ow", (1.5 / z) + "px");
   }
   function hideSelBox(){ if (selBox) selBox.style.display = "none"; }
@@ -912,6 +913,11 @@ ${CORE_INLINE}
       ".lg-selbox{position:absolute;z-index:99995;pointer-events:none;outline:var(--ow,1.5px) solid #7c3aed;display:none;}" +
       ".lg-rh{position:absolute;width:var(--hs,9px);height:var(--hs,9px);background:#fff;border:var(--ow,1.5px) solid #7c3aed;" +
         "border-radius:2px;pointer-events:auto;box-sizing:border-box;touch-action:none;}" +
+      // The dot stays small so it doesn't cover the design, but the thing you can actually grab is
+      // padded out to a comfortable target (WCAG 2.2 asks for at least 24x24 CSS px). Scaled by the
+      // canvas zoom like the dot itself, so it is 24px ON SCREEN at any zoom level.
+      ".lg-rh::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" +
+        "width:var(--ht,24px);height:var(--ht,24px);}" +
       ".lg-rh--nw{top:calc(var(--hs,9px)/-2);left:calc(var(--hs,9px)/-2);cursor:nwse-resize;}" +
       ".lg-rh--n{top:calc(var(--hs,9px)/-2);left:calc(50% - var(--hs,9px)/2);cursor:ns-resize;}" +
       ".lg-rh--ne{top:calc(var(--hs,9px)/-2);right:calc(var(--hs,9px)/-2);cursor:nesw-resize;}" +

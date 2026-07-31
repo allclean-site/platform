@@ -55,6 +55,26 @@ export default async function handler(req, res) {
     if (action === "save") {
       const pageId = body.pageId;
       if (!pageId) return res.status(400).json({ error: "pageId required" });
+
+      // Optimistic concurrency. The same person really does open the editor twice (laptop and phone,
+      // or two tabs), and each save replaces the whole page — so without this the tab that saves last
+      // silently destroys the other one's work. The client sends the timestamp it last saw; if the
+      // stored row has moved on since, we refuse and hand back who changed it and when.
+      if (body.expectedAt) {
+        const c = await fetch(
+          `${REST()}?project=eq.${encodeURIComponent(project)}&page_id=eq.${encodeURIComponent(pageId)}&select=updated_at,updated_by`,
+          { headers: auth() });
+        if (c.ok) {
+          const cur = (await c.json())[0];
+          if (cur && cur.updated_at && cur.updated_at !== body.expectedAt) {
+            return res.status(409).json({
+              error: "conflict", conflict: true,
+              updatedAt: cur.updated_at, updatedBy: cur.updated_by || "",
+            });
+          }
+        }
+      }
+
       const updatedAt = new Date().toISOString();
       const row = {
         project, page_id: pageId,
