@@ -75,7 +75,8 @@ export function MediaPicker({
           <button className="mp__x" onClick={onClose} title="Закрыть"><X size={18} /></button>
         </div>
 
-        <input ref={fileRef} type="file" accept={acceptAttr} hidden onChange={(e) => onFile(e.target.files?.[0])} />
+        <input ref={fileRef} type="file" accept={acceptAttr} hidden
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void onFile(f); }} />
 
         {error && <div className="mp__error">{error}</div>}
 

@@ -233,6 +233,25 @@ export function SiteEditor() {
     window.clearTimeout(txnTimer.current);
     txnTimer.current = window.setTimeout(() => { if (txnDepth.current === 0) commitTxn(); }, 400);
   };
+  /** Force-close a gesture. The drag listeners live in the iframe, so releasing the mouse over the
+   *  panel or outside the window never delivered their pointerup: the gesture stayed "open" and every
+   *  later edit was swallowed by it, which killed undo for the rest of the session. */
+  const endGesture = useCallback(() => {
+    if (txnDepth.current === 0) return;
+    txnDepth.current = 0;
+    commitTxn();
+  }, []);
+  useEffect(() => {
+    const onUp = () => endGesture();
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("blur", onUp);
+    return () => {
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("blur", onUp);
+    };
+  }, [endGesture]);
 
   const writeBlock = (pageId: string, blockId: string, html: string | null) => {
     openTxn(pageId); recordBlock(pageId, blockId);
@@ -294,6 +313,10 @@ export function SiteEditor() {
 
   useEffect(() => {
     function onMsg(e: MessageEvent) {
+      // The imported page runs its own third-party scripts (Webflow, analytics, chat widgets), and any
+      // of them can postMessage to us. Only accept what our own canvas sent — otherwise a widget could
+      // write arbitrary markup into the page and have it published.
+      if (e.source !== frameRef.current?.contentWindow) return;
       const d = e.data;
       if (!d || typeof d !== "object") return;
       if (d.type === "lg-select") setSelected(d.id);
@@ -476,6 +499,7 @@ export function SiteEditor() {
   const undoRef = useRef<() => void>(() => {});
   const redoRef = useRef<() => void>(() => {});
   const redo = () => {
+    commitTxn();                                  // same as undo: never redo on top of an open gesture
     const s = future.current.pop(); if (!s) return;
     history.current.push(s); setHistLen(history.current.length); setFutLen(future.current.length);
     applySnap(s.pageId, s.after);

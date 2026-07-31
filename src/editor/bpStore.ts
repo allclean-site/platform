@@ -28,8 +28,15 @@ export function loadBp(tenant: string, site: string): SiteBp {
   }
 }
 
-export function saveBp(tenant: string, site: string, all: SiteBp): void {
-  localStorage.setItem(key(tenant, site), JSON.stringify(all));
+/** @returns false when the browser refused to store (quota/private mode). */
+export function saveBp(tenant: string, site: string, all: SiteBp): boolean {
+  try {
+    localStorage.setItem(key(tenant, site), JSON.stringify(all));
+  } catch {
+    // Out of quota or storage blocked: tell the caller instead of losing the edit silently.
+    return false;
+  }
+  return true;
 }
 
 /** Count of elements with any override at a given breakpoint on a page (for the device-tab dots). */

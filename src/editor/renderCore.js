@@ -82,6 +82,19 @@ export function cleanHtml(html, keepIds) {
  *  · a phone/tablet `width` is capped with `min(…,100vw)` so a stale wide value can't overflow the
  *    device screen (100vw, not 100%, so a box can still grow past its parent like it does on desktop).
  */
+/**
+ * Style values reach us from free-text fields in the inspector and are concatenated straight into a
+ * stylesheet, so a value containing `}` could close our rule and inject arbitrary CSS into the
+ * PUBLISHED page. Values are simple by nature (a length, a colour, a keyword) — anything carrying
+ * CSS syntax or a URL is dropped rather than sanitised, so nothing surprising can survive.
+ */
+export function safeValue(v) {
+  const s = String(v);
+  if (/[{}<>;@\\]/.test(s)) return "";                  // CSS syntax that could escape our rule
+  if (/url\s*\(|expression\s*\(|\/\*/i.test(s)) return "";  // outbound requests / comment tricks
+  return s;
+}
+
 export function overridesCss(pageBp) {
   if (!pageBp) return "";
   let css = "";
@@ -92,7 +105,7 @@ export function overridesCss(pageBp) {
     for (const id of Object.keys(els)) {
       const props = els[id];
       let decl = "";
-      for (const p of Object.keys(props)) if (props[p] !== "") decl += `${p}:${props[p]} !important;`;
+      for (const p of Object.keys(props)) { const sv = safeValue(props[p]); if (sv) decl += `${p}:${sv} !important;`; }
       if (decl) css += `[data-lg-id="${id}"]${B}${sel}{${decl}}`;
     }
   }
@@ -103,7 +116,8 @@ export function overridesCss(pageBp) {
     let bdecl = "";
     for (const p of Object.keys(props)) {
       if (props[p] === "") continue;
-      bdecl += `${p}:${p === "font-size" ? fluidFont(props[p]) : props[p]} !important;`;
+      const sv = safeValue(props[p]); if (!sv) continue;
+      bdecl += `${p}:${p === "font-size" ? fluidFont(sv) : sv} !important;`;
     }
     // Target the element ITSELF as well as its descendants. A desktop edit also writes a flat inline
     // px value on the element; a stylesheet `!important` rule beats that non-important inline, so a
@@ -118,9 +132,10 @@ export function overridesCss(pageBp) {
       let decl = "", cdecl = "";
       for (const p of Object.keys(props)) {
         if (props[p] === "") continue;
-        const v = p === "width" && /px$/.test(props[p]) ? `min(${props[p]},100vw)` : props[p];
+        const sv = safeValue(props[p]); if (!sv) continue;
+        const v = p === "width" && /px$/.test(sv) ? `min(${sv},100vw)` : sv;
         decl += `${p}:${v} !important;`;
-        if (CASCADE[p]) cdecl += `${p}:${props[p]} !important;`;
+        if (CASCADE[p]) cdecl += `${p}:${sv} !important;`;
       }
       if (decl) body += `[data-lg-id="${id}"]${B}{${decl}}`;
       if (cdecl) body += `[data-lg-id="${id}"] *${B}{${cdecl}}`;

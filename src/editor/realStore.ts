@@ -21,8 +21,15 @@ export function loadOverrides(tenant: string, site: string): SiteOverrides {
   }
 }
 
-export function saveOverrides(tenant: string, site: string, all: SiteOverrides): void {
-  localStorage.setItem(key(tenant, site), JSON.stringify(all));
+/** @returns false when the browser refused to store (quota/private mode). */
+export function saveOverrides(tenant: string, site: string, all: SiteOverrides): boolean {
+  try {
+    localStorage.setItem(key(tenant, site), JSON.stringify(all));
+  } catch {
+    // Out of quota or storage blocked: tell the caller instead of losing the edit silently.
+    return false;
+  }
+  return true;
 }
 
 // Applying overrides is part of the shared render core (same code the publisher runs), so the editor
