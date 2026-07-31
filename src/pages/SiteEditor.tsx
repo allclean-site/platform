@@ -22,6 +22,7 @@ import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
 import { PublishDialog } from "./PublishDialog";
 import { MediaPicker } from "./MediaPicker";
+import { Toolbar } from "../components/Toolbar";
 import type { ElStyle, SelectedEl, Breakpoint, SelectOption } from "../editor/elemTypes";
 import "./site-editor.css";
 
@@ -696,7 +697,7 @@ export function SiteEditor() {
         <Link to="/app/sites" className="se__back"><ArrowLeft size={16} /> Сайты</Link>
         <span className="se__name">{index.domain}</span>
 
-        <div className="se__devices">
+        <Toolbar label="Устройство" className="se__devices">
           {([["desktop", Monitor], ["tablet", Tablet], ["mobile", Smartphone]] as const).map(([d, Icon]) => (
             <button key={d} className={"se__icon" + (device === d ? " is-active" : "")} onClick={() => setDevice(d)}
               title={d === "desktop" ? "Компьютер (база)" : d === "tablet" ? "Планшет" : "Телефон"}>
@@ -709,19 +710,19 @@ export function SiteEditor() {
               {DESK_WIDTHS.map((w) => <option key={w} value={w}>{w}px</option>)}
             </select>
           )}
-        </div>
+        </Toolbar>
 
-        <div className="se__zoom">
+        <Toolbar label="Масштаб" className="se__zoom">
           <button className="se__icon" onClick={() => setZoom((z) => clampZoom(z - 0.1))} title="Меньше"><ZoomOut size={16} /></button>
           <button className="se__zoomval" onClick={() => setZoom(1)} title="100%">{Math.round(zoom * 100)}%</button>
           <button className="se__icon" onClick={() => setZoom((z) => clampZoom(z + 0.1))} title="Больше"><ZoomIn size={16} /></button>
           <button className="se__icon" onClick={fit} title="По ширине"><Scan size={16} /></button>
-        </div>
+        </Toolbar>
 
-        <div className="se__undo">
+        <Toolbar label="История правок" className="se__undo">
           <button className="se__icon" disabled={!histLen} title="Отменить (Ctrl+Z)" onClick={undo}><Undo2 size={16} /></button>
           <button className="se__icon" disabled={!futLen} title="Повторить (Ctrl+Shift+Z)" onClick={redo}><Redo2 size={16} /></button>
-        </div>
+        </Toolbar>
         <button className={"se__toggle" + (edit ? " is-on" : "")} onClick={() => setEdit((v) => !v)}>
           {edit ? <><Pencil size={15} /> Правка</> : <><Eye size={15} /> Просмотр</>}
         </button>
