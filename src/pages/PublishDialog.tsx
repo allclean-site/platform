@@ -14,6 +14,7 @@ import type { SiteOverrides } from "../editor/realStore";
 import type { SiteBp } from "../editor/bpStore";
 import { reportForPage, type PageReport } from "../editor/publish";
 import { publishConfigured, publishToSite } from "../editor/publishClient";
+import { Dialog } from "../components/Dialog";
 
 export function PublishDialog({
   index, dataBase, overrides, bp, onDownload, onClose,
@@ -71,8 +72,7 @@ export function PublishDialog({
   const clean = reports ? reports.filter((r) => r.issues.length === 0).length : 0;
 
   return (
-    <div className="pub__scrim" onClick={onClose}>
-      <div className="pub glass" onClick={(e) => e.stopPropagation()}>
+    <Dialog label="Публикация сайта" onClose={onClose} className="pub__scrim" boxClassName="pub glass">
         <div className="pub__head">
           <span className="pub__title"><Rocket size={18} /> Публикация сайта</span>
           <button className="pub__x" onClick={onClose} title="Закрыть"><X size={18} /></button>
@@ -166,7 +166,6 @@ export function PublishDialog({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }

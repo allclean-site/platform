@@ -616,11 +616,11 @@ export function SiteEditor() {
         <button className={"se__toggle" + (edit ? " is-on" : "")} onClick={() => setEdit((v) => !v)}>
           {edit ? <><Pencil size={15} /> Правка</> : <><Eye size={15} /> Просмотр</>}
         </button>
-        <span className="se__save">{saveState === "saving" ? "сохраняю…" : saveState === "saved" ? <><Check size={14} /> сохранено</> : ""}</span>
+        <span className="se__save" role="status" aria-live="polite">{saveState === "saving" ? "сохраняю…" : saveState === "saved" ? <><Check size={14} /> сохранено</> : ""}</span>
         {/* Shared-draft status: makes it visible that edits are synced between the client and the
             agency (live editing), instead of silently living in one browser. */}
         {draftState !== "off" && (
-          <span className={"se__draft se__draft--" + draftState} title={
+          <span role="status" aria-live="polite" className={"se__draft se__draft--" + draftState} title={
             draftState === "error" ? "Нет связи с сервером — правки сохранены в этом браузере и уйдут позже"
               : draftWho ? `Последним правил: ${draftWho}` : "Черновик виден и вам, и клиенту"}>
             {draftState === "syncing" ? "синхронизирую…"
@@ -710,7 +710,7 @@ export function SiteEditor() {
                   ref={frameRef}
                   key={activeFile + String(edit)}
                   className="se__frame"
-                  title="preview"
+                  title="Страница сайта — редактируемый холст"
                   style={{ width: frameW, height: frameH }}
                   srcDoc={srcDoc}
                   onLoad={onFrameLoad}

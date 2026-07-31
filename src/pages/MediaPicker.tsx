@@ -11,6 +11,7 @@ import {
   type MediaAsset, type MediaType,
 } from "../editor/media";
 import { storageConfigured } from "../editor/image";
+import { Dialog } from "../components/Dialog";
 import "./media-picker.css";
 
 type Accept = "image" | "video" | "both";
@@ -35,13 +36,6 @@ export function MediaPicker({
   const fileRef = useRef<HTMLInputElement>(null);
   const bump = () => force((x) => x + 1);
   const markBad = (id: string) => setBad((s) => (s.has(id) ? s : new Set(s).add(id)));
-
-  // Esc closes the picker.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const wants = (t: MediaType) => accept === "both" || accept === t;
   const ok = (id: string) => !bad.has(id);
@@ -69,8 +63,8 @@ export function MediaPicker({
   const purge = (id: string) => { if (confirm("Удалить навсегда? Это действие необратимо.")) { purgeMedia(tenant, id); bump(); } };
 
   return (
-    <div className="mp__scrim" onClick={onClose}>
-      <div className="mp glass" onClick={(e) => e.stopPropagation()}>
+    <Dialog label={accept === "video" ? "Выбор видео" : accept === "both" ? "Выбор фото или видео" : "Выбор фото"}
+      onClose={onClose} className="mp__scrim" boxClassName="mp glass">
         <div className="mp__head">
           <span className="mp__title">{accept === "video" ? "Видео" : accept === "both" ? "Фото и видео" : "Фото"}</span>
           <div className="mp__tabs">
@@ -132,8 +126,7 @@ export function MediaPicker({
             </div>
           )
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

@@ -228,7 +228,7 @@
 .pi__num { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--surface); cursor: ew-resize; padding: 0 6px 0 0; }
 .pi__num input { width: 44px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; padding: 6px 4px 6px 8px; text-align: right; }
-.pi__num input:focus { outline: none; }
+.pi__num input:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }  /* keyboard focus must stay visible (WCAG 2.4.7) */
 .pi__num input::-webkit-outer-spin-button, .pi__num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .pi__num-suf { font-size: 11px; color: var(--text-muted); }
 .pi__seg { display: inline-flex; gap: 3px; background: var(--surface-2); padding: 3px; border-radius: var(--r-sm); }
