@@ -536,6 +536,11 @@ export function SiteEditor() {
     [index, locale]
   );
   const activeEntry = index?.pages.find((p) => p.file === activeFile);
+  // Does this page carry unpublished edits of ours (its own, or via the shared header/footer layer)?
+  const pageHasEdits = Boolean(page && page.blocks.some((b) => {
+    const key = ovKeyFor(b.id, page, page.lang);
+    return overrides.current[key]?.[b.id] != null || draftOv.current[key]?.[b.id] != null;
+  }));
   const srcDoc = useMemo(() => (page ? previewDoc(page, edit, edit ? undefined : mergedBp(page.id)) : ""), [page, edit]); // eslint-disable-line react-hooks/exhaustive-deps
   const frameW = device === "desktop" ? deskW : DEVICE_W[device];
   const totalEdited =
@@ -781,6 +786,31 @@ export function SiteEditor() {
     loadPage(activeFile);
   };
 
+  /**
+   * Take back every unpublished edit on the page in view.
+   *
+   * Undo is per session and the version history restores the WHOLE site, so a client who made a mess
+   * of one page had nothing in between — the honest answer was "publish it and roll back", which is
+   * worse. This writes a tombstone for each of the page's blocks in ONE transaction, so it lands in
+   * the shared draft like any other edit and Ctrl+Z takes it back.
+   */
+  const revertPage = () => {
+    if (!page) return;
+    const blocks = page.blocks.map((b) => b.id);
+    let touched = 0;
+    for (const id of blocks) {
+      const key = ovKeyFor(id, page, page.lang);
+      if (overrides.current[key]?.[id] == null && draftOv.current[key]?.[id] == null) continue;
+      writeBlock(key, id, null);
+      touched++;
+    }
+    if (!touched) { say("На этой странице нет ваших неопубликованных правок."); return; }
+    commitTxn();
+    setSelEl(null); setSelected(null);
+    loadPage(activeFile);
+    say(`Правки на этой странице отменены (${touched}). Вернуть — Ctrl+Z.`);
+  };
+
   const restoreBlock = (blockId: string) => {
     if (!page) return;
     writeBlock(ovKeyFor(blockId, page, page.lang), blockId, null);   // drop the override → back to the base markup
@@ -901,6 +931,13 @@ export function SiteEditor() {
             <ChevronDown size={13} className={"se__chev" + (blocksOpen ? "" : " is-collapsed")} />
             Блоки{edit ? " · клик = к блоку" : ""}
           </button>
+          {edit && pageHasEdits && (
+            /* Between Ctrl+Z (this session only) and restoring the whole site there was nothing. */
+            <button className="se__revert" onClick={revertPage}
+              title="Убрать все неопубликованные правки на этой странице (можно вернуть через Ctrl+Z)">
+              <RotateCcw size={13} /> Отменить мои правки на странице
+            </button>
+          )}
           {blocksOpen && (
           <ul className="se__outline">
             {(activeEntry?.blocks ?? []).map((b) => {

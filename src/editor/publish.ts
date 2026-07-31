@@ -21,6 +21,8 @@ export interface PageReport {
   title: string;
   edits: number;
   issues: SeoIssue[];
+  /** What actually changed on this page, in the client's own words. */
+  changes: BlockChange[];
 }
 
 /** Inspect the published HTML of one page and return any SEO problems (empty = clean). */
@@ -84,6 +86,63 @@ export function countPageEdits(pageId: string, overrides: Record<string, PageOve
   return ov + rules;
 }
 
+/** One human-readable change on a page: what that block said before, and what it says now. */
+export interface BlockChange {
+  blockId: string;
+  label: string;
+  before: string;
+  after: string;
+  /** The header or the footer — one edit that shows on every page of the locale. */
+  shared: boolean;
+}
+
+const textOf = (html: string): string => {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+};
+
+/** The first place two strings differ, with a little context on each side. */
+function firstDiff(a: string, b: string): { before: string; after: string } | null {
+  if (a === b) return null;
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let ea = a.length, eb = b.length;
+  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+  const pad = 24;
+  const from = Math.max(0, s - pad);
+  const cut = (str: string, end: number) =>
+    (from > 0 ? "…" : "") + str.slice(from, Math.min(str.length, end + pad)) + (end + pad < str.length ? "…" : "");
+  return { before: cut(a, ea), after: cut(b, eb) };
+}
+
+/**
+ * What a client would recognise as "what I changed on this page".
+ *
+ * The publish dialog counted edits and checked SEO but never showed the edits themselves, so the only
+ * way to know what a number like "37 правок" was about was to publish and look at the live site.
+ */
+export function changesForPage(
+  page: ImportedPage,
+  overrides: Record<string, PageOverrides>,
+  labels?: Record<string, string | undefined>
+): BlockChange[] {
+  const ov = overrides[page.id];
+  if (!ov) return [];
+  const out: BlockChange[] = [];
+  for (const b of page.blocks) {
+    const edited = ov[b.id];
+    if (edited == null) continue;
+    const region = b.content.region;
+    const shared = region === "header" || region === "footer";
+    const label = labels?.[b.id] || b.content.label || (shared ? (region === "header" ? "Шапка" : "Подвал") : b.id);
+    if (edited === "") { out.push({ blockId: b.id, label, before: textOf(b.content.html).slice(0, 60), after: "— секция удалена —", shared }); continue; }
+    const d = firstDiff(textOf(b.content.html), textOf(edited));
+    // No text difference = the change was visual (size, colour, spacing, a replaced photo).
+    out.push(d ? { blockId: b.id, label, ...d, shared } : { blockId: b.id, label, before: "", after: "оформление или фото", shared });
+  }
+  return out;
+}
+
 /** Build the SEO report for a single page from its published HTML. */
 export function reportForPage(
   page: ImportedPage,
@@ -99,5 +158,6 @@ export function reportForPage(
     title: page.meta.title,
     edits: countPageEdits(page.id, overrides, bp),
     issues: [...checkSeo(html), ...checkLayout(html)],
+    changes: changesForPage(page, overrides),
   };
 }

@@ -148,7 +148,7 @@ export function PublishDialog({
           // Report on what will ACTUALLY be published for this page — shared edits included.
           out.push(reportForPage(p, expanded.current, bp));
         } catch {
-          out.push({ id: entry.id, file: entry.file, slug: entry.slug, lang: entry.lang, title: entry.title, edits: 0, issues: [{ level: "error", msg: "Не удалось загрузить страницу" }] });
+          out.push({ id: entry.id, file: entry.file, slug: entry.slug, lang: entry.lang, title: entry.title, edits: 0, changes: [], issues: [{ level: "error", msg: "Не удалось загрузить страницу" }] });
         }
         if (cancelled) return;
         setProgress(out.length);
@@ -235,6 +235,17 @@ export function PublishDialog({
                     <span className="pub__page-slug">{r.slug}</span>
                     {r.edits > 0 && <span className="pub__page-edits">{r.edits} правок</span>}
                   </div>
+                  {r.changes.length > 0 && (
+                    <ul className="pub__changes">
+                      {r.changes.map((c) => (
+                        <li key={c.blockId} className="pub__change">
+                          <span className="pub__change-where">{c.label}{c.shared ? " · на всех страницах" : ""}</span>
+                          {c.before && <><span className="pub__change-old">{c.before}</span><span className="pub__change-arrow">→</span></>}
+                          <span className="pub__change-new">{c.after}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {r.issues.length > 0 && (
                     <ul className="pub__issues">
                       {r.issues.map((i, k) => (
