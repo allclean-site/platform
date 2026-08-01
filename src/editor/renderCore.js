@@ -333,6 +333,23 @@ export function safeValue(v) {
   return s;
 }
 
+/**
+ * A value the client set, made safe to APPLY AT ANY WIDTH — the one place that guarantee lives.
+ *
+ * Every size an edit produces passes through here, so the "a size made on one screen is not a layout"
+ * rule cannot be forgotten by one code path the way it was: font sizes scale fluidly, and a fixed
+ * pixel width is capped at its container with `min(…,100%)` so it can never push past the column it
+ * sits in. This used to be spelled out for tablet/mobile and simply missing from the desktop base
+ * layer, which is how a heading dragged wide at 1920 shipped an 820px width that overflowed every
+ * narrower screen. Height is left alone (tall is not the overflow that breaks a page); min-width too
+ * (that is the un-clamp, and capping it would re-clamp the box).
+ */
+function fitValue(prop, sv) {
+  if (prop === "font-size") return fluidFont(sv);
+  if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) return `min(${sv},100%)`;
+  return sv;
+}
+
 export function overridesCss(pageBp) {
   if (!pageBp) return "";
   let css = "";
@@ -355,7 +372,7 @@ export function overridesCss(pageBp) {
     for (const p of Object.keys(props)) {
       if (props[p] === "") continue;
       const sv = safeValue(props[p]); if (!sv) continue;
-      const decl = `${p}:${p === "font-size" ? fluidFont(sv) : sv} !important;`;
+      const decl = `${p}:${fitValue(p, sv)} !important;`;
       // The element ITSELF always gets the declaration: a desktop edit also writes a flat inline px
       // value, and a stylesheet `!important` beats that non-important inline, so a plain <h2> scales
       // fluidly too — not just split-text headings whose visible text sits in children.
@@ -377,8 +394,7 @@ export function overridesCss(pageBp) {
       for (const p of Object.keys(props)) {
         if (props[p] === "") continue;
         const sv = safeValue(props[p]); if (!sv) continue;
-        const v = p === "width" && /px$/.test(sv) ? `min(${sv},100vw)` : sv;
-        decl += `${p}:${v} !important;`;
+        decl += `${p}:${fitValue(p, sv)} !important;`;
         if (CASCADE[p]) cdecl += `${p}:${sv} !important;`;
       }
       if (decl) body += `[data-lg-id="${id}"]${B}{${decl}}`;
