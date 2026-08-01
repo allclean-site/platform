@@ -97,22 +97,39 @@ export interface BlockChange {
   shared: boolean;
 }
 
+/**
+ * The words a reader would see — not everything `textContent` returns.
+ *
+ * A block can carry scripts and JSON configuration: the pricing page holds 21 script tags, one of them
+ * a 184 KB calculator config. Taking the raw textContent put that wall of JSON in front of the client
+ * as "what changed", which explains nothing and buries the one line that mattered.
+ */
 const textOf = (html: string): string => {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+  doc.body.querySelectorAll("script,style,noscript,template,svg").forEach((el) => el.remove());
+  return (doc.body.textContent || "").replace(/ /g, " ").replace(/\s+/g, " ").trim();
 };
 
-/** The first place two strings differ, with a little context on each side. */
+/** Show a phrase, not a paragraph: enough to recognise the edit, never enough to flood the dialog. */
+const CUT = 70;
+const shorten = (s: string): string => (s.length > CUT ? s.slice(0, CUT).trimEnd() + "…" : s);
+
+/** The first place two strings differ, with a few words of context — and never more than a phrase. */
 function firstDiff(a: string, b: string): { before: string; after: string } | null {
   if (a === b) return null;
   let s = 0;
   while (s < a.length && s < b.length && a[s] === b[s]) s++;
   let ea = a.length, eb = b.length;
   while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
-  const pad = 24;
-  const from = Math.max(0, s - pad);
-  const cut = (str: string, end: number) =>
-    (from > 0 ? "…" : "") + str.slice(from, Math.min(str.length, end + pad)) + (end + pad < str.length ? "…" : "");
+  // Start at a word boundary so a line never begins mid-word.
+  const pad = 16;
+  let from = Math.max(0, s - pad);
+  const space = a.lastIndexOf(" ", from);
+  if (from > 0 && space > from - 12) from = space + 1;
+  const cut = (str: string, end: number) => {
+    const tail = Math.min(str.length, end + pad);
+    return (from > 0 ? "…" : "") + shorten(str.slice(from, tail)) + (tail < str.length ? "…" : "");
+  };
   return { before: cut(a, ea), after: cut(b, eb) };
 }
 
@@ -143,7 +160,7 @@ export function changesForPage(
     const region = b.content.region;
     const shared = region === "header" || region === "footer";
     const label = labels?.[b.id] || b.content.label || (shared ? (region === "header" ? "Шапка" : "Подвал") : b.id);
-    if (edited === "") { out.push({ blockId: b.id, label, before: textOf(b.content.html).slice(0, 60), after: "— секция удалена —", shared }); continue; }
+    if (edited === "") { out.push({ blockId: b.id, label, before: shorten(textOf(b.content.html)), after: "— секция удалена —", shared }); continue; }
     const d = firstDiff(textOf(b.content.html), textOf(edited));
     // No text difference = the change was visual (size, colour, spacing, a replaced photo).
     out.push(d ? { blockId: b.id, label, ...d, shared } : { blockId: b.id, label, before: "", after: "оформление или фото", shared });

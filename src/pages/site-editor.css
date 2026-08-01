@@ -515,3 +515,17 @@
 
 /* Way out of a session that predates server-side sign-in — it has no publishing rights. */
 .pub__relogin { margin-top: 8px; }
+
+/* Long text must never widen the dialog — a block can hold a whole page of copy. */
+.pub__change { max-width: 100%; overflow: hidden; }
+.pub__change-old, .pub__change-new { overflow-wrap: anywhere; min-width: 0; }
+.pub__list { overflow-x: hidden; }
+
+/* After publishing: open what just went live (the site takes a minute to rebuild). */
+.pub__links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.pub__links-t { font-size: 12.5px; color: var(--text-muted); }
+.pub__link { font-size: 12.5px; font-weight: 600; color: var(--accent); text-decoration: none;
+  background: var(--accent-soft); padding: 4px 10px; border-radius: var(--r-pill); }
+.pub__link:hover { text-decoration: underline; }
+.pub__link--site { background: transparent; }
+.pub__links-more { font-size: 12px; color: var(--text-muted); }

@@ -50,6 +50,8 @@ export function PublishDialog({
   const [pubMsg, setPubMsg] = useState("");
   const [pubDetail, setPubDetail] = useState("");
   const [needsRelogin, setNeedsRelogin] = useState(false);
+  /** Pages that went live in the last publish — what the client wants to open and look at. */
+  const [publishedPages, setPublishedPages] = useState<{ title: string; url: string }[]>([]);
   const [copied, setCopied] = useState(false);
   const [versions, setVersions] = useState<SiteVersion[] | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -130,7 +132,17 @@ export function PublishDialog({
     setPubMsg(r.message);
     setNeedsRelogin(Boolean(r.needsRelogin));
     setPubDetail(r.detail ?? "");
-    if (r.ok) setVersions(null);     // a new restore point exists now
+    if (r.ok) {
+      setVersions(null);             // a new restore point exists now
+      // Tilda-style: after publishing, offer the actual pages rather than making the client hunt for
+      // them. The stored slug already carries the locale prefix.
+      const host = (index.domain || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+      setPublishedPages(
+        (reports ?? [])
+          .filter((rep) => rep.edits > 0 && !skip.has(rep.id))
+          .map((rep) => ({ title: rep.title.replace(/ [—|].*$/, ""), url: `https://${host}${rep.slug === "/" ? "/" : rep.slug}` }))
+      );
+    }
   };
   const openHistory = async () => {
     setShowHistory((v) => !v);
@@ -358,6 +370,17 @@ export function PublishDialog({
                     {pubState === "error" ? <XCircle size={15} /> : <CheckCircle2 size={15} />} {pubMsg}
                   </p>
                   {/* One click out of a stale session, instead of "напишите в поддержку". */}
+                  {pubState === "done" && publishedPages.length > 0 && (
+                    <div className="pub__links">
+                      <span className="pub__links-t">Открыть:</span>
+                      {publishedPages.slice(0, 6).map((l) => (
+                        <a key={l.url} className="pub__link" href={l.url} target="_blank" rel="noopener noreferrer">{l.title}</a>
+                      ))}
+                      {publishedPages.length > 6 && <span className="pub__links-more">и ещё {publishedPages.length - 6}</span>}
+                      <a className="pub__link pub__link--site" href={`https://${(index.domain || "").replace(/^https?:\/\//, "").replace(/\/$/, "")}/`}
+                        target="_blank" rel="noopener noreferrer">весь сайт ↗</a>
+                    </div>
+                  )}
                   {needsRelogin && onRelogin && (
                     <button className="pub__btn-primary pub__relogin" onClick={onRelogin}>Войти заново</button>
                   )}
