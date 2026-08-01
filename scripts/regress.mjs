@@ -70,8 +70,12 @@ function midWordBreaks(doc) {
       for (let i = 0; i < t.length; i++) {
         rng.setStart(n, i); rng.setEnd(n, i + 1);
         const r = rng.getBoundingClientRect(); if (!r.height) continue;
-        if (prevTop !== null && r.top > prevTop + 2 && !/\\s/.test(t[i - 1])) {
-          hits.push((el.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 40)); broke = true; break;
+        // A real mid-word break has a LETTER on both sides of the wrap. A break after a hyphen
+        // ("Programați-|vă", "rent-|free") or before punctuation ("СПОКОЙСТВИЕ|.") is correct wrapping,
+        // not a defect — those are not counted.
+        if (prevTop !== null && r.top > prevTop + 2 && /[\\p{L}\\p{N}]/u.test(t[i - 1]) && /[\\p{L}\\p{N}]/u.test(t[i])) {
+          const around = t.slice(Math.max(0, i - 14), i) + "|" + t.slice(i, i + 8);
+          hits.push(around.replace(/\\s+/g, " ").trim()); broke = true; break;
         }
         prevTop = r.top;
       }
