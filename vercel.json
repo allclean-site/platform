@@ -6,38 +6,1573 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/site-assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/images/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/video/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/fonts/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
+    },
+    {
+      "source": "/((?!api/|import/|images/|video/|fonts/|js/|assets/|site-assets/).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate, s-maxage=1, stale-while-revalidate=604800"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/ru/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fblog%2Fgeneralnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya"
+    },
+    {
+      "source": "/ru/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fblog%2Fgeneralnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya"
+    },
+    {
+      "source": "/ru/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fblog%2Fgeneralnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya"
+    },
+    {
+      "source": "/ru/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fblog%2Fgeneralnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya"
+    },
+    {
+      "source": "/blog/curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fblog%2Fcuratenia-generala-si-cea-de-mentinere-care-sunt-diferentele"
+    },
+    {
+      "source": "/blog/curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fblog%2Fcuratenia-generala-si-cea-de-mentinere-care-sunt-diferentele"
+    },
+    {
+      "source": "/blog/curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fblog%2Fcuratenia-generala-si-cea-de-mentinere-care-sunt-diferentele"
+    },
+    {
+      "source": "/blog/curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fblog%2Fcuratenia-generala-si-cea-de-mentinere-care-sunt-diferentele"
+    },
+    {
+      "source": "/ru/services/floor-restoration",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Ffloor-restoration"
+    },
+    {
+      "source": "/ru/services/floor-restoration",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Ffloor-restoration"
+    },
+    {
+      "source": "/ru/services/floor-restoration/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Ffloor-restoration"
+    },
+    {
+      "source": "/ru/services/floor-restoration/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Ffloor-restoration"
+    },
+    {
+      "source": "/ru/services/post-construction",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fpost-construction"
+    },
+    {
+      "source": "/ru/services/post-construction",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fpost-construction"
+    },
+    {
+      "source": "/ru/services/post-construction/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fpost-construction"
+    },
+    {
+      "source": "/ru/services/post-construction/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fpost-construction"
+    },
+    {
+      "source": "/services/floor-restoration",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Ffloor-restoration"
+    },
+    {
+      "source": "/services/floor-restoration",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Ffloor-restoration"
+    },
+    {
+      "source": "/services/floor-restoration/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Ffloor-restoration"
+    },
+    {
+      "source": "/services/floor-restoration/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Ffloor-restoration"
+    },
+    {
+      "source": "/services/post-construction",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fpost-construction"
+    },
+    {
+      "source": "/services/post-construction",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fpost-construction"
+    },
+    {
+      "source": "/services/post-construction/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fpost-construction"
+    },
+    {
+      "source": "/services/post-construction/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fpost-construction"
+    },
+    {
+      "source": "/ru/services/home-cleaning",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fhome-cleaning"
+    },
+    {
+      "source": "/ru/services/home-cleaning",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fhome-cleaning"
+    },
+    {
+      "source": "/ru/services/home-cleaning/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fhome-cleaning"
+    },
+    {
+      "source": "/ru/services/home-cleaning/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fhome-cleaning"
+    },
+    {
+      "source": "/ru/services/disinfection",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fdisinfection"
+    },
+    {
+      "source": "/ru/services/disinfection",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fdisinfection"
+    },
+    {
+      "source": "/ru/services/disinfection/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fdisinfection"
+    },
+    {
+      "source": "/ru/services/disinfection/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fdisinfection"
+    },
+    {
+      "source": "/services/home-cleaning",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fhome-cleaning"
+    },
+    {
+      "source": "/services/home-cleaning",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fhome-cleaning"
+    },
+    {
+      "source": "/services/home-cleaning/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fhome-cleaning"
+    },
+    {
+      "source": "/services/home-cleaning/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fhome-cleaning"
+    },
+    {
+      "source": "/ru/services/upholstery",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fupholstery"
+    },
+    {
+      "source": "/ru/services/upholstery",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fupholstery"
+    },
+    {
+      "source": "/ru/services/upholstery/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fupholstery"
+    },
+    {
+      "source": "/ru/services/upholstery/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fupholstery"
+    },
+    {
+      "source": "/services/disinfection",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fdisinfection"
+    },
+    {
+      "source": "/services/disinfection",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fdisinfection"
+    },
+    {
+      "source": "/services/disinfection/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fdisinfection"
+    },
+    {
+      "source": "/services/disinfection/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fdisinfection"
+    },
+    {
+      "source": "/ru/services/warehouse",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fwarehouse"
+    },
+    {
+      "source": "/ru/services/warehouse",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fwarehouse"
+    },
+    {
+      "source": "/ru/services/warehouse/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fwarehouse"
+    },
+    {
+      "source": "/ru/services/warehouse/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fwarehouse"
+    },
+    {
+      "source": "/services/upholstery",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fupholstery"
+    },
+    {
+      "source": "/services/upholstery",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fupholstery"
+    },
+    {
+      "source": "/services/upholstery/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fupholstery"
+    },
+    {
+      "source": "/services/upholstery/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fupholstery"
+    },
+    {
+      "source": "/ru/services/windows",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fwindows"
+    },
+    {
+      "source": "/ru/services/windows",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fwindows"
+    },
+    {
+      "source": "/ru/services/windows/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fwindows"
+    },
+    {
+      "source": "/ru/services/windows/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fwindows"
+    },
+    {
+      "source": "/services/warehouse",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fwarehouse"
+    },
+    {
+      "source": "/services/warehouse",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fwarehouse"
+    },
+    {
+      "source": "/services/warehouse/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fwarehouse"
+    },
+    {
+      "source": "/services/warehouse/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fwarehouse"
+    },
+    {
+      "source": "/ru/services/carpet",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fcarpet"
+    },
+    {
+      "source": "/ru/services/carpet",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fcarpet"
+    },
+    {
+      "source": "/ru/services/carpet/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fcarpet"
+    },
+    {
+      "source": "/ru/services/carpet/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fcarpet"
+    },
+    {
+      "source": "/ru/services/office",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Foffice"
+    },
+    {
+      "source": "/ru/services/office",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Foffice"
+    },
+    {
+      "source": "/ru/services/office/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Foffice"
+    },
+    {
+      "source": "/ru/services/office/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Foffice"
+    },
+    {
+      "source": "/ru/services/retail",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fretail"
+    },
+    {
+      "source": "/ru/services/retail",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fretail"
+    },
+    {
+      "source": "/ru/services/retail/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fretail"
+    },
+    {
+      "source": "/ru/services/retail/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices%2Fretail"
+    },
+    {
+      "source": "/ru/book-cleaning",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fbook-cleaning"
+    },
+    {
+      "source": "/ru/book-cleaning",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fbook-cleaning"
+    },
+    {
+      "source": "/ru/book-cleaning/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fbook-cleaning"
+    },
+    {
+      "source": "/ru/book-cleaning/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fbook-cleaning"
+    },
+    {
+      "source": "/services/windows",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fwindows"
+    },
+    {
+      "source": "/services/windows",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fwindows"
+    },
+    {
+      "source": "/services/windows/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fwindows"
+    },
+    {
+      "source": "/services/windows/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fwindows"
+    },
+    {
+      "source": "/services/carpet",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fcarpet"
+    },
+    {
+      "source": "/services/carpet",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fcarpet"
+    },
+    {
+      "source": "/services/carpet/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fcarpet"
+    },
+    {
+      "source": "/services/carpet/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fcarpet"
+    },
+    {
+      "source": "/services/office",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Foffice"
+    },
+    {
+      "source": "/services/office",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Foffice"
+    },
+    {
+      "source": "/services/office/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Foffice"
+    },
+    {
+      "source": "/services/office/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Foffice"
+    },
+    {
+      "source": "/services/retail",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fretail"
+    },
+    {
+      "source": "/services/retail",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fretail"
+    },
+    {
+      "source": "/services/retail/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fretail"
+    },
+    {
+      "source": "/services/retail/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices%2Fretail"
+    },
+    {
+      "source": "/book-cleaning",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fbook-cleaning"
+    },
+    {
+      "source": "/book-cleaning",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fbook-cleaning"
+    },
+    {
+      "source": "/book-cleaning/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fbook-cleaning"
+    },
+    {
+      "source": "/book-cleaning/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fbook-cleaning"
+    },
+    {
+      "source": "/ru/services",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices"
+    },
+    {
+      "source": "/ru/services",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices"
+    },
+    {
+      "source": "/ru/services/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices"
+    },
+    {
+      "source": "/ru/services/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fservices"
+    },
+    {
+      "source": "/ru/pricing",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fpricing"
+    },
+    {
+      "source": "/ru/pricing",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fpricing"
+    },
+    {
+      "source": "/ru/pricing/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fpricing"
+    },
+    {
+      "source": "/ru/pricing/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fpricing"
+    },
+    {
+      "source": "/ru/privacy",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fprivacy"
+    },
+    {
+      "source": "/ru/privacy",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fprivacy"
+    },
+    {
+      "source": "/ru/privacy/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fprivacy"
+    },
+    {
+      "source": "/ru/privacy/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fprivacy"
+    },
+    {
+      "source": "/ru/about",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fabout"
+    },
+    {
+      "source": "/ru/about",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fabout"
+    },
+    {
+      "source": "/ru/about/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fabout"
+    },
+    {
+      "source": "/ru/about/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fabout"
+    },
+    {
+      "source": "/services",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices"
+    },
+    {
+      "source": "/services",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices"
+    },
+    {
+      "source": "/services/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices"
+    },
+    {
+      "source": "/services/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fservices"
+    },
+    {
+      "source": "/ru/blog",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fblog"
+    },
+    {
+      "source": "/ru/blog",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fblog"
+    },
+    {
+      "source": "/ru/blog/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fblog"
+    },
+    {
+      "source": "/ru/blog/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Fblog"
+    },
+    {
+      "source": "/pricing",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fpricing"
+    },
+    {
+      "source": "/pricing",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fpricing"
+    },
+    {
+      "source": "/pricing/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fpricing"
+    },
+    {
+      "source": "/pricing/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fpricing"
+    },
+    {
+      "source": "/privacy",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fprivacy"
+    },
+    {
+      "source": "/privacy",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fprivacy"
+    },
+    {
+      "source": "/privacy/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fprivacy"
+    },
+    {
+      "source": "/privacy/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fprivacy"
+    },
+    {
+      "source": "/ru/faq",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Ffaq"
+    },
+    {
+      "source": "/ru/faq",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Ffaq"
+    },
+    {
+      "source": "/ru/faq/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Ffaq"
+    },
+    {
+      "source": "/ru/faq/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru%2Ffaq"
+    },
+    {
+      "source": "/about",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fabout"
+    },
+    {
+      "source": "/about",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fabout"
+    },
+    {
+      "source": "/about/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fabout"
+    },
+    {
+      "source": "/about/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fabout"
+    },
+    {
+      "source": "/blog",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fblog"
+    },
+    {
+      "source": "/blog",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fblog"
+    },
+    {
+      "source": "/blog/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fblog"
+    },
+    {
+      "source": "/blog/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fblog"
+    },
+    {
+      "source": "/faq",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Ffaq"
+    },
+    {
+      "source": "/faq",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Ffaq"
+    },
+    {
+      "source": "/faq/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Ffaq"
+    },
+    {
+      "source": "/faq/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Ffaq"
+    },
+    {
+      "source": "/ru",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru"
+    },
+    {
+      "source": "/ru",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru"
+    },
+    {
+      "source": "/ru/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru"
+    },
+    {
+      "source": "/ru/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2Fru"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2F"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allclean.md"
+        }
+      ],
+      "destination": "/api/page?path=%2F"
     }
   ]
 }

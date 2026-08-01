@@ -72,7 +72,34 @@ export default async function handler(req, res) {
     });
   } catch { /* history is a convenience — never block the publish on it */ }
 
+  // ---- make it live ------------------------------------------------------------------------------
+  // Pages are rendered on demand by /api/page from these very rows, so an edit is live the moment it
+  // is stored. All that is left is to warm the edge cache for the pages that changed, which is a
+  // second of work instead of a full rebuild-and-redeploy of the whole site.
+  const h = req.headers || {};
+  const host = h["x-forwarded-host"] || h.host;
+  const origin = host ? `https://${host}` : "";
+  let warmed = 0;
+  if (origin) {
+    const slugs = rows.map((r) => slugOf(r.page_id)).filter(Boolean);
+    await Promise.all(slugs.slice(0, 20).map(async (slug) => {
+      try {
+        const r = await fetch(`${origin}${slug}`, { headers: { "cache-control": "no-cache" } });
+        if (r.ok) warmed++;
+      } catch { /* warming is best effort — the page is already live either way */ }
+    }));
+  }
+
+  // The deploy hook is no longer part of publishing content. It stays for the cases that really do
+  // need a new build (code, assets, a page added or removed) — ask for it explicitly.
   let rebuild = false;
-  if (DEPLOY_HOOK) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
-  return res.status(200).json({ ok: true, pages: rows.length, rebuild });
+  if (DEPLOY_HOOK && body.rebuild === true) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
+  return res.status(200).json({ ok: true, pages: rows.length, rebuild, instant: true, warmed });
+}
+
+/** page_id ("ru/pricing/index.html") → the URL it is served at ("/ru/pricing"). */
+function slugOf(pageId) {
+  if (!pageId || typeof pageId !== "string") return "";
+  const path = pageId.replace(/index\.html$/, "").replace(/\.html$/, "").replace(/\/+$/, "");
+  return "/" + path.replace(/^\/+/, "");
 }

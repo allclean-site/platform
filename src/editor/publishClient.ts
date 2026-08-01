@@ -34,7 +34,7 @@ export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteB
     message: "Похоже, вы вошли в кабинет давно — сессия устарела и права на публикацию у неё нет. Войдите заново, и кнопка заработает.",
     detail: `endpoint: ${p.endpoint}\neditKey: пусто (сессия без ключа). Если после повторного входа ключа всё ещё нет — на сайтовом проекте не задан EDIT_KEY.`,
   };
-  const r = await postSiteApi<{ rebuild?: boolean; pages?: number }>("publish", { project: "allclean", overrides, breakpoints, by });
+  const r = await postSiteApi<{ rebuild?: boolean; pages?: number; instant?: boolean }>("publish", { project: "allclean", overrides, breakpoints, by });
   if (r.offline) {
     return {
       ok: false,
@@ -50,10 +50,16 @@ export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteB
       detail: `endpoint: ${r.endpoint}\nHTTP ${r.status}\n${r.raw.slice(0, 600)}`,
     };
   }
+  // Pages are rendered on demand from what was just stored, so "published" means published — no
+  // rebuild to wait out. The old copy promised 1–2 minutes because publishing used to run the whole
+  // deploy pipeline for a changed word.
+  const pages = r.data?.pages ?? 0;
   return {
     ok: true,
-    message: r.data?.rebuild
-      ? `Опубликовано (${r.data.pages} стр.) — сайт пересобирается, изменения появятся через 1–2 минуты.`
-      : `Сохранено (${r.data?.pages} стр.), но авто-пересборка не настроена (нет Deploy Hook).`,
+    message: r.data?.instant
+      ? `Опубликовано (${pages} стр.) — изменения уже на сайте.`
+      : r.data?.rebuild
+        ? `Опубликовано (${pages} стр.) — сайт пересобирается, изменения появятся через 1–2 минуты.`
+        : `Сохранено (${pages} стр.).`,
   };
 }
