@@ -872,6 +872,22 @@ ${CORE_INLINE}
    * No class names, no list of "marquee-like" components — whatever moves it (CSS, GSAP, a script we
    * have never seen) is caught the same way, and a static element never freezes anything.
    */
+  // Clicking a media wrapper should select the MEDIA, not the wrapper. Webflow buries an <img>/<video>
+  // under one or more divs (a background-video has its own layers), so the click resolves to the
+  // container and the panel offers "Контейнер" with no "replace" button. When the resolved element is
+  // essentially a single image or video — one media inside, filling most of the box — select that
+  // media instead, so "заменить фото/видео" is always one click away. A section that merely contains a
+  // small logo is untouched (the media must cover most of the wrapper).
+  function preferMedia(el){
+    var k = kindOf(el);
+    if (k === "image" || k === "video" || k === "text" || k === "link") return el;
+    var media = el.querySelectorAll ? el.querySelectorAll("img,video") : [];
+    if (media.length !== 1) return el;
+    var m = media[0], er = el.getBoundingClientRect(), mr = m.getBoundingClientRect();
+    if (er.width * er.height > 0 && mr.width * mr.height >= er.width * er.height * 0.5) return m;
+    return el;
+  }
+
   function watchMotion(el){
     if (!el || !el.getBoundingClientRect) return;
     var a = el.getBoundingClientRect();
@@ -957,6 +973,10 @@ ${CORE_INLINE}
   function select(el){
     if (selected) selected.classList.remove("lg-selected");
     selected = el; el.classList.add("lg-selected");
+    // Release any freeze from a previously-selected moving element; watchMotion re-freezes only if
+    // THIS element is the one that moves. Without this, selecting the marquee card froze the strip and
+    // then selecting anything static left it frozen forever ("замирает, но не отмирает").
+    freezeMotion(false);
     watchMotion(el);
     hideHover();
     if (handle) handle.style.display = "none"; // ⠿ reorder grip is hover-driven; selected shows the resize box
@@ -1438,12 +1458,17 @@ ${CORE_INLINE}
     document.addEventListener("click", function(e){
       var nav = e.target.closest && e.target.closest("a,button");
       if (nav) e.preventDefault();
-      // Prefer the whole editable field (block text / standalone link) over a word-div inside it.
+      // A click that lands on an image or video always selects that media — even inside a link the
+      // editor made contenteditable (the services cards are <a> wrappers, so a photo click was being
+      // swallowed as "Ссылка" with no replace button). Media wins over the contenteditable ancestor.
+      var mediaHit = e.target.closest && e.target.closest("img,video");
+      if (mediaHit && mediaHit.getAttribute("data-lg-id")){ select(mediaHit); return; }
+      // Otherwise prefer the whole editable field (block text / standalone link) over a word-div inside it.
       var ce = e.target.closest && e.target.closest('[contenteditable="true"]');
       var el = ce || (e.target.closest && e.target.closest("[data-lg-id]"));
       // Clicking away from everything editable is how the client says "done" — the selection goes and
       // anything that was held still starts moving again.
-      if (el) select(el); else deselect();
+      if (el) select(ce ? el : preferMedia(el)); else deselect();
     }, true);
     // Hover highlight: outline + label chip on the element under the cursor (not while dragging/selected).
     document.addEventListener("mouseover", function(e){
