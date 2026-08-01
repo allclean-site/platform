@@ -508,6 +508,9 @@ export function SiteEditor() {
       else if (d.type === "lg-undo") undoRef.current();
       else if (d.type === "lg-redo") redoRef.current();
       else if (d.type === "lg-elem-select") { setSelEl(d as SelectedEl); setSelected(d.blockId); }
+      // Clicked away from everything editable — close the element panel so it stops describing
+      // something that is no longer selected (and, in the canvas, motion resumes).
+      else if (d.type === "lg-elem-deselect") setSelEl(null);
       else if (d.type === "lg-elem-deleted") setSelEl(null);
       else if (d.type === "lg-text-sel") { setTextSel(d.rect ? (d as TextSel) : null); if (!d.rect) setLinkPop(null); }
       // The highlighted text is gone (the block was re-rendered under it), so the command could not be

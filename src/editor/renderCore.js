@@ -53,11 +53,76 @@ export const SITE_FIXES = "@media screen and (max-width:991px){.right_home-featu
  *
  * Applied by BOTH render paths (publisher and editing canvas) so they cannot drift apart.
  */
-export function relaxLegacyChains(html) {
-  if (!html || html.indexOf("lg-overrides") < 0) return html;
-  return html
+/**
+ * THE RULE: a size measured on one screen may never be applied unchanged on another.
+ *
+ * The legacy layer was written by dragging boxes on one monitor, and it froze the result as absolute
+ * pixels: `grid-template-columns: minmax(0,676.4px) minmax(0,756.4px)` on the hero row, `width:920px`
+ * on a heading, and so on. That is a layout that is only correct at the width it was made at.
+ * Measured on the Russian home page: at a 1920 screen the hero row is handed 1800px of container and
+ * fills 1433 of it, so the text column is ~370px too narrow and the heading breaks mid-word; at
+ * narrower widths the same pins squeeze the columns unevenly. The Romanian home page has fewer of
+ * these pins, which is exactly why one locale looked fine and the other did not.
+ *
+ * Rather than editing 30 rules by hand on one page — the fix that would be undone by the next import —
+ * every absolute size in that layer is rewritten into one that carries the same intent at any width:
+ *
+ *   · a fixed grid track list becomes the SAME NUMBERS as fractions, so the row keeps the proportion
+ *     it was designed with and always fills its container (only when every track is a fixed px value —
+ *     a deliberate `200px 1fr` split is left alone);
+ *   · a fixed `width`/`max-width` is capped at the container: `min(920px, 100%)`. It stays 920px
+ *     wherever there is room and can no longer stick out where there is not.
+ *
+ * Font sizes are deliberately NOT touched: measured at 390px, the site's own mobile rules already win
+ * over the pinned ones, so rewriting them would change pages that render correctly today.
+ */
+function rewriteLegacyCss(css) {
+  const relaxed = css
+    // The editor wraps each block in a marker div. It has no layout box, but it IS in the selector
+    // tree, so it breaks these `>` chains inside the canvas while they keep matching on the published
+    // page — the editor then showed one thing and the site another (hero words 60px vs 88px).
+    // Descendant matches what child matched, so the published rendering is unchanged.
     .split("div.page-wrapper:nth-of-type(1) > ").join("div.page-wrapper:nth-of-type(1) ")
     .split("main.main-wrapper:nth-of-type(1) > ").join("main.main-wrapper:nth-of-type(1) ");
+
+  const PX_TRACK = /^(?:minmax\(\s*0(?:px)?\s*,\s*)?(\d+(?:\.\d+)?)px\s*\)?$/;
+  return relaxed
+    .replace(/grid-template-columns\s*:\s*([^;}!]+)/gi, (whole, value) => {
+      const tracks = splitTopLevel(value);
+      if (tracks.length < 2 || !tracks.every((t) => PX_TRACK.test(t))) return whole;
+      const fr = tracks.map((t) => {
+        const n = PX_TRACK.exec(t)[1];
+        return t.indexOf("minmax") === 0 ? `minmax(0,${n}fr)` : `${n}fr`;
+      });
+      return "grid-template-columns:" + fr.join(" ");
+    })
+    .replace(/(^|[;{])(\s*)(max-width|width)\s*:\s*(\d+(?:\.\d+)?)px/gi,
+      (_m, pre, sp, prop, n) => `${pre}${sp}${prop}:min(${n}px,100%)`);
+}
+
+/** Split a CSS value on top-level whitespace (never inside parentheses). */
+function splitTopLevel(value) {
+  const out = [];
+  let depth = 0, cur = "";
+  for (const ch of value.trim()) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (depth === 0 && /\s/.test(ch)) { if (cur) { out.push(cur); cur = ""; } continue; }
+    cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/** Apply the rule above to the page's legacy stylesheet — and to nothing else on the page. */
+export function relaxLegacyChains(html) {
+  const START = '<style id="lg-overrides">';
+  const at = html ? html.indexOf(START) : -1;
+  if (at < 0) return html;
+  const from = at + START.length;
+  const to = html.indexOf("</style>", from);
+  if (to < 0) return html;
+  return html.slice(0, from) + rewriteLegacyCss(html.slice(from, to)) + html.slice(to);
 }
 
 /**

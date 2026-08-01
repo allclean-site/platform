@@ -820,9 +820,120 @@ ${CORE_INLINE}
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   }
 
+  /**
+   * THE RULE: nothing moves while you are editing it.
+   *
+   * A card in the services marquee cannot be worked on while it is sliding past — the click lands on
+   * whatever has drifted under the cursor, and the panel then describes a different card. That is not
+   * a marquee problem, it is true of anything in motion, so the freeze is written once and applies to
+   * every moving thing on the page: CSS animations and transitions are paused through a class on the
+   * document, and GSAP (which is what actually drives this site's marquee — the elements carry no CSS
+   * animation at all) has its global timeline paused. Motion resumes the moment the selection goes.
+   *
+   * Videos are deliberately left running: the client asked for those to always play.
+   */
+  function freezeMotion(on){
+    var root = document.documentElement;
+    if (on === !!root.getAttribute("data-lg-frozen")) return;
+    if (on) root.setAttribute("data-lg-frozen", "1"); else root.removeAttribute("data-lg-frozen");
+    var g = window.gsap || (window.GreenSockGlobals && window.GreenSockGlobals.gsap);
+    if (g && g.globalTimeline){
+      try { if (on) g.globalTimeline.pause(); else g.globalTimeline.resume(); } catch(e){}
+    }
+  }
+
+  /**
+   * Is the thing that was just selected actually moving? Asked by watching it, not by recognising it:
+   * measure where it is, look again two frames later, and if it has travelled, hold the page still.
+   * No class names, no list of "marquee-like" components — whatever moves it (CSS, GSAP, a script we
+   * have never seen) is caught the same way, and a static element never freezes anything.
+   */
+  function watchMotion(el){
+    if (!el || !el.getBoundingClientRect) return;
+    var a = el.getBoundingClientRect();
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        if (selected !== el || !document.contains(el)) return;
+        var b = el.getBoundingClientRect();
+        if (Math.abs(a.left - b.left) > 0.5 || Math.abs(a.top - b.top) > 0.5) freezeMotion(true);
+      });
+    });
+  }
+
+  /**
+   * THE RULE: change one copy, change every copy.
+   *
+   * A running strip is built by repeating its content — the services marquee ships the same eleven
+   * cards twice so the loop has no seam. Replacing a photo in the copy you can reach leaves the other
+   * copy holding the old one, which then slides past a second later: the edit looks like it did not
+   * take. Header and footer already work this way ACROSS pages; this is the same idea WITHIN one.
+   *
+   * A "copy" is proven, not guessed: walking up from the edited element, the first ancestor that has a
+   * sibling with the same tag, the same classes AND the same text is a repeated track. Anything that
+   * merely looks similar — two different service cards in a grid — has different text and is left alone.
+   *
+   * Inside the twin, the counterpart is found by ORDINAL among elements of the same tag and classes,
+   * not by walking the same child indices: measured here, the two strips are not clones — one card
+   * carries an arrow button the other does not, so the paths differ while the eleven photos and the
+   * eleven titles line up one for one. The counterpart is only used when the twin holds the same
+   * NUMBER of them, which is what proves the two lists are actually parallel.
+   */
+  function copyTwinsOf(el){
+    var wrap = el.closest(W); if (!wrap) return [];
+    var norm = function(s){ return (s || "").replace(/[\\s\\u00a0]+/g, " ").trim(); };
+    // The transient selection class is ours and is not part of what makes two elements the same kind.
+    var cls = (el.getAttribute("class") || "").split(/\\s+/).filter(function(c){ return c && c !== "lg-selected"; });
+    var sel = el.tagName.toLowerCase() + (cls.length ? "." + cls.join(".") : "");
+    var node = el;
+    while (node && node.parentElement && node.parentElement !== wrap && node !== wrap){
+      var par = node.parentElement, mine = norm(node.textContent), twins = [], i;
+      if (mine){
+        for (i = 0; i < par.children.length; i++){
+          var s = par.children[i];
+          if (s !== node && s.tagName === node.tagName
+            && s.getAttribute("class") === node.getAttribute("class")
+            && norm(s.textContent) === mine) twins.push(s);
+        }
+      }
+      if (twins.length){
+        var here, idx = -1;
+        try { here = node.querySelectorAll(sel); } catch(e){ return []; }
+        for (i = 0; i < here.length; i++) if (here[i] === el){ idx = i; break; }
+        if (idx < 0) return [];
+        var out = [];
+        for (i = 0; i < twins.length; i++){
+          var mates;
+          try { mates = twins[i].querySelectorAll(sel); } catch(e){ continue; }
+          if (mates.length === here.length && mates[idx]) out.push(mates[idx]);
+        }
+        return out;
+      }
+      node = par;
+    }
+    return [];
+  }
+  /** Run the same change on the element and on every copy of it inside the block. */
+  function onEveryCopy(el, fn){
+    var twins = copyTwinsOf(el);
+    fn(el);
+    for (var i = 0; i < twins.length; i++) fn(twins[i]);
+    return twins.length;
+  }
+
+  /** Nothing selected: the page is the visitor's again, so let it move. */
+  function deselect(){
+    if (selected) selected.classList.remove("lg-selected");
+    selected = null;
+    hideSelBox(); hideHover();
+    if (handle) handle.style.display = "none";
+    freezeMotion(false);
+    parent.postMessage({ type:"lg-elem-deselect" }, "*");
+  }
+
   function select(el){
     if (selected) selected.classList.remove("lg-selected");
     selected = el; el.classList.add("lg-selected");
+    watchMotion(el);
     hideHover();
     if (handle) handle.style.display = "none"; // ⠿ reorder grip is hover-driven; selected shows the resize box
     positionSelBox(el);
@@ -1040,7 +1151,7 @@ ${CORE_INLINE}
     }
     if (d.type === "lg-img-set"){
       var img = findEl(d.blockId, d.el); if (!img) return;
-      img.setAttribute("src", d.src); img.removeAttribute("srcset"); img.removeAttribute("loading");
+      onEveryCopy(img, function(n){ n.setAttribute("src", d.src); n.removeAttribute("srcset"); n.removeAttribute("loading"); });
       save(d.blockId); return;
     }
     // Replace media from the gallery/upload — handles <img> and <video>, INCLUDING cross-type swap
@@ -1099,7 +1210,7 @@ ${CORE_INLINE}
         save(d.blockId); return;
       }
       if (want === "image" && !isVid){
-        mel.setAttribute("src", d.src); mel.removeAttribute("srcset"); mel.removeAttribute("loading");
+        onEveryCopy(mel, function(n){ n.setAttribute("src", d.src); n.removeAttribute("srcset"); n.removeAttribute("loading"); });
         save(d.blockId); return;
       }
       // cross-type swap
@@ -1126,10 +1237,17 @@ ${CORE_INLINE}
       var elId = d.el, bpMode = d.breakpoint && d.breakpoint !== "desktop";
       var contentChg = false;
       // Content (text / alt / href) is shared across breakpoints → always applied to the base.
-      if (d.text != null){ if (kindOf(el)==="image") el.setAttribute("alt", d.text); else el.textContent = d.text; contentChg = true; }
+      if (d.text != null){
+        onEveryCopy(el, function(n){ if (kindOf(n)==="image") n.setAttribute("alt", d.text); else n.textContent = d.text; });
+        contentChg = true;
+      }
       // Piece-wise text (a split-text heading): each piece goes back into its own node, never through
       // textContent — that is what keeps the word elements and their site classes alive.
-      if (d.parts != null && setParts(el, d.parts)) contentChg = true;
+      if (d.parts != null){
+        var partsChg = false;
+        onEveryCopy(el, function(n){ if (setParts(n, d.parts)) partsChg = true; });
+        if (partsChg) contentChg = true;
+      }
       if (d.href != null && el.hasAttribute("href")){
         // The URL field is free text and lands on the live site: a script scheme would run for every
         // visitor. safeHref is the same check the publisher applies, so both agree.
@@ -1257,6 +1375,9 @@ ${CORE_INLINE}
       SITE_FIXES +
       ".lg-selected{outline:2px solid #7c3aed !important; outline-offset:2px; cursor:pointer;}" +
       "[data-lg-block] img{cursor:pointer;}" +
+      // Motion is held still while a moving element is being edited (see freezeMotion). Videos keep
+      // playing — those the client asked to always run.
+      "[data-lg-frozen] *:not(video),[data-lg-frozen] *::before,[data-lg-frozen] *::after{animation-play-state:paused !important;}" +
       ".lg-hoverbox{position:absolute;z-index:99996;pointer-events:none;border:1px solid rgba(124,58,237,.55);" +
         "background:rgba(124,58,237,.06);border-radius:2px;display:none;}" +
       ".lg-hovertag{position:absolute;z-index:99996;pointer-events:none;background:#7c3aed;color:#fff;" +
@@ -1296,7 +1417,9 @@ ${CORE_INLINE}
       // Prefer the whole editable field (block text / standalone link) over a word-div inside it.
       var ce = e.target.closest && e.target.closest('[contenteditable="true"]');
       var el = ce || (e.target.closest && e.target.closest("[data-lg-id]"));
-      if (el) select(el);
+      // Clicking away from everything editable is how the client says "done" — the selection goes and
+      // anything that was held still starts moving again.
+      if (el) select(el); else deselect();
     }, true);
     // Hover highlight: outline + label chip on the element under the cursor (not while dragging/selected).
     document.addEventListener("mouseover", function(e){
