@@ -176,7 +176,19 @@ ${CORE_INLINE}
   function textParts(el){
     var ns = textRuns(el), out = [], i;
     for (i = 0; i < ns.length; i++) out.push(runText(ns[i]));
+    // Everything was deleted: still offer ONE empty line. Returning nothing left the panel with a hint
+    // and no field at all, so a heading the client had just cleared could not be written again.
+    if (!out.length) out.push("");
     return out;
+  }
+  /** Where text goes when the element has no run left to write into: the innermost empty element that
+   *  still carries the site's styling (a word/line box), or the field itself. */
+  function textHome(el){
+    var kids = el.children, i;
+    for (i = 0; i < kids.length; i++){
+      if (!kids[i].children.length && kids[i].tagName !== "BR") return kids[i];
+    }
+    return el;
   }
   /** Write edited lines back, one per run. Unchanged lines are not touched at all, so a block that the
    *  client did not really change stays byte-identical to what the site shipped. A line the client
@@ -209,6 +221,18 @@ ${CORE_INLINE}
     // same element, so the heading's styling covers the new line like the lines already there.
     if (parts.length > ns.length){
       var after = ns.length ? ns[ns.length - 1] : null;
+      // Nothing left to write into — the client cleared the field and is typing it again. The text
+      // goes back into the element that used to hold it, so the site's own styling still applies and
+      // the field is usable from then on. Without this the new text had nowhere to land and simply
+      // never appeared on the page, while the panel showed it as if it had.
+      if (!after){
+        var home = textHome(el);
+        var seed = document.createTextNode(parts[0]);
+        home.appendChild(seed);
+        after = seed; changed = true;
+        if (parts.length === 1) return changed;
+        ns = [seed];
+      }
       for (i = ns.length; i < parts.length; i++){
         var revive = el.querySelector("[data-lg-hid]");
         if (revive){

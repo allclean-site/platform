@@ -19,40 +19,32 @@
 export const MQ = { tablet: "(max-width: 991px)", mobile: "(max-width: 479px)" };
 
 /**
- * Repairs for responsive bugs that came WITH the imported site.
+ * Repairs for defects that came WITH the imported site.
  *
  * The site's CSS is baked into every page's head, so there is no stylesheet to patch — and these are
- * not edits a client could make: they are one-line CSS defects in the original markup. Injected on
- * every render, which means the editor's device preview and the published page show the same repair.
+ * not edits a client could make. Injected on every render, which means the editor's device preview
+ * and the published page show the same repair.
  *
  * · .right_home-features — a grid item with the default `min-width:auto` refuses to shrink below its
  *   content, so on a tablet the feature cards kept their desktop width (1020px inside a 770px column)
  *   and ran off the right edge of the screen. Measured on the live page at 834px before and after.
+ *
+ * · headings do not hyphenate on a real screen. The template ships `hyphens:auto` on headings, and
+ *   automatic hyphenation does not wait until a word cannot fit — it splits words whenever that packs
+ *   the line better. On a heading the client wrote, that reads as a defect: "Профессиональ-ные услуги
+ *   кли-нинга", with room on the next line for the whole word. `manual` keeps soft hyphens the author
+ *   typed and stops the browser inventing its own; a word that genuinely cannot fit still breaks,
+ *   because the template's own `word-break` says so. Left ON below 768px, where a phone column really
+ *   is too narrow for a long Russian word and a hyphen earns its keep. `:not(#lgcmsx)` lifts this to
+ *   id-level specificity — the same trick the override layer uses — because the template's own rule
+ *   is `.heading_hero-home .heading-style-h1` and would otherwise win.
  */
-export const SITE_FIXES = "@media screen and (max-width:991px){.right_home-features{min-width:0}}";
+const NO_HYPHEN = ["h1", "h2", "h3", "h4", "h5", "h6", "[class*=heading-style]", "[class*=heading_]"]
+  .map((s) => s + ":not(#lgcmsx)").join(",");
+export const SITE_FIXES =
+  "@media screen and (max-width:991px){.right_home-features{min-width:0}}" +
+  "@media screen and (min-width:768px){" + NO_HYPHEN + "{-webkit-hyphens:manual;hyphens:manual;}}";
 
-/**
- * WYSIWYG repair: legacy CSS that depended on the exact ancestor chain.
- *
- * Seven imported pages still carry a `<style id="lg-overrides">` written by the site's PREVIOUS
- * editor. Every rule in it addresses one element by spelling out the whole path from the page root:
- *
- *   div.page-wrapper:nth-of-type(1) > main.main-wrapper:nth-of-type(1) > section.section_hero-home…
- *
- * Our editor wraps each block in a `<div data-lg-block style="display:contents">` marker. That div is
- * invisible to layout — but NOT to selectors: it sits between `main.main-wrapper` and the section, so
- * every one of those `>` chains stops matching inside the canvas while it keeps matching on the
- * published page. Measured on the home page at 1920px: the hero H1 words render at 88px live and at
- * 60px in the editor, i.e. different line breaks — exactly the "the editor shows one thing, the site
- * another" report.
- *
- * The fix is to make the legacy CSS independent of that one hop: the two combinators the wrapper can
- * ever cross (page-wrapper → block, main-wrapper → block) are relaxed from child to descendant. A
- * descendant match is a superset of the child match, so the published page renders exactly as before;
- * the canvas now matches too. Combinators carry no specificity, so nothing else in the cascade moves.
- *
- * Applied by BOTH render paths (publisher and editing canvas) so they cannot drift apart.
- */
 /**
  * THE RULE: a size measured on one screen may never be applied unchanged on another.
  *
