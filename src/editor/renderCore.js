@@ -106,6 +106,40 @@ function splitTopLevel(value) {
   return out;
 }
 
+/**
+ * Per-word font pins inside headings, left by the previous editor, are removed.
+ *
+ * That editor grew a heading by wrapping its text in one more `<span style="font-size:NNpx !important">`
+ * per click; the Russian home page carries twenty of them, nested, stepping 60px → 84px. An inline
+ * `!important` sits at the very top of the cascade — above any stylesheet, including ours — so while
+ * they are there the size is frozen for good: our repairs cannot reach it, and the client's own change
+ * in the panel applies to the heading while the text keeps rendering at whatever the innermost span
+ * says. Measured on that page: the column is 571px, the pins draw at 80px, and the single word
+ * "Профессиональные" needs more room than the column has, so it is chopped whatever we do.
+ *
+ * Removing them hands the heading back to the site's own typography — and to the client, whose panel
+ * then actually governs the size. Deliberately narrow: only a fixed-length `font-size` marked
+ * `!important`, only on elements INSIDE a heading, never on the heading itself (that one can be the
+ * client's own edit), and every other declaration on the element is kept.
+ */
+const FONT_PIN = "font-size\\s*:\\s*[\\d.]+(?:px|pt|em|rem)\\s*!important\\s*;?";
+
+export function dropHeadingFontPins(html) {
+  if (!html || html.indexOf("!important") < 0) return html;
+  return html.replace(/(<(h[1-6])\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi, (whole, open, _tag, body, close) => {
+    if (body.indexOf("!important") < 0) return whole;
+    const cleaned = body.replace(/\sstyle="([^"]*)"/gi, (attr, decls) => {
+      // Only style attributes that actually carry a pin are rewritten. Touching the others would
+      // rewrite markup we have no business changing — even tidying a stray leading ";" shows up as a
+      // diff against the mirror, and that invariant is what proves an unedited block is untouched.
+      if (!new RegExp(FONT_PIN, "i").test(decls)) return attr;
+      const left = decls.replace(new RegExp(FONT_PIN, "gi"), "").replace(/^[\s;]+/, "").trim();
+      return left ? ' style="' + left + '"' : "";
+    });
+    return open + cleaned + close;
+  });
+}
+
 /** Apply the rule above to the page's legacy stylesheet — and to nothing else on the page. */
 export function relaxLegacyChains(html) {
   const START = '<style id="lg-overrides">';
@@ -376,14 +410,19 @@ export function applyOverrides(blocks, overrides) {
  */
 export function reassemble(p) {
   p = { ...p, prefix: relaxLegacyChains(p.prefix) };
+  // Same block markup the canvas shows (see reassembleForEdit), so a heading is not one size here and
+  // another there — and so a block saved from the canvas carries no pins either.
+  const bodyOf = (b) => dropHeadingFontPins(b.content.html);
   if (!p.wrapped) {
-    return p.prefix + p.blocks.map((b) => b.content.html).join("") + p.suffix;
+    return p.prefix + p.blocks.map(bodyOf).join("") + p.suffix;
   }
-  const header = p.blocks.find((b) => b.content.region === "header")?.content.html ?? "";
-  const footer = p.blocks.find((b) => b.content.region === "footer")?.content.html ?? "";
-  const mains = p.blocks.filter((b) => b.content.region === "main").map((b) => b.content.html).join("");
+  const header = p.blocks.find((b) => b.content.region === "header") ;
+  const footerB = p.blocks.find((b) => b.content.region === "footer");
+  const headerHtml = header ? bodyOf(header) : "";
+  const footer = footerB ? bodyOf(footerB) : "";
+  const mains = p.blocks.filter((b) => b.content.region === "main").map(bodyOf).join("");
   const body =
-    p.bodyPrefix + p.pwOpen + header + p.mainOpen + mains + p.mainClose + footer + p.pwClose + p.tailScripts;
+    p.bodyPrefix + p.pwOpen + headerHtml + p.mainOpen + mains + p.mainClose + footer + p.pwClose + p.tailScripts;
   return p.prefix + body + p.suffix;
 }
 

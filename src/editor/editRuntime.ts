@@ -16,7 +16,7 @@ import type { ImportedBlock, ImportedPage } from "./reassemble";
 // the editing canvas generates literally the same code the publisher runs — the drift this project
 // kept hitting is impossible by construction, not by remembering to patch three copies.
 import renderCoreSrc from "./renderCore.js?raw";
-import { relaxLegacyChains, withSiteRuntime } from "./renderCore.js";
+import { relaxLegacyChains, withSiteRuntime, dropHeadingFontPins } from "./renderCore.js";
 
 /** The core, ready to paste inside the runtime IIFE (module `export` keywords removed). */
 const CORE_INLINE = renderCoreSrc.replace(/^export\s+/gm, "");
@@ -1507,8 +1507,10 @@ ${CORE_INLINE}
 })();
 `;
 
+// dropHeadingFontPins runs here as well as in reassemble(): the canvas must show what the publisher
+// writes, and a block saved from a canvas that never had the pins cannot put them back.
 const wrap = (b: ImportedBlock) =>
-  `<div data-lg-block="${b.id}" style="display:contents">${b.content.html}</div>`;
+  `<div data-lg-block="${b.id}" style="display:contents">${dropHeadingFontPins(b.content.html)}</div>`;
 
 export function reassembleForEdit(p: ImportedPage): string {
   let body: string;

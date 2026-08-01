@@ -32,6 +32,8 @@ export declare const VIDEO_BOOT: string;
 export declare function relaxLegacyChains(html: string): string;
 /** Site CSS repairs + the "video always plays" guarantee, for injection into a rendered page head. */
 export declare function siteRuntimeTags(): string;
+/** Removes the previous editor's per-word `font-size:NNpx !important` pins from inside headings. */
+export declare function dropHeadingFontPins(html: string): string;
 /** Those repairs, placed in the page head of the given html. */
 export declare function withSiteRuntime(html: string): string;
 
