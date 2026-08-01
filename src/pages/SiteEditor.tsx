@@ -51,7 +51,7 @@ interface TextSel {
 export function SiteEditor() {
   const { siteId = "allclean" } = useParams();
   const SITE = `site-${siteId}`;
-  const { session } = useAuth(); // name is stamped on shared-draft saves ("кто правил последним")
+  const { session, signOut } = useAuth(); // name is stamped on shared-draft saves ("кто правил последним")
   const [index, setIndex] = useState<SiteIndex | null>(null);
   const [locale, setLocale] = useState("ru");
   const [activeFile, setActiveFile] = useState<string | null>(null);
@@ -1232,6 +1232,8 @@ export function SiteEditor() {
           overrides={allOverrides()}
           bp={allBp()}
           othersPages={othersPages()}
+          // A session opened before server-side sign-in has no publishing rights; one click fixes it.
+          onRelogin={() => { flushDrafts(); signOut(); }}
           onDownload={exportEdits}
           onClose={() => setPublishing(false)}
         />

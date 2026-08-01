@@ -13,16 +13,26 @@ export function publishConfigured(): boolean {
   return siteApiConfigured();
 }
 
-export interface PublishResult { ok: boolean; message: string; detail?: string }
+export interface PublishResult {
+  ok: boolean;
+  message: string;
+  detail?: string;
+  /** The session predates server-side sign-in and carries no key — signing in again is the fix. */
+  needsRelogin?: boolean;
+}
 
 /** `by` is recorded with the restore point so the history says who published what. */
 export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteBp, by = ""): Promise<PublishResult> {
   const p = publishConfig();
   if (!p.endpoint) return { ok: false, message: "Публикация не настроена (Настройки → Публикация)." };
+  // The right to publish now arrives WITH the session. A session opened before that change (or one
+  // restored from an older browser tab) has none, and the old wording sent people to support over
+  // something one sign-in fixes.
   if (!p.editKey) return {
     ok: false,
-    message: "Публикация ещё не настроена агентством (нет ключа в сборке кабинета). Напишите в поддержку — или временно вставьте ключ в Настройки → Публикация.",
-    detail: `endpoint: ${p.endpoint}\neditKey: (пусто — не задан ни VITE_PUBLISH_KEY в сборке, ни в Настройках)`,
+    needsRelogin: true,
+    message: "Похоже, вы вошли в кабинет давно — сессия устарела и права на публикацию у неё нет. Войдите заново, и кнопка заработает.",
+    detail: `endpoint: ${p.endpoint}\neditKey: пусто (сессия без ключа). Если после повторного входа ключа всё ещё нет — на сайтовом проекте не задан EDIT_KEY.`,
   };
   const r = await postSiteApi<{ rebuild?: boolean; pages?: number }>("publish", { project: "allclean", overrides, breakpoints, by });
   if (r.offline) {

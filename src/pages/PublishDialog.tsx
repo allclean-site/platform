@@ -20,7 +20,7 @@ import { isSharedKey, langOfSharedKey, resolveShared } from "../editor/sharedBlo
 import type { PageOverrides } from "../editor/realStore";
 
 export function PublishDialog({
-  index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "", othersPages = [],
+  index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "", othersPages = [], onRelogin,
 }: {
   index: SiteIndex;
   dataBase: string;
@@ -33,6 +33,8 @@ export function PublishDialog({
   publishedBy?: string;
   /** Override keys whose pending edits came from the shared draft — someone else's work in progress. */
   othersPages?: string[];
+  /** Sign out and back in — offered when the session has no publishing rights. */
+  onRelogin?: () => void;
 }) {
   // Publishing pushes the merged state, so a client can end up shipping the agency's unfinished work
   // (and the other way round). Every edited page can be left out of this publish instead.
@@ -47,6 +49,7 @@ export function PublishDialog({
   const [pubState, setPubState] = useState<"idle" | "publishing" | "done" | "error">("idle");
   const [pubMsg, setPubMsg] = useState("");
   const [pubDetail, setPubDetail] = useState("");
+  const [needsRelogin, setNeedsRelogin] = useState(false);
   const [copied, setCopied] = useState(false);
   const [versions, setVersions] = useState<SiteVersion[] | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -125,6 +128,7 @@ export function PublishDialog({
     const r = await publishToSite(payload, selectedBp(), publishedBy);
     setPubState(r.ok ? "done" : "error");
     setPubMsg(r.message);
+    setNeedsRelogin(Boolean(r.needsRelogin));
     setPubDetail(r.detail ?? "");
     if (r.ok) setVersions(null);     // a new restore point exists now
   };
@@ -353,6 +357,10 @@ export function PublishDialog({
                   <p className="pub__result-msg">
                     {pubState === "error" ? <XCircle size={15} /> : <CheckCircle2 size={15} />} {pubMsg}
                   </p>
+                  {/* One click out of a stale session, instead of "напишите в поддержку". */}
+                  {needsRelogin && onRelogin && (
+                    <button className="pub__btn-primary pub__relogin" onClick={onRelogin}>Войти заново</button>
+                  )}
                   {pubState === "error" && pubDetail && (
                     <div className="pub__result-detail">
                       <pre>{pubDetail}</pre>
