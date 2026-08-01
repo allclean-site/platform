@@ -38,7 +38,13 @@
 /* grid */
 /* Compact tiles: this is a picker, not a photo album — small thumbnails mean more choices visible
    at once and no wall of oversized cards. */
-.mp__grid { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; align-content: start; }
+/* grid-auto-rows is max-content, NOT the default auto: an `auto` row is allowed to be squeezed below
+   its content once the rows no longer fit the dialog's fixed height, and the cards then bleed over
+   each other instead of the list simply scrolling. It stayed invisible while the gallery held a dozen
+   items — three rows fit — and showed up the moment the gallery covered the whole site (measured:
+   card 112px inside an 85.6px track, five rows, 16px of overlap). Sizing rows to their content makes
+   the overflow the scroll container's job, which is what it is for. */
+.mp__grid { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); grid-auto-rows: max-content; gap: 10px; align-content: start; }
 .mp__card { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: var(--surface);
   display: flex; flex-direction: column; align-self: start; }
 .mp__card.is-pick { cursor: pointer; transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease); }

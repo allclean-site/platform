@@ -608,9 +608,37 @@ export function SiteEditor() {
   }
   const srcDoc = page ? docRef.current.html : "";
   const frameW = device === "desktop" ? deskW : DEVICE_W[device];
-  const totalEdited =
-    Object.values(allOverrides()).reduce((n, o) => n + Object.keys(o).length, 0) +
-    Object.values(allBp()).reduce((n, p) => n + Object.keys(p.tablet ?? {}).length + Object.keys(p.mobile ?? {}).length, 0);
+  /**
+   * The number on «Опубликовать» is what is WAITING to be published, not what has ever been edited.
+   *
+   * It used to count every override in the merged state — published, drafted and local together — so
+   * it never moved: publishing 24 edits left the same 24 in the published layer and the button still
+   * said 24, which reads as "the publish did not work". Comparing against the published layer makes
+   * it mean what the client thinks it means, and it reaches zero the moment the publish lands.
+   */
+  const pendingEdits = (() => {
+    let n = 0;
+    const pageIds = new Set([...Object.keys(pubOverrides.current), ...Object.keys(draftOv.current), ...Object.keys(overrides.current)]);
+    for (const pid of pageIds) {
+      const now = mergedOv(pid);
+      const live = mergeOverrideLayers(pubOverrides.current[pid]);
+      for (const blockId of new Set([...Object.keys(now), ...Object.keys(live)])) {
+        if (now[blockId] !== live[blockId]) n++;
+      }
+    }
+    const bpIds = new Set([...Object.keys(pubBp.current), ...Object.keys(draftBp.current), ...Object.keys(bpOverrides.current)]);
+    for (const pid of bpIds) {
+      const now = mergedBp(pid);
+      const live = pubBp.current[pid];
+      for (const layer of ["tablet", "mobile"] as const) {
+        const a = now?.[layer] ?? {}, b = live?.[layer] ?? {};
+        for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {
+          if (JSON.stringify(a[id]) !== JSON.stringify(b[id])) n++;
+        }
+      }
+    }
+    return n;
+  })();
 
   // Apply a property change to the selected element (updates the panel + the iframe → saved).
   // On tablet/mobile, style changes become @media overrides (breakpoint field routes them in the runtime).
@@ -979,7 +1007,7 @@ export function SiteEditor() {
           </span>
         )}
         <button className="se__publish" onClick={() => setPublishing(true)}>
-          <Rocket size={15} /> Опубликовать{totalEdited ? ` (${totalEdited})` : ""}
+          <Rocket size={15} /> Опубликовать{pendingEdits ? ` (${pendingEdits})` : ""}
         </button>
       </div>
 
@@ -1235,6 +1263,17 @@ export function SiteEditor() {
           overrides={allOverrides()}
           bp={allBp()}
           othersPages={othersPages()}
+          /**
+           * What just went live becomes the new baseline, here and now. Without this the editor keeps
+           * comparing against the state it loaded when it opened, so a successful publish leaves the
+           * counter exactly where it was until someone reloads — which is indistinguishable from a
+           * publish that silently failed.
+           */
+          onPublished={(pubOv, pubBpNew) => {
+            for (const pid of Object.keys(pubOv)) pubOverrides.current[pid] = { ...(pubOverrides.current[pid] ?? {}), ...pubOv[pid] };
+            for (const pid of Object.keys(pubBpNew)) pubBp.current[pid] = pubBpNew[pid];
+            setSyncTick((t) => t + 1);
+          }}
           // A session opened before server-side sign-in has no publishing rights; one click fixes it.
           onRelogin={() => { flushDrafts(); signOut(); }}
           onDownload={exportEdits}

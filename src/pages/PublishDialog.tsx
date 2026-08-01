@@ -20,7 +20,7 @@ import { isSharedKey, langOfSharedKey, resolveShared } from "../editor/sharedBlo
 import type { PageOverrides } from "../editor/realStore";
 
 export function PublishDialog({
-  index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "", othersPages = [], onRelogin,
+  index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "", othersPages = [], onRelogin, onPublished,
 }: {
   index: SiteIndex;
   dataBase: string;
@@ -35,6 +35,8 @@ export function PublishDialog({
   othersPages?: string[];
   /** Sign out and back in — offered when the session has no publishing rights. */
   onRelogin?: () => void;
+  /** What actually went live, so the editor can move its baseline without a reload. */
+  onPublished?: (overrides: SiteOverrides, bp: SiteBp) => void;
 }) {
   // Publishing pushes the merged state, so a client can end up shipping the agency's unfinished work
   // (and the other way round). Every edited page can be left out of this publish instead.
@@ -133,6 +135,7 @@ export function PublishDialog({
     setNeedsRelogin(Boolean(r.needsRelogin));
     setPubDetail(r.detail ?? "");
     if (r.ok) {
+      onPublished?.(payload, selectedBp());   // these edits are live now — they stop counting as pending
       setVersions(null);             // a new restore point exists now
       // Tilda-style: after publishing, offer the actual pages rather than making the client hunt for
       // them. The stored slug already carries the locale prefix.
