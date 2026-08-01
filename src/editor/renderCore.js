@@ -18,6 +18,19 @@
 
 export const MQ = { tablet: "(max-width: 991px)", mobile: "(max-width: 479px)" };
 
+/**
+ * Repairs for responsive bugs that came WITH the imported site.
+ *
+ * The site's CSS is baked into every page's head, so there is no stylesheet to patch — and these are
+ * not edits a client could make: they are one-line CSS defects in the original markup. Injected on
+ * every render, which means the editor's device preview and the published page show the same repair.
+ *
+ * · .right_home-features — a grid item with the default `min-width:auto` refuses to shrink below its
+ *   content, so on a tablet the feature cards kept their desktop width (1020px inside a 770px column)
+ *   and ran off the right edge of the screen. Measured on the live page at 834px before and after.
+ */
+export const SITE_FIXES = "@media screen and (max-width:991px){.right_home-features{min-width:0}}";
+
 /** Inheritable text props are also forced onto descendants so nested-span headings actually restyle. */
 export const CASCADE = {
   "color": 1, "font-size": 1, "font-weight": 1, "line-height": 1, "letter-spacing": 1,
@@ -286,6 +299,9 @@ export function exportPageHtml(page, overrides, pageBp) {
   const withOv = overrides ? applyOverrides(page.blocks, overrides) : page.blocks;
   const blocks = withOv.map((b) => ({ ...b, content: { ...b.content, html: cleanHtml(b.content.html, keep) } }));
   let doc = reassemble({ ...page, blocks });
+  // Repairs first, so a client's own edit can still override them.
+  const fixes = `<style id="lgcms-fixes">${SITE_FIXES}</style>`;
+  doc = doc.includes("</head>") ? doc.replace("</head>", `${fixes}</head>`) : doc.replace(/<body/, `${fixes}<body`);
   const css = overridesCss(pageBp);
   if (css) {
     // id "lgcms-overrides" avoids colliding with allclean's own <style id="lg-overrides">.

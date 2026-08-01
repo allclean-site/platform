@@ -1127,6 +1127,8 @@ ${CORE_INLINE}
     for (var i=0;i<blocks.length;i++) wire(blocks[i]);
     var st = document.createElement("style");
     st.textContent =
+      // The same repairs the published page gets, so the device preview tells the truth about them.
+      SITE_FIXES +
       ".lg-selected{outline:2px solid #7c3aed !important; outline-offset:2px; cursor:pointer;}" +
       "[data-lg-block] img{cursor:pointer;}" +
       ".lg-hoverbox{position:absolute;z-index:99996;pointer-events:none;border:1px solid rgba(124,58,237,.55);" +
@@ -1182,8 +1184,19 @@ ${CORE_INLINE}
     document.addEventListener("mouseout", function(e){ if (!e.relatedTarget) hideHover(); }, true);
     // Keyboard: a contenteditable field is a tab stop, but only a CLICK used to open the inspector —
     // so someone working from the keyboard could type into the page and still not reach a single
-    // control (size, colour, replace photo). Focus now selects, exactly like a click.
+    // control (size, colour, replace photo).
+    //
+    // ⚠️ ONLY keyboard focus counts. Treating every focusin as a selection hijacked the mouse: the
+    // browser moves focus for reasons of its own — restoring it when the canvas is re-entered, landing
+    // on the nearest link — and each of those overwrote whatever the client had just clicked. Clicking
+    // a photo showed "Текст", and the panel then stopped following clicks altogether.
+    var kbNav = false;
+    document.addEventListener("keydown", function(e){ if (e.key === "Tab") kbNav = true; }, true);
+    document.addEventListener("pointerdown", function(){ kbNav = false; }, true);
+    document.addEventListener("mousedown", function(){ kbNav = false; }, true);
     document.addEventListener("focusin", function(e){
+      if (!kbNav) return;
+      kbNav = false;
       var el = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
       if (el && el !== selected) select(el);
     }, true);
