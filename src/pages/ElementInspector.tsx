@@ -105,6 +105,38 @@ function BoxModel({ s, patch, bp }: { s: ElStyle; patch: (p: ElPatch) => void; b
   );
 }
 
+/**
+ * Text field for a heading the site builds out of several elements (one per word or line).
+ *
+ * Writing the whole string back would collapse those elements and lose the classes that style them,
+ * so the panel shows ONE field per piece and each piece returns to its own node. The number of fields
+ * is fixed by the markup: the client can retype any line but cannot add or drop one here, which is
+ * exactly the guarantee that keeps the layout intact. Restructuring stays possible on the page itself.
+ */
+function StructuredText({ parts, patch }: { parts: string[]; patch: (p: ElPatch) => void }) {
+  // Uncontrolled-by-index editing: send the whole array back with this one line replaced.
+  const setLine = (i: number, v: string) => {
+    const next = parts.slice();
+    next[i] = v;
+    patch({ parts: next });
+  };
+  if (!parts.length) {
+    return <p className="pi__note">Правьте текст прямо на странице — кликните и печатайте.</p>;
+  }
+  return (
+    <>
+      {parts.map((p, i) => (
+        <Row key={i} label={parts.length > 1 ? `Строка ${i + 1}` : "Текст"}>
+          <input className="pi__inp" value={p} onChange={(e) => setLine(i, e.target.value)} />
+        </Row>
+      ))}
+      {parts.length > 1 && (
+        <p className="pi__note">Заголовок собран из отдельных строк — каждая правится своим полем. Порядок и оформление строк сохраняются.</p>
+      )}
+    </>
+  );
+}
+
 export function ElementInspector({ sel, patch, onReplaceImage, breakpoint = "desktop", onResetBp, onState, onResetState, onResizeMode, onVAlign }: { sel: SelectedEl; patch: (p: ElPatch) => void; onReplaceImage: () => void; breakpoint?: Breakpoint; onResetBp?: (key?: keyof ElStyle) => void; onState?: (layer: "hover" | "active", s: Partial<ElStyle>) => void; onResetState?: (layer: "hover" | "active", key: "color" | "background") => void; onResizeMode?: (mode: "hug" | "fixw" | "fixed") => void; onVAlign?: (value: "top" | "center" | "bottom") => void }) {
   const [stateTab, setStateTab] = useState<"hover" | "active">("hover");
   const s = sel.style;
@@ -149,7 +181,7 @@ export function ElementInspector({ sel, patch, onReplaceImage, breakpoint = "des
       {(sel.kind === "text" || sel.kind === "link") && (
         <Section title={sel.kind === "link" ? "Надпись" : "Текст"} icon={Type}>
           {sel.structured ? (
-            <p className="pi__note">Правьте текст прямо на странице — кликните и печатайте. Выделите часть текста, чтобы изменить её оформление.</p>
+            <StructuredText parts={sel.parts ?? []} patch={patch} />
           ) : (
             <textarea className="pi__inp pi__area" rows={2} value={sel.text} onChange={(e) => patch({ text: e.target.value })} />
           )}

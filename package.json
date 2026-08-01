@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "media": "node scripts/gen-media-manifest.mjs",
+    "prebuild": "node scripts/gen-media-manifest.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"

@@ -16,6 +16,7 @@ import type { ImportedBlock, ImportedPage } from "./reassemble";
 // the editing canvas generates literally the same code the publisher runs — the drift this project
 // kept hitting is impossible by construction, not by remembering to patch three copies.
 import renderCoreSrc from "./renderCore.js?raw";
+import { relaxLegacyChains, withSiteRuntime } from "./renderCore.js";
 
 /** The core, ready to paste inside the runtime IIFE (module `export` keywords removed). */
 const CORE_INLINE = renderCoreSrc.replace(/^export\s+/gm, "");
@@ -141,6 +142,39 @@ ${CORE_INLINE}
       if (p.closest('[contenteditable="true"]') || p.closest(BLOCK_TEXT) || p.closest("a,button")) continue;
       makeCE(p);
     }
+  }
+  // ---- structured text: the panel edits it piece by piece ----------------------------------------
+  // A site heading is often built as one element per word or line (Webflow "split text"), so replacing
+  // the whole textContent would collapse those children and take the site's own classes with them.
+  // That is why the panel used to offer nothing but a hint — which reads as "editing is broken".
+  // Instead we expose the field's TEXT RUNS: one input per run, written back into that run's own node,
+  // so the markup is untouched and the client still gets real fields to type in.
+  function textRuns(el){
+    var out = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false), n;
+    while ((n = w.nextNode())){
+      // A run that is only spacing between the word elements is layout, not content — never editable.
+      if (n.nodeValue && n.nodeValue.replace(/[\\s\\u00a0]+/g, "") !== "") out.push(n);
+    }
+    return out;
+  }
+  // What the client sees: non-breaking spaces read as ordinary ones and the edges are trimmed, so a
+  // field never shows stray whitespace the client cannot see but would delete by accident.
+  function runText(node){
+    return node.nodeValue.replace(/\\u00a0/g, " ").replace(/\\s+/g, " ").replace(/^ +| +$/g, "");
+  }
+  function textParts(el){
+    var ns = textRuns(el), out = [], i;
+    for (i = 0; i < ns.length; i++) out.push(runText(ns[i]));
+    return out;
+  }
+  /** Write edited pieces back, one per run. Unchanged pieces are not touched at all, so a block that
+   *  the client did not really change stays byte-identical to what the site shipped. */
+  function setParts(el, parts){
+    var ns = textRuns(el), i, changed = false;
+    for (i = 0; i < ns.length && i < parts.length; i++){
+      if (runText(ns[i]) !== parts[i]){ ns[i].nodeValue = parts[i]; changed = true; }
+    }
+    return changed;
   }
   function kindOf(el){
     if (el.tagName==="IMG") return "image";
@@ -713,9 +747,10 @@ ${CORE_INLINE}
       el: el.getAttribute("data-lg-id"), kind: kind, crumbs: crumbs(el),
       text: kind==="image" ? (el.getAttribute("alt")||"") : (el.textContent||"").trim(),
       href: el.getAttribute("href")||"",
-      // structured = the text field wraps child elements (word-divs/spans) → panel must NOT offer
-      // "replace all text" (it would flatten the structure); inline editing is the way.
+      // structured = the text field wraps child elements (word-divs/spans) → "replace all text" would
+      // flatten the structure, so the panel edits the pieces instead (see textRuns).
       structured: (kind==="text"||kind==="link") && !!(el.children && el.children.length),
+      parts: (kind==="text"||kind==="link") && el.children && el.children.length ? textParts(el) : null,
       bpOver: bpKeysFor(el.getAttribute("data-lg-id")),
       hover: stateInfo(el.getAttribute("data-lg-id"), "hover"),
       active: stateInfo(el.getAttribute("data-lg-id"), "active"),
@@ -1006,6 +1041,9 @@ ${CORE_INLINE}
       var contentChg = false;
       // Content (text / alt / href) is shared across breakpoints → always applied to the base.
       if (d.text != null){ if (kindOf(el)==="image") el.setAttribute("alt", d.text); else el.textContent = d.text; contentChg = true; }
+      // Piece-wise text (a split-text heading): each piece goes back into its own node, never through
+      // textContent — that is what keeps the word elements and their site classes alive.
+      if (d.parts != null && setParts(el, d.parts)) contentChg = true;
       if (d.href != null && el.hasAttribute("href")){
         // The URL field is free text and lands on the live site: a script scheme would run for every
         // visitor. safeHref is the same check the publisher applies, so both agree.
@@ -1239,6 +1277,10 @@ const wrap = (b: ImportedBlock) =>
 
 export function reassembleForEdit(p: ImportedPage): string {
   let body: string;
+  // The canvas gets the SAME repairs the publisher applies, or the two render differently: the legacy
+  // `>` chains would die on the wrapper below (measured: hero H1 at 60px here vs 88px live) and videos
+  // would only play on the published page. Both live in the shared core.
+  const prefix = withSiteRuntime(relaxLegacyChains(p.prefix));
   if (!p.wrapped) {
     body = p.blocks.map(wrap).join("");
   } else {
@@ -1249,5 +1291,5 @@ export function reassembleForEdit(p: ImportedPage): string {
       p.bodyPrefix + p.pwOpen + (header ? wrap(header) : "") + p.mainOpen + mains +
       p.mainClose + (footer ? wrap(footer) : "") + p.pwClose + p.tailScripts;
   }
-  return p.prefix + body + `<script>${EDIT_RUNTIME}</script>` + p.suffix;
+  return prefix + body + `<script>${EDIT_RUNTIME}</script>` + p.suffix;
 }

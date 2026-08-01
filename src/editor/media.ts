@@ -65,6 +65,61 @@ function fileNameOf(url: string): string {
   try { return decodeURIComponent(url.split("/").pop()!.split("?")[0]) || "файл"; } catch { return "файл"; }
 }
 
+/**
+ * What makes two files the SAME picture (or the same video) to a person choosing one.
+ *
+ * The markup carries a photo several times over: Webflow generates responsive copies next to the
+ * original (`feature-image.jpg` / `-p-500.jpg` / `-p-800.jpg`) for srcset, and a background video
+ * ships as both mp4 and webm. Keyed by url alone, the gallery lists each of them — which is precisely
+ * the "повторы" the client asked us to remove. Same rule as scripts/gen-media-manifest.mjs, so what
+ * the manifest brings in and what the open page adds cannot disagree about what counts as a duplicate.
+ */
+export function mediaIdentity(url: string, type: MediaType): string {
+  const bare = url.split("?")[0];
+  return type === "video"
+    ? "video|" + bare.replace(/\.[a-z0-9]+$/i, "")
+    : "image|" + bare.replace(/-p-\d+(?=\.[a-z0-9]+$)/i, "");
+}
+
+/**
+ * Load the whole SITE's media, not just the open page.
+ *
+ * `indexMediaFromDoc` below can only see the document the canvas has loaded, so the gallery showed the
+ * current page's dozen addresses and none of the photos living on the other 37 pages — which made
+ * "выбрать из галереи" useless for its whole purpose. The manifest (`_media.json`, written by
+ * scripts/gen-media-manifest.mjs at build time) is the site-wide index: one small request, already
+ * deduplicated, with logos/icons and Webflow's responsive copies filtered out.
+ *
+ * Merged into the same library, so an asset the client uploaded and an asset that came with the site
+ * sit side by side, and the Trash still applies to both. Safe to call on every editor load.
+ */
+export async function syncSiteMedia(tenant: string, dataUrl: string): Promise<number> {
+  let items: { url: string; type: MediaType }[];
+  try {
+    const res = await fetch(`${dataUrl}/_media.json`, { cache: "no-cache" });
+    if (!res.ok) return 0;
+    const manifest = await res.json();
+    items = Array.isArray(manifest?.items) ? manifest.items : [];
+  } catch {
+    return 0;                       // no manifest yet → the per-page indexer still fills the gallery
+  }
+  const list = loadMedia(tenant);
+  const seen = new Set(list.map((m) => mediaIdentity(m.url, m.type)));
+  const additions: MediaAsset[] = [];
+  for (const it of items) {
+    if (!it?.url) continue;
+    const key = mediaIdentity(it.url, it.type === "video" ? "video" : "image");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    additions.push({
+      id: uid(), url: it.url, type: it.type === "video" ? "video" : "image",
+      name: fileNameOf(it.url), at: new Date().toISOString(),
+    });
+  }
+  if (additions.length) save(tenant, [...additions, ...list]);
+  return additions.length;
+}
+
 /** Auto-index the media already present in a rendered page document (img / video / source / CSS bg),
  *  so the gallery reflects the real site without any manual upload. Idempotent (dedupes by url). */
 export function indexMediaFromDoc(tenant: string, doc: Document): number {
@@ -101,15 +156,17 @@ export function indexMediaFromDoc(tenant: string, doc: Document): number {
     if (m.type === "image" && /\.svg(\?|$)/i.test(m.url)) { removed++; continue; }
     // Heal entries saved with the iframe's preview prefix (incl. ones that accumulated several).
     if (hasPreviewPath(m.url)) { m.url = toCanonical(m.url); fixed++; }
-    if (seen.has(m.url)) { removed++; continue; }
-    seen.add(m.url);
+    const key = mediaIdentity(m.url, m.type);
+    if (seen.has(key)) { removed++; continue; }
+    seen.add(key);
     cleaned.push(m);
   }
 
   const additions: MediaAsset[] = [];
   for (const f of found) {
-    if (seen.has(f.url)) continue;
-    seen.add(f.url);
+    const key = mediaIdentity(f.url, f.type);
+    if (seen.has(key)) continue;
+    seen.add(key);
     additions.push({ id: uid(), url: f.url, type: f.type, name: fileNameOf(f.url), at: new Date().toISOString() });
   }
   if (additions.length || removed || fixed) save(tenant, [...additions, ...cleaned]);

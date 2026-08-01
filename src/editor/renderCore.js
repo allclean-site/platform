@@ -31,6 +31,110 @@ export const MQ = { tablet: "(max-width: 991px)", mobile: "(max-width: 479px)" }
  */
 export const SITE_FIXES = "@media screen and (max-width:991px){.right_home-features{min-width:0}}";
 
+/**
+ * WYSIWYG repair: legacy CSS that depended on the exact ancestor chain.
+ *
+ * Seven imported pages still carry a `<style id="lg-overrides">` written by the site's PREVIOUS
+ * editor. Every rule in it addresses one element by spelling out the whole path from the page root:
+ *
+ *   div.page-wrapper:nth-of-type(1) > main.main-wrapper:nth-of-type(1) > section.section_hero-home…
+ *
+ * Our editor wraps each block in a `<div data-lg-block style="display:contents">` marker. That div is
+ * invisible to layout — but NOT to selectors: it sits between `main.main-wrapper` and the section, so
+ * every one of those `>` chains stops matching inside the canvas while it keeps matching on the
+ * published page. Measured on the home page at 1920px: the hero H1 words render at 88px live and at
+ * 60px in the editor, i.e. different line breaks — exactly the "the editor shows one thing, the site
+ * another" report.
+ *
+ * The fix is to make the legacy CSS independent of that one hop: the two combinators the wrapper can
+ * ever cross (page-wrapper → block, main-wrapper → block) are relaxed from child to descendant. A
+ * descendant match is a superset of the child match, so the published page renders exactly as before;
+ * the canvas now matches too. Combinators carry no specificity, so nothing else in the cascade moves.
+ *
+ * Applied by BOTH render paths (publisher and editing canvas) so they cannot drift apart.
+ */
+export function relaxLegacyChains(html) {
+  if (!html || html.indexOf("lg-overrides") < 0) return html;
+  return html
+    .split("div.page-wrapper:nth-of-type(1) > ").join("div.page-wrapper:nth-of-type(1) ")
+    .split("main.main-wrapper:nth-of-type(1) > ").join("main.main-wrapper:nth-of-type(1) ");
+}
+
+/**
+ * Video that actually plays — on every page, for every video, whoever put it there.
+ *
+ * The imported markup carried a one-off inline script on a single section, and it only re-tried on
+ * `load`. Anything else — a video the client adds from the gallery, a tab that was in the background
+ * while the page loaded, a browser that refuses the first `play()` before any interaction, a mobile
+ * Safari that cannot decode the only source on offer — left a still poster frame. This runs on every
+ * rendered page instead, and covers all of those:
+ *
+ *  · the attributes autoplay needs (muted + playsinline + preload) are GUARANTEED, not assumed;
+ *  · the source list is repaired from the wrapper's own `data-video-urls` when the page lost a format.
+ *    An earlier version of "replace video" wrote the picked url over EVERY <source>, so the hero ended
+ *    up offering `hero.webm` twice and the mp4 was gone — invisible in Chrome, a dead video on iOS.
+ *    Only a list that is still a subset of the original variants is rebuilt, so a video the client
+ *    genuinely swapped is never touched;
+ *  · play() is retried when the data arrives, when the tab becomes visible, when the video scrolls
+ *    into view, and once on the first user gesture (the only moment a blocking browser will allow it).
+ *
+ * A video with `controls` is the visitor's to drive and is left alone.
+ */
+export const VIDEO_BOOT = [
+  "(function(){",
+  "var Q='video';",
+  "function variants(v){var w=v.closest?v.closest('[data-video-urls]'):null;var a=w&&w.getAttribute('data-video-urls');if(!a)return[];var out=[],p=a.split(','),i;for(i=0;i<p.length;i++){var s=p[i].replace(/^\\s+|\\s+$/g,'');if(s)out.push(s);}return out;}",
+  "function mime(u){var e=(u.split('?')[0].split('.').pop()||'').toLowerCase();return (e==='mp4'||e==='webm'||e==='ogg')?'video/'+e:'';}",
+  "function heal(v){",
+  "var list=variants(v);if(!list.length)return false;",
+  "var srcs=v.querySelectorAll('source'),cur=[],i;",
+  "for(i=0;i<srcs.length;i++){var s=srcs[i].getAttribute('src');if(s)cur.push(s);}",
+  "if(!cur.length)return false;",
+  "for(i=0;i<cur.length;i++){if(list.indexOf(cur[i])<0)return false;}",
+  "var same=cur.length===list.length;if(same){for(i=0;i<list.length;i++){if(cur[i]!==list[i]){same=false;break;}}}",
+  "if(same)return false;",
+  "for(i=srcs.length-1;i>=0;i--){srcs[i].parentNode.removeChild(srcs[i]);}",
+  "for(i=0;i<list.length;i++){var n=document.createElement('source');n.setAttribute('src',list[i]);var m=mime(list[i]);if(m)n.setAttribute('type',m);v.appendChild(n);}",
+  "return true;}",
+  "function go(v){try{v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p['catch'])p['catch'](function(){});}catch(e){}}",
+  "function each(fn){var v=document.querySelectorAll(Q),i;for(i=0;i<v.length;i++){if(!v[i].hasAttribute('controls'))fn(v[i]);}}",
+  "function resume(){each(function(v){if(v.paused&&!document.hidden)go(v);});}",
+  "function arm(v){",
+  "if(v.getAttribute('data-lg-vboot'))return;v.setAttribute('data-lg-vboot','1');",
+  "v.setAttribute('muted','');v.setAttribute('playsinline','');v.setAttribute('webkit-playsinline','');v.setAttribute('autoplay','');",
+  "if(!v.hasAttribute('preload'))v.setAttribute('preload','auto');",
+  "if(!v.hasAttribute('loop'))v.setAttribute('loop','');",
+  "if(heal(v)){try{v.load();}catch(e){}}",
+  "v.addEventListener('canplay',function(){go(v);});",
+  "v.addEventListener('loadeddata',function(){go(v);});",
+  "v.addEventListener('pause',function(){if(!document.hidden)setTimeout(function(){if(v.paused&&!document.hidden)go(v);},0);});",
+  "if(window.IntersectionObserver){try{new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){if(es[i].isIntersecting)go(v);}}).observe(v);}catch(e){}}",
+  "go(v);}",
+  "function boot(){each(arm);}",
+  "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();",
+  "window.addEventListener('load',boot);",
+  "document.addEventListener('visibilitychange',resume);",
+  "document.addEventListener('pointerdown',resume,{once:true});",
+  "document.addEventListener('touchstart',resume,{once:true});",
+  "document.addEventListener('keydown',resume,{once:true});",
+  // A video the client adds while editing must come to life without a reload. Only ADDED nodes are
+  // inspected: re-scanning the whole document on every mutation would tax a page full of widgets.
+  "if(window.MutationObserver){try{new MutationObserver(function(ms){for(var i=0;i<ms.length;i++){var a=ms[i].addedNodes;for(var j=0;j<a.length;j++){var n=a[j];if(n.nodeType!==1)continue;if(n.tagName==='VIDEO'){if(!n.hasAttribute('controls'))arm(n);}else if(n.querySelectorAll){var vs=n.querySelectorAll(Q);for(var k=0;k<vs.length;k++){if(!vs[k].hasAttribute('controls'))arm(vs[k]);}}}}}).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}}",
+  "})();",
+].join("");
+
+/** The repairs every rendered page gets: site CSS fixes + the video guarantee. */
+export function siteRuntimeTags() {
+  return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
+    '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>";
+}
+
+/** Put those repairs in the page head — same position for the publisher and the editing canvas. */
+export function withSiteRuntime(html) {
+  const tags = siteRuntimeTags();
+  return html.includes("</head>") ? html.replace("</head>", tags + "</head>") : html.replace(/<body/, tags + "<body");
+}
+
 /** Inheritable text props are also forced onto descendants so nested-span headings actually restyle. */
 export const CASCADE = {
   "color": 1, "font-size": 1, "font-weight": 1, "line-height": 1, "letter-spacing": 1,
@@ -211,6 +315,7 @@ export function applyOverrides(blocks, overrides) {
  * mirrored live site byte-for-byte; the structural pieces around the blocks are kept verbatim.
  */
 export function reassemble(p) {
+  p = { ...p, prefix: relaxLegacyChains(p.prefix) };
   if (!p.wrapped) {
     return p.prefix + p.blocks.map((b) => b.content.html).join("") + p.suffix;
   }
@@ -298,10 +403,8 @@ export function exportPageHtml(page, overrides, pageBp) {
   const keep = keptIds(pageBp);
   const withOv = overrides ? applyOverrides(page.blocks, overrides) : page.blocks;
   const blocks = withOv.map((b) => ({ ...b, content: { ...b.content, html: cleanHtml(b.content.html, keep) } }));
-  let doc = reassemble({ ...page, blocks });
   // Repairs first, so a client's own edit can still override them.
-  const fixes = `<style id="lgcms-fixes">${SITE_FIXES}</style>`;
-  doc = doc.includes("</head>") ? doc.replace("</head>", `${fixes}</head>`) : doc.replace(/<body/, `${fixes}<body`);
+  let doc = withSiteRuntime(reassemble({ ...page, blocks }));
   const css = overridesCss(pageBp);
   if (css) {
     // id "lgcms-overrides" avoids colliding with allclean's own <style id="lg-overrides">.

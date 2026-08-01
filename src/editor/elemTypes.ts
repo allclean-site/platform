@@ -37,8 +37,11 @@ export interface SelectedEl {
   href: string;
   /** For a <select>: its current options (edited in the panel → written back to the option elements). */
   selectOptions?: SelectOption[] | null;
-  /** true when a text/link field wraps child elements → panel hides "replace all text" (would flatten it). */
+  /** true when a text/link field wraps child elements — a plain "replace all text" would flatten it. */
   structured?: boolean;
+  /** The pieces such a field is built from (one per text run, in reading order), so the panel can still
+   *  offer real input fields: each piece is written back into ITS OWN node and the markup survives. */
+  parts?: string[];
   crumbs: Crumb[];
   style: ElStyle;
   /** ElStyle keys overridden for this element at the CURRENT breakpoint (drives the orange dots). */
@@ -51,7 +54,7 @@ export interface SelectedEl {
   tree?: LayerNode[];
 }
 
-export type ElPatch = { text?: string; href?: string; style?: Partial<ElStyle> };
+export type ElPatch = { text?: string; href?: string; parts?: string[]; style?: Partial<ElStyle> };
 
 /** Editor breakpoints. "desktop" = base (inline styles); others → generated @media rules. */
 export type Breakpoint = "desktop" | "tablet" | "mobile";

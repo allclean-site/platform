@@ -20,14 +20,14 @@ import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type Page
 import { loadHistory, saveHistory, type Snap, type Step } from "../editor/historyStore";
 import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared } from "../editor/sharedBlocks";
 import { META_KEY, readMeta, decodeMeta, encodeMeta, type PageMeta } from "../editor/renderCore.js";
-import { indexMediaFromDoc } from "../editor/media";
+import { indexMediaFromDoc, syncSiteMedia } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
 import { PublishDialog } from "./PublishDialog";
 import { MediaPicker } from "./MediaPicker";
 import { Toolbar } from "../components/Toolbar";
 import { EditorIntro, introUnseen } from "./EditorIntro";
-import type { ElStyle, SelectedEl, Breakpoint, SelectOption } from "../editor/elemTypes";
+import type { ElStyle, ElPatch, SelectedEl, Breakpoint, SelectOption } from "../editor/elemTypes";
 import "./site-editor.css";
 
 const DATA = "/import/allclean";
@@ -239,6 +239,9 @@ export function SiteEditor() {
   }, []);
 
   useEffect(() => { void pullDraft(); }, [pullDraft, SITE]);
+  // The gallery holds the media of the WHOLE site, so it is useful before the client has visited the
+  // page a photo happens to live on. One request; the per-page indexer keeps covering anything newer.
+  useEffect(() => { void syncSiteMedia(TENANT, DATA); }, []);
   useEffect(() => {
     const onFocus = () => { void pullDraft(); };
     window.addEventListener("focus", onFocus);
@@ -611,7 +614,7 @@ export function SiteEditor() {
 
   // Apply a property change to the selected element (updates the panel + the iframe → saved).
   // On tablet/mobile, style changes become @media overrides (breakpoint field routes them in the runtime).
-  const patchEl = (patch: { text?: string; href?: string; style?: Partial<ElStyle> }) => {
+  const patchEl = (patch: ElPatch) => {
     if (!selEl) return;
     const bpMode = device !== "desktop";
     let bpOver = selEl.bpOver;
@@ -619,8 +622,8 @@ export function SiteEditor() {
       bpOver = { ...(selEl.bpOver ?? {}) };
       for (const k of Object.keys(patch.style)) (bpOver as Record<string, boolean>)[k] = true;
     }
-    setSelEl({ ...selEl, ...(patch.text != null ? { text: patch.text } : {}), ...(patch.href != null ? { href: patch.href } : {}), style: { ...selEl.style, ...(patch.style ?? {}) }, bpOver });
-    frameRef.current?.contentWindow?.postMessage({ type: "lg-elem-set", blockId: selEl.blockId, el: selEl.el, text: patch.text, href: patch.href, style: patch.style, breakpoint: device }, "*");
+    setSelEl({ ...selEl, ...(patch.text != null ? { text: patch.text } : {}), ...(patch.href != null ? { href: patch.href } : {}), ...(patch.parts != null ? { parts: patch.parts } : {}), style: { ...selEl.style, ...(patch.style ?? {}) }, bpOver });
+    frameRef.current?.contentWindow?.postMessage({ type: "lg-elem-set", blockId: selEl.blockId, el: selEl.el, text: patch.text, href: patch.href, parts: patch.parts, style: patch.style, breakpoint: device }, "*");
   };
   // Interaction-state edit (links/buttons): generated :hover / :active rule, stored in the overrides layer.
   const patchState = (layer: "hover" | "active", style: Partial<ElStyle>) => {

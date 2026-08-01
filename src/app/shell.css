@@ -117,3 +117,33 @@
   .sidebar { display: none; }
   .topbar__search { display: none; }
 }
+
+/* "The cabinet was updated under you" — small, fixed, never in the way of the page underneath. */
+.stalebuild {
+  position: fixed;
+  z-index: 9999;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  background: var(--panel, #14151f);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+}
+.stalebuild__txt { color: var(--fg, #e8e9f0); }
+.stalebuild__btn {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent, #6c5ce7);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.stalebuild__btn:hover { filter: brightness(1.08); }

@@ -26,6 +26,14 @@ export interface CorePage {
 
 export declare const MQ: Record<"tablet" | "mobile", string>;
 export declare const CASCADE: Record<string, 1>;
+export declare const SITE_FIXES: string;
+export declare const VIDEO_BOOT: string;
+/** Legacy `>`-chained CSS made independent of the editor's block wrapper (see renderCore.js). */
+export declare function relaxLegacyChains(html: string): string;
+/** Site CSS repairs + the "video always plays" guarantee, for injection into a rendered page head. */
+export declare function siteRuntimeTags(): string;
+/** Those repairs, placed in the page head of the given html. */
+export declare function withSiteRuntime(html: string): string;
 
 export declare function fluidFont(v: string): string;
 /** A link made safe to publish: anything but a known navigation scheme becomes "#". */

@@ -11,6 +11,7 @@ import { hasPro, routeNeedsPro } from "../lib/plans";
 import { useAuth } from "../auth/AuthContext";
 import { getClient } from "../agency/store";
 import { RetroBg } from "../components/RetroBg";
+import { watchVersion } from "./version";
 import "./shell.css";
 
 const CLIENT_NAV = [
@@ -43,6 +44,27 @@ const TITLES: Record<string, string> = {
   "/app/sites": "Сайты", "/app/blog": "Блог", "/app/calculators": "Калькуляторы", "/app/crm": "CRM",
   "/app/analytics": "Аналитика", "/app/support": "Поддержка", "/app/settings": "Настройки",
 };
+
+/**
+ * "You are looking at an old cabinet" — said out loud instead of silently.
+ *
+ * A stale copy served from some cache between us and the client is invisible from the inside: the
+ * cabinet looks fine, it just is not the cabinet we shipped, and the client reasonably reports the
+ * fix as missing. `watchVersion` compares the running bundle with the one the server hands out now;
+ * when they differ we say so and offer the reload. We never reload on our own — someone may be
+ * halfway through editing a page.
+ */
+function StaleBuildNotice() {
+  const [stale, setStale] = useState(false);
+  useEffect(() => watchVersion(() => setStale(true)), []);
+  if (!stale) return null;
+  return (
+    <div className="stalebuild" role="status">
+      <span className="stalebuild__txt">Кабинет обновился — открыта старая версия.</span>
+      <button className="stalebuild__btn" onClick={() => location.reload()}>Обновить</button>
+    </div>
+  );
+}
 
 export function Shell() {
   const { pathname } = useLocation();
@@ -91,6 +113,7 @@ export function Shell() {
   return (
     <div className={"shell" + (collapsed ? " shell--rail" : "")}>
       <RetroBg />
+      <StaleBuildNotice />
       <aside className="sidebar glass">
         <NavLink to={inConsole ? "/app/agency" : "/app"} className="sidebar__brand">
           <Logo size={26} />
