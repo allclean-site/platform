@@ -77,19 +77,28 @@ function rewriteLegacyCss(css) {
     .split("div.page-wrapper:nth-of-type(1) > ").join("div.page-wrapper:nth-of-type(1) ")
     .split("main.main-wrapper:nth-of-type(1) > ").join("main.main-wrapper:nth-of-type(1) ");
 
-  const PX_TRACK = /^(?:minmax\(\s*0(?:px)?\s*,\s*)?(\d+(?:\.\d+)?)px\s*\)?$/;
   return relaxed
     .replace(/grid-template-columns\s*:\s*([^;}!]+)/gi, (whole, value) => {
-      const tracks = splitTopLevel(value);
-      if (tracks.length < 2 || !tracks.every((t) => PX_TRACK.test(t))) return whole;
-      const fr = tracks.map((t) => {
-        const n = PX_TRACK.exec(t)[1];
-        return t.indexOf("minmax") === 0 ? `minmax(0,${n}fr)` : `${n}fr`;
-      });
-      return "grid-template-columns:" + fr.join(" ");
+      const fr = pxTracksToFr(value);
+      return fr ? "grid-template-columns:" + fr : whole;
     })
     .replace(/(^|[;{])(\s*)(max-width|width)\s*:\s*(\d+(?:\.\d+)?)px/gi,
       (_m, pre, sp, prop, n) => `${pre}${sp}${prop}:min(${n}px,100%)`);
+}
+
+const PX_TRACK = /^(?:minmax\(\s*0(?:px)?\s*,\s*)?(\d+(?:\.\d+)?)px\s*\)?$/;
+/**
+ * A grid track list that is ALL fixed pixels, rewritten to the same numbers as fractions — same
+ * proportion, but the row now fills whatever container it lands in instead of freezing at one width.
+ * Returns null when any track is not a fixed px value (a deliberate `200px 1fr` is left as the author
+ * meant it). One definition, used both for the imported legacy CSS and for a client's own column drag.
+ */
+function pxTracksToFr(value) {
+  const tracks = splitTopLevel(value);
+  if (tracks.length < 2 || !tracks.every((t) => PX_TRACK.test(t))) return null;
+  return tracks
+    .map((t) => (t.indexOf("minmax") === 0 ? `minmax(0,${PX_TRACK.exec(t)[1]}fr)` : `${PX_TRACK.exec(t)[1]}fr`))
+    .join(" ");
 }
 
 /** Split a CSS value on top-level whitespace (never inside parentheses). */
@@ -347,6 +356,8 @@ export function safeValue(v) {
 function fitValue(prop, sv) {
   if (prop === "font-size") return fluidFont(sv);
   if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) return `min(${sv},100%)`;
+  // A column boundary the client dragged writes fixed px tracks — the same freeze, made proportional.
+  if (prop === "grid-template-columns") return pxTracksToFr(sv) || sv;
   return sv;
 }
 
