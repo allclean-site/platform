@@ -90,11 +90,14 @@ export default async function handler(req, res) {
     }));
   }
 
-  // The deploy hook is no longer part of publishing content. It stays for the cases that really do
-  // need a new build (code, assets, a page added or removed) — ask for it explicitly.
+  // ⚠️ The rebuild stays ON. Taking it out was wrong twice over: Vercel only applies a rewrite when no
+  // static file matches, and the build writes HTML for every page — so the on-demand renderer was never
+  // reached — while the renderer itself could not read the mirror from the site's own output. The
+  // result was a publish that stored the edits and changed nothing anyone could see.
+  // Pass rebuild:false explicitly once serving is genuinely on-demand.
   let rebuild = false;
-  if (DEPLOY_HOOK && body.rebuild === true) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
-  return res.status(200).json({ ok: true, pages: rows.length, rebuild, instant: true, warmed });
+  if (DEPLOY_HOOK && body.rebuild !== false) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
+  return res.status(200).json({ ok: true, pages: rows.length, rebuild, warmed });
 }
 
 /** page_id ("ru/pricing/index.html") → the URL it is served at ("/ru/pricing"). */

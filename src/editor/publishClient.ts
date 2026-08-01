@@ -56,10 +56,10 @@ export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteB
   const pages = r.data?.pages ?? 0;
   return {
     ok: true,
-    message: r.data?.instant
+    message: r.data?.instant && !r.data?.rebuild
       ? `Опубликовано (${pages} стр.) — изменения уже на сайте.`
       : r.data?.rebuild
         ? `Опубликовано (${pages} стр.) — сайт пересобирается, изменения появятся через 1–2 минуты.`
-        : `Сохранено (${pages} стр.).`,
+        : `Сохранено (${pages} стр.), но авто-пересборка не настроена (нет Deploy Hook).`,
   };
 }
