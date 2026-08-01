@@ -10,6 +10,7 @@ import {
   activeMedia, trashedMedia, uploadMediaFile, trashMedia, restoreMedia, purgeMedia,
   type MediaAsset, type MediaType,
 } from "../editor/media";
+import { toPreview } from "../editor/assetPaths";
 import { storageConfigured } from "../editor/image";
 import { Dialog } from "../components/Dialog";
 import "./media-picker.css";
@@ -132,12 +133,18 @@ export function MediaPicker({
 }
 
 function MediaCard({ m, onClick, action, dim, onBad }: { m: MediaAsset; onClick?: () => void; action?: React.ReactNode; dim?: boolean; onBad?: (id: string) => void }) {
+  // The library stores the address the SITE serves (/images/…, /video/…) — that is what gets published
+  // and it must not be stored any other way. The cabinet is a different origin and serves the same
+  // files under /site-assets/*, so drawing the stored address here 404s. Every such asset then tripped
+  // the "this one is broken, hide it" guard: 24 of 49 photos vanished and the site's only video with
+  // them. Display goes through the preview mapping, picking still returns the canonical url.
+  const src = toPreview(m.url);
   return (
     <div className={"mp__card" + (dim ? " is-dim" : "") + (onClick ? " is-pick" : "")} onClick={onClick} title={m.name}>
       <div className="mp__thumb">
         {m.type === "video"
-          ? <><video src={m.url} muted preload="metadata" onError={() => onBad?.(m.id)} /><span className="mp__play"><Play size={16} /></span></>
-          : <img src={m.url} alt={m.name} loading="lazy" onError={() => onBad?.(m.id)}
+          ? <><video src={src} muted preload="metadata" onError={() => onBad?.(m.id)} /><span className="mp__play"><Play size={16} /></span></>
+          : <img src={src} alt={m.name} loading="lazy" onError={() => onBad?.(m.id)}
               onLoad={(e) => { if (e.currentTarget.naturalWidth > 0 && e.currentTarget.naturalWidth < 120) onBad?.(m.id); }} />}
         <span className="mp__type">{m.type === "video" ? <VideoIcon size={12} /> : <ImageIcon size={12} />}</span>
       </div>
