@@ -106,33 +106,31 @@ function BoxModel({ s, patch, bp }: { s: ElStyle; patch: (p: ElPatch) => void; b
 }
 
 /**
- * Text field for a heading the site builds out of several elements (one per word or line).
+ * Text field for a heading whose lines are separate nodes in the markup.
  *
- * Writing the whole string back would collapse those elements and lose the classes that style them,
- * so the panel shows ONE field per piece and each piece returns to its own node. The number of fields
- * is fixed by the markup: the client can retype any line but cannot add or drop one here, which is
- * exactly the guarantee that keeps the layout intact. Restructuring stays possible on the page itself.
+ * A site heading is rarely one string: it is a line break the client added, or one element per word
+ * that the design styles individually. Writing the whole thing back through `textContent` would
+ * collapse all of that and take the site's classes with it — which is why the panel used to show a
+ * hint instead of a field, and read as "editing is broken".
+ *
+ * So it stays ONE ordinary field, the way the heading actually reads, and the line breaks in it are
+ * the line breaks on the page: each line is written back into its own node, untouched lines are not
+ * rewritten at all, and Enter/Backspace add and remove a real break. Nothing here needs the client to
+ * know that the heading is made of pieces.
  */
 function StructuredText({ parts, patch }: { parts: string[]; patch: (p: ElPatch) => void }) {
-  // Uncontrolled-by-index editing: send the whole array back with this one line replaced.
-  const setLine = (i: number, v: string) => {
-    const next = parts.slice();
-    next[i] = v;
-    patch({ parts: next });
-  };
   if (!parts.length) {
     return <p className="pi__note">Правьте текст прямо на странице — кликните и печатайте.</p>;
   }
   return (
     <>
-      {parts.map((p, i) => (
-        <Row key={i} label={parts.length > 1 ? `Строка ${i + 1}` : "Текст"}>
-          <input className="pi__inp" value={p} onChange={(e) => setLine(i, e.target.value)} />
-        </Row>
-      ))}
-      {parts.length > 1 && (
-        <p className="pi__note">Заголовок собран из отдельных строк — каждая правится своим полем. Порядок и оформление строк сохраняются.</p>
-      )}
+      <textarea
+        className="pi__inp pi__area"
+        rows={Math.min(6, Math.max(2, parts.length))}
+        value={parts.join("\n")}
+        onChange={(e) => patch({ parts: e.target.value.split("\n") })}
+      />
+      {parts.length > 1 && <p className="pi__note">Каждая строка — отдельная строка заголовка.</p>}
     </>
   );
 }

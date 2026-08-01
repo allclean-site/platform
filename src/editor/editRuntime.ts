@@ -31,6 +31,8 @@ ${CORE_INLINE}
   // -----------------------------------------------------------------------------------------------
   var W = "[data-lg-block]";
   var seq = 0, selected = null, lastRange = null;
+  // A desktop edit touched the base rule layer → the host has to be told when the drag is committed.
+  var baseDirty = false;
   // ---- Per-breakpoint overrides ----------------------------------------------------------------
   // curBp = which device the editor is showing. Edits on desktop stay INLINE on the node (base);
   // edits on tablet/mobile are written as generated @media rules in <style id="lg-overrides">
@@ -151,9 +153,18 @@ ${CORE_INLINE}
   // so the markup is untouched and the client still gets real fields to type in.
   function textRuns(el){
     var out = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false), n;
+    // A line the page does not show must not appear in the field: this heading ships with a word the
+    // site itself hides (display:none), and listing it would show five lines against four on screen.
+    function visible(node){
+      for (var p = node.parentNode; p && p !== el && p.nodeType === 1; p = p.parentNode){
+        if (getComputedStyle(p).display === "none") return false;
+      }
+      return true;
+    }
     while ((n = w.nextNode())){
       // A run that is only spacing between the word elements is layout, not content — never editable.
-      if (n.nodeValue && n.nodeValue.replace(/[\\s\\u00a0]+/g, "") !== "") out.push(n);
+      if (!n.nodeValue || n.nodeValue.replace(/[\\s\\u00a0]+/g, "") === "") continue;
+      if (visible(n)) out.push(n);
     }
     return out;
   }
@@ -167,12 +178,56 @@ ${CORE_INLINE}
     for (i = 0; i < ns.length; i++) out.push(runText(ns[i]));
     return out;
   }
-  /** Write edited pieces back, one per run. Unchanged pieces are not touched at all, so a block that
-   *  the client did not really change stays byte-identical to what the site shipped. */
+  /** Write edited lines back, one per run. Unchanged lines are not touched at all, so a block that the
+   *  client did not really change stays byte-identical to what the site shipped. A line the client
+   *  added or removed becomes a real line break, added or removed in the same element — never a
+   *  rebuild of the heading. */
   function setParts(el, parts){
     var ns = textRuns(el), i, changed = false;
-    for (i = 0; i < ns.length && i < parts.length; i++){
+    var both = Math.min(ns.length, parts.length);
+    for (i = 0; i < both; i++){
       if (runText(ns[i]) !== parts[i]){ ns[i].nodeValue = parts[i]; changed = true; }
+    }
+    // A line was removed: empty its run and take the break in front of it away too. When the run WAS
+    // the whole of its own element (a per-word heading), emptying is not enough — an empty element
+    // still occupies a line and leaves a visible gap. It gets hidden instead, the same way the site's
+    // own markup hides a word it does not use, and is marked so re-adding a line can bring it back.
+    for (i = parts.length; i < ns.length; i++){
+      var gone = ns[i], before = gone.previousSibling, own = gone.parentNode;
+      if (gone.nodeValue !== ""){ gone.nodeValue = ""; changed = true; }
+      if (before && before.nodeType === 1 && before.tagName === "BR" && before.parentNode){
+        before.parentNode.removeChild(before); changed = true;
+      }
+      if (own && own !== el && own.nodeType === 1 && !textRuns(own).length){
+        own.setAttribute("data-lg-hid", "1");
+        own.style.setProperty("display", "none", "important");
+        changed = true;
+      }
+    }
+    // A line was added. If we hid a line earlier, that one comes back first — the heading keeps the
+    // elements it was designed with. Otherwise it is a real break plus its own text node INSIDE the
+    // same element, so the heading's styling covers the new line like the lines already there.
+    if (parts.length > ns.length){
+      var after = ns.length ? ns[ns.length - 1] : null;
+      for (i = ns.length; i < parts.length; i++){
+        var revive = el.querySelector("[data-lg-hid]");
+        if (revive){
+          revive.removeAttribute("data-lg-hid");
+          revive.style.removeProperty("display");
+          if (revive.firstChild && revive.firstChild.nodeType === 3) revive.firstChild.nodeValue = parts[i];
+          else revive.textContent = parts[i];
+          after = textRuns(revive)[0] || after;
+          changed = true;
+          continue;
+        }
+        if (!after) break;                       // nothing to hang a new line off yet
+        var host = after.parentNode;
+        var br = document.createElement("br");
+        host.insertBefore(br, after.nextSibling);
+        var tn = document.createTextNode(parts[i]);
+        host.insertBefore(tn, br.nextSibling);
+        after = tn; changed = true;
+      }
     }
     return changed;
   }
@@ -464,9 +519,36 @@ ${CORE_INLINE}
     if (el.hasAttribute("data-lg-style0")) return;
     el.setAttribute("data-lg-style0", el.getAttribute("style") || "");
   }
+  /**
+   * A desktop style edit is written BOTH inline and as a base-layer rule, on purpose.
+   *
+   * Inline alone is not enough: it carries no !important, so any rule in the PAGE's own stylesheet
+   * that does carries the day and the element simply refuses to move. That is not hypothetical — the
+   * pages imported from the site's previous editor pin width/max-width/grid-template-columns with
+   * !important on the very elements a client wants to drag, and Webflow's own classes do the same
+   * (which is what unclampWidth was already fighting, one property at a time).
+   *
+   * The base layer is the answer that already exists here: it renders as an
+   * [data-lg-id="…"]:not(#lgcmsx){…!important} rule — id-level specificity, so it outranks both of
+   * those, while still being emitted BEFORE the tablet/phone blocks, so a per-device rule still wins
+   * at its own width. Inline !important could never do that, which is why width was left plain.
+   *
+   * The inline value stays because it is what the panel reads back and what "Сбросить оформление"
+   * restores from data-lg-style0.
+   */
   function setStyleProp(el, prop, val, prio){
     var id = el.getAttribute("data-lg-id");
-    if (curBp === "desktop"){ stashOriginal(el); el.style.setProperty(prop, val, prio || ""); }
+    if (curBp === "desktop"){
+      stashOriginal(el);
+      el.style.setProperty(prop, val, prio || "");
+      if (id){
+        var bstore = bp.base || (bp.base = {}), brec = bstore[id] || (bstore[id] = {});
+        if (val === "") delete brec[prop]; else brec[prop] = val;
+        if (!Object.keys(brec).length) delete bstore[id];
+        baseDirty = true;
+        renderOverrides();
+      }
+    }
     else {
       var store = bp[curBp] || (bp[curBp] = {}), rec = store[id] || (store[id] = {});
       if (val === "") delete rec[prop]; else rec[prop] = val;
@@ -476,7 +558,11 @@ ${CORE_INLINE}
   }
   function commitStyle(el){
     var wblk = el.closest(W);
-    if (curBp === "desktop"){ if (wblk) save(wblk.getAttribute("data-lg-block")); }
+    if (curBp === "desktop"){
+      if (wblk) save(wblk.getAttribute("data-lg-block"));
+      // The rules changed too, not just the markup — the host stores them separately.
+      if (baseDirty){ baseDirty = false; parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*"); }
+    }
     else parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*");
   }
   // Remove EVERY constraint that stops a text box from being dragged wider than its current layout
@@ -1090,20 +1176,22 @@ ${CORE_INLINE}
           renderOverrides();
           parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*");
         } else {
-          // Desktop base: the ELEMENT gets an inline style (reversible, beats the foreign stylesheet).
-          // For inheritable props we ALSO force nested spans — but via the BASE stylesheet layer
-          // ([data-lg-id] *{…!important}), NOT inline !important, so tablet/mobile @media can override.
+          // Desktop base: the ELEMENT gets an inline style (reversible, and what the panel reads back)
+          // and EVERY declaration is mirrored into the base stylesheet layer
+          // ([data-lg-id]:not(#lgcmsx){…!important}). Inline alone loses to any !important rule the
+          // page itself ships — which is why a value typed here could look ignored on exactly the
+          // elements the site's previous editor had pinned. Base is emitted before the device blocks,
+          // so tablet/phone still win at their own widths; inline !important never could.
+          // Inheritable props additionally cascade onto nested spans, which is what CASCADE is for.
           var baseChg = false;
           stashOriginal(el);   // keep the site's own inline style so "Сбросить оформление" is exact
           decls(d.style).forEach(function(pv){
             el.style.setProperty(pv[0], pv[1]);
-            if (CASCADE[pv[0]]){
-              cascadeDesc(el, pv[0], ""); // heal legacy edits: drop any inline !important left on descendants for this prop
-              var bstore = bp.base || (bp.base = {}), brec = bstore[elId] || (bstore[elId] = {});
-              if (pv[1] === "") delete brec[pv[0]]; else brec[pv[0]] = pv[1];
-              if (!Object.keys(brec).length) delete bstore[elId];
-              baseChg = true;
-            }
+            if (CASCADE[pv[0]]) cascadeDesc(el, pv[0], ""); // drop any inline !important a legacy edit left on descendants
+            var bstore = bp.base || (bp.base = {}), brec = bstore[elId] || (bstore[elId] = {});
+            if (pv[1] === "") delete brec[pv[0]]; else brec[pv[0]] = pv[1];
+            if (!Object.keys(brec).length) delete bstore[elId];
+            baseChg = true;
           });
           contentChg = true;
           if (baseChg){ renderOverrides(); parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*"); }
