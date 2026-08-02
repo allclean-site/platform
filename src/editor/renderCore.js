@@ -379,11 +379,58 @@ export const MARQUEE_FIX = [
   "})();",
 ].join("");
 
-/** The repairs every rendered page gets: site CSS fixes + the video, heading-fit and marquee guarantees. */
+/**
+ * The phone services slider, completed. The template wires only FOUR slides into the mobile
+ * .w-slider while the desktop marquee carries the full set of service cards — a phone visitor
+ * simply never saw most of the services. On load the slider builds itself out to the full set:
+ * unique cards are collected from the whole section (the marquee duplicates each one for its
+ * loop — deduped by link + text), and every card missing from the slider gets a slide cloned
+ * from the last one. Runs from the head, so it finishes before the engine counts its slides;
+ * idempotent — a slider that already carries every card is left untouched, so the canvas save
+ * path can bake the result without it ever growing.
+ */
+export const SLIDER_FILL = [
+  // A service IS its link: the template's own four slides carry shortened titles ("ГенеР. уборка"
+  // vs the marquee's "Генеральная уборка"), so keying by text would add the same service twice.
+  "(function(){function key(c){var h=c.getAttribute('href');return h?h:(c.textContent||'').replace(/\\s+/g,' ').trim();}",
+  "function fix(){",
+  "var sliders=document.querySelectorAll('.w-slider'),s,i,j;",
+  "for(s=0;s<sliders.length;s++){var sl=sliders[s];",
+  "var mask=sl.querySelector('.w-slider-mask');if(!mask)continue;",
+  "var slides=mask.querySelectorAll('.w-slide');if(!slides.length)continue;",
+  "var sec=sl.closest('section')||sl.parentElement;if(!sec)continue;",
+  "var cards=sec.querySelectorAll('.card_scroll-service');if(cards.length<2)continue;",
+  "var uniq={},order=[];",
+  "for(i=0;i<cards.length;i++){var k=key(cards[i]);if(!uniq[k]){uniq[k]=cards[i];order.push(k);}}",
+  "var have={},sc=mask.querySelectorAll('.card_scroll-service');",
+  "for(i=0;i<sc.length;i++)have[key(sc[i])]=1;",
+  "var missing=[];for(i=0;i<order.length;i++){if(!have[order[i]])missing.push(uniq[order[i]]);}",
+  "if(!missing.length)continue;",
+  "var tpl=slides[slides.length-1];",
+  "for(i=0;i<missing.length;i++){",
+  "var ns=tpl.cloneNode(true);",
+  // editor ids must not be duplicated by the clones - the runtime stamps fresh ones after us
+  "ns.removeAttribute('data-lg-id');var all=ns.querySelectorAll('[data-lg-id]');for(j=0;j<all.length;j++)all[j].removeAttribute('data-lg-id');",
+  "var oldCard=ns.querySelector('.card_scroll-service');",
+  "var newCard=missing[i].cloneNode(true);",
+  "newCard.removeAttribute('data-lg-id');var na=newCard.querySelectorAll('[data-lg-id]');for(j=0;j<na.length;j++)na[j].removeAttribute('data-lg-id');",
+  "if(oldCard&&oldCard.parentNode)oldCard.parentNode.replaceChild(newCard,oldCard);",
+  "mask.appendChild(ns);}",
+  // the template's own slides carried a duplicate service too - one slide per service, full stop
+  "var seen={},fin=mask.querySelectorAll('.w-slide');",
+  "for(i=0;i<fin.length;i++){var fc=fin[i].querySelector('.card_scroll-service');if(!fc)continue;",
+  "var fk=key(fc);if(seen[fk]){if(fin[i].parentNode)fin[i].parentNode.removeChild(fin[i]);}else seen[fk]=1;}}}",
+  "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();",
+  "window.addEventListener('load',fix);",
+  "})();",
+].join("");
+
+/** The repairs every rendered page gets: site CSS fixes + the video, marquee and slider guarantees. */
 export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
     '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>" +
-    '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>";
+    '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>" +
+    '<script id="lgcms-sliderfill">' + SLIDER_FILL + "</scr" + "ipt>";
 }
 
 /** Put those repairs in the page head — same position for the publisher and the editing canvas. */

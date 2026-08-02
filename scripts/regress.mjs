@@ -169,6 +169,23 @@ function checkTestimonials(doc, W) {
   return fails;
 }
 
+/** The phone services slider must carry EVERY unique service card the section knows — the template
+ *  shipped only four slides, so most services were invisible on phones (client report). */
+function checkServicesSlider(doc, W) {
+  if (W >= 768) return [];
+  const sl = doc.querySelector(".w-slider");
+  if (!sl) return [];
+  const sec = sl.closest("section") || sl.parentElement;
+  // a service IS its link — the template's own slides carry shortened titles for the same services
+  const key = (c) => c.getAttribute("href") || c.textContent.replace(/\s+/g, " ").trim();
+  const uniq = new Set([...sec.querySelectorAll(".card_scroll-service")].map(key));
+  const cards = [...sl.querySelectorAll(".w-slider-mask .card_scroll-service")].map(key);
+  const inSlider = new Set(cards);
+  if (inSlider.size < uniq.size) return [{ kind: "slider-incomplete", W, inSlider: inSlider.size, unique: uniq.size }];
+  if (cards.length > inSlider.size) return [{ kind: "slider-duplicates", W, slides: cards.length, unique: inSlider.size }];
+  return [];
+}
+
 async function loadFrame(url) {
   return new Promise((resolve) => {
     let settled = false;
@@ -268,7 +285,9 @@ function probeGrids(doc) {
       await sleep(220);                                  // let the reflow settle at the new width
       const of = overflowPx(doc);
       const mid = midWordBreaks(doc);
-      const rev = (url === "/" || url === "/ru/") ? checkTestimonials(doc, W) : [];
+      const rev = (url === "/" || url === "/ru/")
+        ? [...checkTestimonials(doc, W), ...checkServicesSlider(doc, W)]
+        : [];
       if (W === 1280) pubH[url] = doc.documentElement.scrollHeight;
       if (of > 2 || mid.length || rev.length) {
         out.fail++;
