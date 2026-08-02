@@ -91,7 +91,12 @@ export const SITE_FIXES =
   // bottom edge, so removing the overlay outright left it unreadable (white-on-white where the photo
   // ends). The classic card treatment does both jobs: a slim fade pinned to the bottom, under the
   // title only — the photo stays clean, the title stays readable on any image.
-  ".card_scroll-service .content_nav-service:not(#lgcmsx){background-image:linear-gradient(180deg,rgba(12,41,89,0) 55%,rgba(12,41,89,.82) 100%);}";
+  ".card_scroll-service .content_nav-service:not(#lgcmsx){background-image:linear-gradient(180deg,rgba(12,41,89,0) 55%,rgba(12,41,89,.82) 100%);}" +
+  // A services-card photo FILLS its wrapper, whatever its shape. The template only ever shipped
+  // portrait photos, so it never said so — and the first landscape photo the client uploaded
+  // covered half the card, leaving the title fade painted over white ("непрозрачная подложка").
+  // Same rule as the background-video heal: fill the box, crop with object-fit.
+  ".card_scroll-service .image-wrap_nav-service img:not(#lgcmsx){width:100%;height:100%;object-fit:cover;}";
 
 /**
  * Repairs that exist ONLY inside the editing canvas — never published.

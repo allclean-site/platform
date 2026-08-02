@@ -1662,19 +1662,30 @@ ${CORE_INLINE}
       // the card's own <a> sits on top of it (the services cards are <a> wrappers, and a Webflow
       // background video hides its <video> under decorative layers). The whole stack under the cursor is
       // inspected, not just e.target, so the photo/video wins over whatever covers it — that is what
-      // brings back "заменить фото/видео". A media element that is not directly hittable is still found
-      // below via preferMedia.
+      // brings back "заменить фото/видео".
+      //
+      // With one hard exception: VISIBLE TEXT under the cursor outranks the media below it. A card's
+      // title sits on top of the card's own photo, and stealing that click for the image locked the
+      // client out of the title entirely — the panel said "Изображение" and the font size could never
+      // be reached. Text wins where text is; the photo wins on the photo.
       var stack = document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [];
+      var steal = null, textAbove = false;
       for (var si = 0; si < stack.length; si++){
         var se = stack[si];
-        if ((se.tagName === "IMG" || se.tagName === "VIDEO") && se.getAttribute("data-lg-id")){ select(se); return; }
+        if ((se.tagName === "IMG" || se.tagName === "VIDEO") && se.getAttribute("data-lg-id")){ steal = se; break; }
+        var tn, hasText = false;
+        for (tn = se.firstChild; tn; tn = tn.nextSibling){
+          if (tn.nodeType === 3 && tn.nodeValue.replace(/[\\s\\u00a0]+/g, "") !== ""){ hasText = true; break; }
+        }
+        if (hasText){ textAbove = true; break; }
       }
+      if (steal){ select(steal); return; }
       // Otherwise prefer the whole editable field (block text / standalone link) over a word-div inside it.
       var ce = e.target.closest && e.target.closest('[contenteditable="true"]');
       var el = ce || (e.target.closest && e.target.closest("[data-lg-id]"));
       // Clicking away from everything editable is how the client says "done" — the selection goes and
       // anything that was held still starts moving again.
-      if (el) select(preferMedia(el, e.clientX, e.clientY)); else deselect();
+      if (el) select(textAbove ? el : preferMedia(el, e.clientX, e.clientY)); else deselect();
     }, true);
     // Hover highlight: outline + label chip on the element under the cursor (not while dragging/selected).
     document.addEventListener("mouseover", function(e){
