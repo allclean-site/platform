@@ -55,12 +55,17 @@ ${CORE_INLINE}
   // dots. cleanHtml restores the original config on the way to publish, and the synchronous heal
   // above restores it on the way back in - the live site always auto-plays as built.
   var pausedSlider = null, synthClick = false;
-  function sliderMod(){
-    try { return window.Webflow && window.Webflow.require ? window.Webflow.require("slider") : null; } catch(e){ return null; }
-  }
+  // Full engine re-boot, not redraw: this build's redraw() only recomputes sizes and never re-binds
+  // a widget whose DOM was swapped under it (measured: after a morph the nav dots stay gone and the
+  // arrows stay dead through any number of redraws). destroy -> ready -> ix2.init is the engine's
+  // own documented sequence for dynamic DOM, and it also re-reads widget CONFIG - which is what the
+  // autoplay pause below relies on.
   function sliderRedraw(){
-    var m = sliderMod();
-    try { if (m && m.redraw) m.redraw(); } catch(e){}
+    var W = window.Webflow;
+    if (!W) return;
+    try { if (W.destroy) W.destroy(); } catch(e){}
+    try { if (W.ready) W.ready(); } catch(e){}
+    try { var ix = W.require ? W.require("ix2") : null; if (ix && ix.init) ix.init(); } catch(e){}
   }
   function activeDot(s){
     var dots = s.querySelectorAll(".w-slider-nav>div"), i;
@@ -97,6 +102,16 @@ ${CORE_INLINE}
     s.removeAttribute("data-lg-autoplay0");
     sliderRedraw();
     gotoDot(s, idx);
+  }
+  // A morph that rewires the DOM inside a Webflow widget leaves the engine holding references to
+  // nodes that are no longer the ones on the page - the slider freezes mid-cycle, arrows and all.
+  // This is EXACTLY why the RU services slider lived while the RO one stood dead: only a block with
+  // a saved override gets morphed when the shared draft arrives after load. One debounced re-init
+  // through the engine's own public API, whenever a morph touched a widget.
+  var sliderKickTimer = null;
+  function kickSliders(){
+    if (sliderKickTimer) return;
+    sliderKickTimer = setTimeout(function(){ sliderKickTimer = null; sliderRedraw(); }, 120);
   }
   // A desktop edit touched the base rule layer → the host has to be told when the drag is committed.
   var baseDirty = false;
@@ -1243,6 +1258,7 @@ ${CORE_INLINE}
         cleanBlock(box);
         morphChildren(wb, box);
         stampIds(wb, d.blockId); editableWithin(wb);
+        if (wb.querySelector(".w-slider")) kickSliders();
         // The selection survives unless its element was actually replaced by this update.
         if (selected && !document.contains(selected)){
           selected = null; hideSelBox(); hideHover(); if (handle) handle.style.display = "none";
@@ -1325,7 +1341,9 @@ ${CORE_INLINE}
         var st = bp[dl[di]]; if (!st) continue;
         for (var gj = 0; gj < gone.length; gj++) if (st[gone[gj]]){ delete st[gone[gj]]; dirtyBp = true; }
       }
+      var inSlider = !!ed.closest(".w-slider");
       ed.parentNode && ed.parentNode.removeChild(ed);
+      if (inSlider) kickSliders();
       if (dirtyBp){ renderOverrides(); parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*"); }
       if (wbd) save(wbd.getAttribute("data-lg-block"));
       txnEnd();
@@ -1375,6 +1393,7 @@ ${CORE_INLINE}
       var em = findEl(d.blockId, d.el), ref = findEl(d.blockId, d.refId);
       if (!em || !ref || em === ref || em.parentElement !== ref.parentElement) return;
       ref.parentElement.insertBefore(em, d.before ? ref : ref.nextSibling);
+      if (em.closest(".w-slider")) kickSliders();
       save(d.blockId);
       if (selected) select(selected);
       return;
