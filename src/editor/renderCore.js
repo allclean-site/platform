@@ -19,52 +19,22 @@
 export const MQ = { tablet: "(max-width: 991px)", mobile: "(max-width: 479px)" };
 
 /**
- * Repairs for defects that came WITH the imported site.
- *
- * The site's CSS is baked into every page's head, so there is no stylesheet to patch — and these are
- * not edits a client could make. Injected on every render, which means the editor's device preview
- * and the published page show the same repair.
+ * Repairs for defects that came WITH the imported site. Kept DELIBERATELY SMALL and targeted — broad
+ * heading rules (blanket max-width, word-break, auto font-fit) were tried and removed: they fixed one
+ * thing and quietly broke another (they stopped the client from resizing headings). What remains only
+ * touches the exact elements that are actually defective.
  *
  * · .right_home-features — a grid item with the default `min-width:auto` refuses to shrink below its
- *   content, so on a tablet the feature cards kept their desktop width (1020px inside a 770px column)
- *   and ran off the right edge of the screen. Measured on the live page at 834px before and after.
- *
- * · headings never break inside a word on a real screen. Two template defaults conspire: `hyphens:auto`
- *   splits words whenever it packs the line tighter (not only when a word cannot fit), and
- *   `word-break:break-word` lets a break fall between ANY two inline boxes — and the imported hero
- *   wraps its text one <span> per character, so the browser split "Профессиональ|ные" with 186px of
- *   room still on the line. Forcing hyphens:manual + overflow-wrap:normal + word-break:normal (on the
- *   heading AND its inline descendants, since the word lives inside those spans) makes it break only
- *   between whole words; a word that is genuinely too wide is handled by the fit rule, not by chopping.
- *   Left off below 768px, where a phone column can be too narrow and a break is the lesser evil.
+ *   content, so on a tablet the feature cards kept their desktop width and ran off the screen edge.
+ * · .page-wrapper overflow-x:clip — decorative bits the import positions off-canvas (a hover underline
+ *   starting at `left:-111px`) otherwise add a phantom horizontal scrollbar. `clip`, not `hidden`, so
+ *   vertical scroll and sticky positioning are untouched, and it never clips normal in-page content.
+ * · background video fills its wrapper — it is position:absolute and meant to cover the box, never to
+ *   be sized on its own. A stray resize once saved `width:20px` onto the hero video; this heals it.
  */
-// `:not(#lgcmsx)` costs nothing visually but lifts every selector to id-level specificity, so these
-// win over the site's own pinned rules (e.g. `#features-heading{width:924px}`, `.content_cta h2{...}`).
-const HSEL = ["h1", "h2", "h3", "h4", "h5", "h6", "[class*=heading-style]", "[class*=heading_]"]
-  .map((s) => s + ":not(#lgcmsx)");
-const HEAD = HSEL.join(",");                                            // the headings themselves
-const HEAD_DEEP = HSEL.concat(HSEL.map((s) => s + " *")).join(",");     // + their inline spans
 export const SITE_FIXES =
   "@media screen and (max-width:991px){.right_home-features{min-width:0}}" +
-  "@media screen and (min-width:768px){" + HEAD_DEEP +
-    "{-webkit-hyphens:manual;hyphens:manual;overflow-wrap:normal;word-break:normal;}}" +
-  // No heading may be wider than the space it sits in. The imported site bakes fixed pixel widths onto
-  // headings (924px, 920px) in its OWN stylesheet — not the override layer — so they overflow every
-  // screen narrower than the width they were authored at (measured: 251px of horizontal scroll at
-  // 768). max-width beats a fixed `width` when it is the smaller of the two, so this caps them without
-  // touching anything else.
-  HEAD + "{max-width:100% !important;}" +
-  // The page never scrolls sideways. Decorative bits the import positions off-canvas — a hover
-  // underline that slides in from `left:-111px`, an animation start-state — otherwise add a phantom
-  // horizontal scrollbar at some widths (measured on the RU blog at 768). Clipping the x-axis on the
-  // top wrapper removes the whole class at the root; `clip` (not `hidden`) keeps vertical scroll and
-  // sticky positioning intact, and only the x-axis is affected.
   ".page-wrapper{overflow-x:clip;}" +
-  // A background video always fills its wrapper — it is `position:absolute` and meant to cover the box,
-  // never to be sized on its own. A stray resize once wrote `width:20px` onto the hero video and saved
-  // it, collapsing it to a sliver. Forcing the inner <video> to fill (id-level specificity, so it beats
-  // that saved per-element override) heals the squish on the live site without anyone resetting an edit,
-  // and makes resizing the video meaningless — the wrapper is the thing you size.
   ".w-background-video video:not(#lgcmsx),.w-background-video-atom video:not(#lgcmsx){width:100% !important;height:100% !important;}";
 
 /**
@@ -245,66 +215,6 @@ export const VIDEO_BOOT = [
   "})();",
 ].join("");
 
-/**
- * A heading is never shown at a size its own words cannot fit — measured against the space it has.
- *
- * A pinned font-size is a decision made about one piece of text; the client rewrites the text and the
- * size stays. On the Russian home page the hero rule pins 120px in a 571px column, so the single word
- * "Профессиональные" (1181px at that size) is chopped no matter how it wraps. Nothing about wrapping
- * fixes that — only the size can give way.
- *
- * The earlier attempt at this was dropped because it measured the heading's OWN box, which for an
- * auto-width heading equals the text and so always "overflowed" — it shrank headings that were fine.
- * This measures the AVAILABLE width (the parent's content box) and shrinks only when the longest word
- * genuinely exceeds it, by exactly the ratio needed, never below 42% of the design size. Headings that
- * already fit are never touched — proven by the regression harness, which shows the Romanian headings
- * unchanged. It reads the NATURAL size each pass (its own stylesheet is cleared first) so it cannot
- * oscillate, and re-runs on resize, font load and text edits.
- *
- * Applied through a stylesheet keyed by `data-lg-fit`, never inline, so nothing is read back into a
- * saved block; the marker is stripped on export.
- */
-export const TEXT_FIT = [
-  "(function(){",
-  "var SEL='h1,h2,h3,h4,h5,h6,[class*=heading-style],[class*=heading_]';var seq=0,pend=0;",
-  // Real rendered width, not canvas: a hidden span appended INTO the heading inherits its exact font,
-  // weight, letter-spacing and text-transform, so offsetWidth is what the browser will actually draw.
-  // Canvas measureText fell back to a generic font for the site's custom webface and under-reported the
-  // widest Cyrillic word by ~7%, so the fit landed a size that still broke.
-  "function widestWord(el){var sp=document.createElement('span');sp.style.cssText='position:absolute;visibility:hidden;white-space:nowrap;left:-99999px;top:0;pointer-events:none';el.appendChild(sp);",
-  "var ws=(el.textContent||'').split(/\\s+/),w=0,i;for(i=0;i<ws.length;i++){if(!ws[i])continue;sp.textContent=ws[i];var m=sp.offsetWidth;if(m>w)w=m;}el.removeChild(sp);return w;}",
-  "function avail(el){var p=el.parentElement;if(!p)return el.clientWidth;var cs=getComputedStyle(p);",
-  "return p.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);}",
-  // Blocked only by a FIXED inline !important size on a descendant (a stylesheet can't beat that). A
-  // `font-size:inherit !important` does not block — it follows whatever size the parent ends up at, so
-  // shrinking the heading shrinks it too. Missing this left the RU hero, whose word boxes carry
-  // `inherit !important`, untouched at 120px.
-  "function blocked(el){var d=el.querySelectorAll('*'),i;for(i=0;i<d.length;i++){var s=d[i].style;if(!s)continue;",
-  "if(s.getPropertyPriority('font-size')==='important'&&/\\d/.test(s.getPropertyValue('font-size'))&&(d[i].textContent||'').trim())return true;}return false;}",
-  "function sheet(){var st=document.getElementById('lgcms-fitcss');if(!st){st=document.createElement('style');st.id='lgcms-fitcss';(document.head||document.documentElement).appendChild(st);}return st;}",
-  "function run(){var st=sheet();st.textContent='';seq=0;",  // clear first → measure NATURAL sizes, no oscillation
-  "var els=document.querySelectorAll(SEL),rules=[],i;",
-  "for(i=0;i<els.length;i++){var el=els[i];",
-  "if(!el.textContent||!el.textContent.replace(/\\s+/g,''))continue;",
-  "if(el.querySelector(SEL))continue;",              // measured through its innermost heading box
-  "if(blocked(el))continue;",                        // an inline !important descendant can't be overridden
-  "var box=avail(el);if(!(box>20))continue;",
-  "var cs=getComputedStyle(el),size=parseFloat(cs.fontSize)||0;if(!size)continue;",
-  "var wide=widestWord(el);if(!(wide>box))continue;",
-  // Measurement is exact now, so a small 4% headroom (sub-pixel + parent-width rounding) is enough.
-  "var want=Math.floor(size*box/wide*0.96),floor=Math.ceil(size*0.42);if(want<floor)want=floor;",
-  "if(want>=size)continue;",
-  "var tok='t'+(++seq);el.setAttribute('data-lg-fit',tok);",
-  "rules.push('[data-lg-fit=\"'+tok+'\"]:not(#lgcmsx){font-size:'+want+'px !important;}');}",
-  "st.textContent=rules.join('');}",
-  "function soon(){if(pend)clearTimeout(pend);pend=setTimeout(function(){pend=0;run();},120);}",
-  "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',soon);else soon();",
-  "window.addEventListener('load',soon);window.addEventListener('resize',soon);",
-  "if(document.fonts&&document.fonts.ready)document.fonts.ready.then(soon);",
-  "if(window.MutationObserver){try{new MutationObserver(function(ms){for(var i=0;i<ms.length;i++){var t=ms[i].target;if(t&&t.nodeType===3)t=t.parentElement;",
-  "if(t&&t.closest&&(t.closest(SEL)||(t.querySelector&&t.querySelector(SEL)))){soon();return;}}}).observe(document.documentElement,{childList:true,subtree:true,characterData:true});}catch(e){}}",
-  "})();",
-].join("");
 
 /**
  * The testimonials marquee is put back together.
@@ -339,7 +249,6 @@ export const MARQUEE_FIX = [
 export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
     '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>" +
-    '<script id="lgcms-fit">' + TEXT_FIT + "</scr" + "ipt>" +
     '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>";
 }
 
@@ -471,7 +380,11 @@ export function safeValue(v) {
  */
 function fitValue(prop, sv) {
   if (prop === "font-size") return fluidFont(sv);
-  if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) return `min(${sv},100%)`;
+  // A width the client dragged is capped at the VIEWPORT, not the container: it keeps their size (and
+  // scales down only when it would exceed the screen, so it never causes a page-wide scrollbar), but
+  // it does NOT stop them from making a box wider than its column — capping at 100% did exactly that,
+  // so a full-width heading could not be resized at all, which read as "текст не тянется".
+  if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) return `min(${sv},100vw)`;
   // A column boundary the client dragged writes fixed px tracks — the same freeze, made proportional.
   if (prop === "grid-template-columns") return pxTracksToFr(sv) || sv;
   return sv;
