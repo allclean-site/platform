@@ -33,6 +33,24 @@ ${CORE_INLINE}
   var seq = 0, selected = null, lastRange = null;
   // The stale-pin heal (see lg-bp-init) must run once per page load, never on undo/redo restores.
   var bpHealed = false;
+  // THE RULE (пока правишь - ничего не движется) has a third motion engine to cover: a Webflow
+  // slider auto-advances on its own setTimeout, which neither the CSS animation pause nor the GSAP
+  // freeze can reach - on the phone canvas the services slide moved away from under the caret every
+  // three seconds, so the section read as "нельзя редактировать". The engine reads its config from
+  // data-autoplay when it initialises, so the config is flipped SYNCHRONOUSLY here - this script
+  // runs before any DOMContentLoaded handler, Webflow's included. Canvas-only by construction: the
+  // original value rides in data-lg-autoplay0 and cleanHtml restores it on the way to publish, so
+  // the live site keeps auto-playing exactly as built. Arrows and swipes still work while editing.
+  (function(){
+    var sl = document.querySelectorAll(".w-slider"), i;
+    for (i = 0; i < sl.length; i++){
+      var v = sl[i].getAttribute("data-autoplay");
+      if (v === "true" || v === "1"){
+        sl[i].setAttribute("data-lg-autoplay0", v);
+        sl[i].setAttribute("data-autoplay", "false");
+      }
+    }
+  })();
   // A desktop edit touched the base rule layer → the host has to be told when the drag is committed.
   var baseDirty = false;
   // ---- Per-breakpoint overrides ----------------------------------------------------------------
@@ -541,9 +559,19 @@ ${CORE_INLINE}
   function positionSelBox(el){
     ensureSelBox();
     var r = el.getBoundingClientRect();
+    // A box that extends past the canvas edge (a card parked off-screen by a marquee, a container
+    // dragged wider than the frame) must STAY grabbable: the frame is clamped to the viewport, so
+    // at least one edge handle is always on screen and the client can always pull the box back.
+    // The drag math is relative (dx from where the pointer went down), so a clamped handle resizes
+    // exactly like a true-edge one.
+    var vw = document.documentElement.clientWidth || 390;
+    var left = r.left, right = r.left + r.width;
+    if (left < 4) left = 4;
+    if (right > vw - 4) right = vw - 4;
+    if (right - left < 24){ if (r.left < 4) right = Math.min(vw - 4, left + 24); else left = Math.max(4, right - 24); }
     selBox.style.display = "block";
-    selBox.style.top = (r.top + window.scrollY) + "px"; selBox.style.left = (r.left + window.scrollX) + "px";
-    selBox.style.width = r.width + "px"; selBox.style.height = r.height + "px";
+    selBox.style.top = (r.top + window.scrollY) + "px"; selBox.style.left = (left + window.scrollX) + "px";
+    selBox.style.width = (right - left) + "px"; selBox.style.height = r.height + "px";
     // Counter-scale the frame + handles so they stay ~9px on screen at any canvas zoom.
     var z = curZoom || 1;
     selBox.style.setProperty("--hs", (9 / z) + "px");
@@ -1174,8 +1202,16 @@ ${CORE_INLINE}
     }
     // Canvas zoom changed → resize the overlay handles so they stay grabbable on screen.
     if (d.type === "lg-zoom"){ curZoom = d.zoom || 1; if (selected) positionSelBox(selected); return; }
-    // Device switch: remember the active breakpoint + refresh the panel (computed values change with width).
-    if (d.type === "lg-device"){ curBp = d.breakpoint || "desktop"; if (selected) select(selected); return; }
+    // Device switch: remember the active breakpoint + refresh the panel (computed values change with
+    // width). The motion freeze is re-evaluated from scratch: the previously selected element may not
+    // even exist at the new width (the desktop marquee is display:none on the phone), and a freeze
+    // held for an invisible element reads as "вся страница зависла".
+    if (d.type === "lg-device"){
+      curBp = d.breakpoint || "desktop";
+      if (selected) select(selected);   // select() unfreezes, then re-freezes only what still moves
+      else freezeMotion(false);
+      return;
+    }
     // Load persisted per-breakpoint rules and build the overrides stylesheet.
     if (d.type === "lg-bp-init"){
       bp = { base:(d.rules&&d.rules.base)||{}, tablet:(d.rules&&d.rules.tablet)||{}, mobile:(d.rules&&d.rules.mobile)||{}, hover:(d.rules&&d.rules.hover)||{}, active:(d.rules&&d.rules.active)||{} };

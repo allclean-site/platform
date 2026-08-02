@@ -37,13 +37,13 @@ export const SITE_FIXES =
   ".page-wrapper{overflow-x:clip;}" +
   ".w-background-video video:not(#lgcmsx),.w-background-video-atom video:not(#lgcmsx){width:100% !important;height:100% !important;}" +
   // The testimonials marquee, finished. The import lost the template's animation wiring, so the
-  // "3 scrolling columns" block rendered as a static 3600px wall of reviews (and the columns that
-  // MARQUEE_FIX puts back had nowhere to scroll). This gives the block its designed shape back:
-  // a window the height of a screen, and columns that drift slowly inside it. Pure CSS on the two
-  // marquee classes only — no clones, no inline styles, so the canvas and the published page render
-  // the same DOM and the editor's motion freeze (animation-play-state) pauses it while editing.
+  // "3 scrolling columns" block rendered as a static 3600-4400px wall of reviews at EVERY width.
+  // This gives the block its designed shape back on desktop AND tablet: a window the height of a
+  // screen, and columns that drift slowly inside it. Pure CSS on the two marquee classes only — no
+  // clones, no inline styles, so the canvas and the published page render the same DOM and the
+  // editor's motion freeze (animation-play-state) pauses it while editing.
   // translateY(min(0px, 840px - 100%)) = a column shorter than the window simply does not move.
-  "@media screen and (min-width:992px){" +
+  "@media screen and (min-width:768px){" +
     ".marquee-thirds{max-height:840px;overflow:hidden;}" +
     ".marquee-thirds>.marquee-vertical{animation:lgcms-marq 64s ease-in-out infinite alternate;}" +
     ".marquee-thirds>.marquee-vertical:nth-child(2){animation-duration:81s;}" +
@@ -51,6 +51,16 @@ export const SITE_FIXES =
   "}" +
   "@keyframes lgcms-marq{from{transform:translateY(0)}to{transform:translateY(min(0px,calc(840px - 100%)))}}" +
   "@media (prefers-reduced-motion:reduce){.marquee-thirds>.marquee-vertical{animation:none !important;}}" +
+  // Phones used to get NO reviews at all: the import hides the whole marquee below 768px and offers
+  // only the "Все отзывы" Google link. The block now shows its first five review cards in one
+  // column (MARQUEE_FIX ranks them; the ones beyond five carry data-lgcms-extra and stay hidden —
+  // the rest live behind the existing Google-reviews button, which already says exactly that).
+  // :not(#lgcmsx) lifts specificity over the site's own `.marquee-vertical.first._2nd` hiding rules.
+  "@media screen and (max-width:767px){" +
+    ".marquee-thirds:not(#lgcmsx){display:grid;grid-template-columns:1fr;max-height:none;overflow:visible;}" +
+    ".marquee-thirds>.marquee-vertical:not(#lgcmsx){display:block;animation:none;}" +
+    ".single-marquee-testimonials[data-lgcms-extra]{display:none !important;}" +
+  "}" +
   // Heading TYPOGRAPHY only — deliberately nothing about size. The broad layer that once lived here
   // also capped max-width and auto-fitted fonts, and that is what froze resizing; these two rules
   // change how TEXT WRAPS and nothing else, and the harness's resize probes now stand guard over
@@ -319,7 +329,28 @@ export const MARQUEE_FIX = [
   // a whole column that spilled out → back into the grid as another column
   "if(/\\bmarquee-vertical\\b/.test(cl)){grid.appendChild(c);continue;}",
   // an orphan review card → into a column's testimonials list so it is not full-width
-  "if(/\\bsingle-marquee-testimonials\\b/.test(cl)){var mt=grid.querySelector('.marquee_testimonials');if(mt)mt.appendChild(c);}}}}",
+  "if(/\\bsingle-marquee-testimonials\\b/.test(cl)){var mt=grid.querySelector('.marquee_testimonials');if(mt)mt.appendChild(c);}}",
+  // The export also scattered the cards 3/2/1, which read as "одна колонка почти пустая" — worst on
+  // a tablet, where the wall was fully visible. The cards are dealt back out greedily (tallest first,
+  // always into the currently shortest list), so the three columns end up roughly equal. Runs on the
+  // real DOM on every load, so it is self-correcting whatever state was saved; when heights are not
+  // measurable (the grid is display:none on phones) it deals by count instead.
+  "var lists=[],cols=grid.querySelectorAll('.marquee-vertical'),ci;",
+  "for(ci=0;ci<cols.length;ci++){var l=cols[ci].querySelector('.marquee_testimonials');if(l)lists.push(l);}",
+  "var cards=[].slice.call(grid.querySelectorAll('.single-marquee-testimonials'));",
+  "if(lists.length>1&&cards.length>lists.length){",
+  "var meas=cards.map(function(c2){return {el:c2,h:c2.offsetHeight||0};});",
+  "var byH=meas.slice().sort(function(a,b){return b.h-a.h;});",
+  "var canMeasure=byH[0].h>0;",
+  "var tot=lists.map(function(){return 0;});",
+  "if(canMeasure){for(i=0;i<byH.length;i++){var best=0,bi;for(bi=1;bi<tot.length;bi++){if(tot[bi]<tot[best])best=bi;}",
+  "lists[best].appendChild(byH[i].el);tot[best]+=byH[i].h;}}",
+  "else{for(i=0;i<meas.length;i++){lists[i%lists.length].appendChild(meas[i].el);}}}",
+  // Rank the cards so the phone layout can show the first five and keep the rest for the reviews
+  // button: data-lgcms-extra marks everything beyond five. Recomputed on every load (and stripped on
+  // publish), so it never becomes stale content.
+  "var all=grid.querySelectorAll('.single-marquee-testimonials'),r;",
+  "for(r=0;r<all.length;r++){if(r>=5)all[r].setAttribute('data-lgcms-extra','1');else all[r].removeAttribute('data-lgcms-extra');}}}",
   "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();",
   "window.addEventListener('load',fix);",
   "})();",
@@ -410,6 +441,15 @@ export function cleanHtml(html, keepIds) {
     .replace(/\s+data-lg-style0="[^"]*"/g, "")
     // the marker the heading-fit rule keys its stylesheet by — recomputed at runtime, never shipped
     .replace(/\s+data-lg-fit="[^"]*"/g, "")
+    // the phone-layout rank MARQUEE_FIX stamps on review cards — recomputed on every load
+    .replace(/\s+data-lgcms-extra="[^"]*"/g, "")
+    // The canvas switches slider autoplay OFF so a slide cannot steal the field mid-edit, stashing
+    // the original value. On the way out the original comes back and the stash is dropped, so the
+    // published page auto-plays exactly as the site was built to.
+    .replace(/<([a-z][a-z0-9-]*)([^>]*?)\s+data-lg-autoplay0="([^"]*)"([^>]*)>/gi, (_m, tag, pre, orig, post) => {
+      const attrs = (pre + post).replace(/\s+data-autoplay="[^"]*"/i, ' data-autoplay="' + orig + '"');
+      return "<" + tag + attrs + ">";
+    })
     // marks a heading line the client emptied, so the panel can offer it back; the `display:none` that
     // actually hides it is a normal inline style and DOES ship — only the bookkeeping is dropped
     .replace(/\s+data-lg-hid="[^"]*"/g, "")

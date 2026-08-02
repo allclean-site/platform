@@ -140,6 +140,31 @@ function midWordBreaks(doc) {
   return hits;
 }
 
+/** The testimonials block, gated: columns roughly equal where the marquee shows (>=768), and the
+ *  phone layout showing its five ranked cards. These are the exact regressions the client reported —
+ *  "одна колонка почти пустая" and "на мобильной вообще нет отзывов" — so they stay guarded. */
+function checkTestimonials(doc, W) {
+  const grid = doc.querySelector(".marquee-thirds");
+  if (!grid) return [];
+  const fails = [];
+  const win = doc.defaultView;
+  if (win.getComputedStyle(grid).display === "none") return [{ kind: "reviews-hidden", W }];
+  const cards = (col) => [...col.querySelectorAll(".single-marquee-testimonials")]
+    .filter((c) => c.getBoundingClientRect().height > 40);
+  if (W >= 768) {
+    const cols = [...grid.children].filter((c) => c.getBoundingClientRect().width > 50);
+    if (cols.length >= 3) {
+      const heights = cols.map((c) => cards(c).reduce((s, x) => s + x.getBoundingClientRect().height, 0));
+      const mx = Math.max(...heights), mn = Math.min(...heights);
+      if (mn <= 0 || mx / mn > 2.2) fails.push({ kind: "reviews-unbalanced", W, heights: heights.map(Math.round) });
+    }
+  } else {
+    const visible = cards(grid).length;
+    if (visible < 3 || visible > 5) fails.push({ kind: "reviews-mobile", W, visible });
+  }
+  return fails;
+}
+
 async function loadFrame(url) {
   return new Promise((resolve) => {
     let settled = false;
@@ -239,10 +264,11 @@ function probeGrids(doc) {
       await sleep(220);                                  // let the reflow settle at the new width
       const of = overflowPx(doc);
       const mid = midWordBreaks(doc);
+      const rev = (url === "/" || url === "/ru/") ? checkTestimonials(doc, W) : [];
       if (W === 1280) pubH[url] = doc.documentElement.scrollHeight;
-      if (of > 2 || mid.length) {
+      if (of > 2 || mid.length || rev.length) {
         out.fail++;
-        out.failures.push({ url, W, overflow: of > 2 ? of : 0, midWord: mid });
+        out.failures.push({ url, W, overflow: of > 2 ? of : 0, midWord: mid, ...(rev.length ? { reviews: rev } : {}) });
       } else out.pass++;
       log(\`\${u + 1}/\${URLS.length}  \${url} @\${W}  pass=\${out.pass} fail=\${out.fail}\`);
     }
