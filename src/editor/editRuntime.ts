@@ -54,54 +54,33 @@ ${CORE_INLINE}
   // fighting its timers; the slide being edited is put back afterwards via the slider's own nav
   // dots. cleanHtml restores the original config on the way to publish, and the synchronous heal
   // above restores it on the way back in - the live site always auto-plays as built.
-  var pausedSlider = null, synthClick = false;
+  var pausedSlider = null;
   // Full engine re-boot, not redraw: this build's redraw() only recomputes sizes and never re-binds
   // a widget whose DOM was swapped under it (measured: after a morph the nav dots stay gone and the
-  // arrows stay dead through any number of redraws). destroy -> ready -> ix2.init is the engine's
-  // own documented sequence for dynamic DOM, and it also re-reads widget CONFIG - which is what the
-  // autoplay pause below relies on.
+  // arrows stay dead through any number of redraws). destroy -> ready is the engine's own sequence
+  // for dynamic DOM. ix2 is deliberately NOT re-initialised: doing so replayed every intro animation
+  // on the page on each pause/resume, which read as the whole canvas "неистово дёргается".
   function sliderRedraw(){
     var W = window.Webflow;
     if (!W) return;
     try { if (W.destroy) W.destroy(); } catch(e){}
     try { if (W.ready) W.ready(); } catch(e){}
-    try { var ix = W.require ? W.require("ix2") : null; if (ix && ix.init) ix.init(); } catch(e){}
   }
-  function activeDot(s){
-    var dots = s.querySelectorAll(".w-slider-nav>div"), i;
-    for (i = 0; i < dots.length; i++){ if ((dots[i].className || "").indexOf("w-active") >= 0) return i; }
-    return 0;
-  }
-  function gotoDot(s, idx){
-    var dots = s.querySelectorAll(".w-slider-nav>div"), d = dots[idx];
-    if (!d) return;
-    synthClick = true;
-    try {
-      d.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-      d.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-      d.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    } catch(e){}
-    synthClick = false;
-  }
+  /** Pause = the engine's own OFF switch. destroy() stops the autoplay timer and every listener with
+   *  the slider EXACTLY where it stands - no reset, no jump, no config to flip and restore. The page
+   *  is being edited; its widgets can sleep. resume re-inits from the current DOM (one clean snap to
+   *  the first slide) and autoplay is back, because the config was never touched. */
   function pauseSlider(s){
     if (pausedSlider === s) return;
-    resumeSlider();
     pausedSlider = s;
-    if ((s.getAttribute("data-autoplay") || "") !== "true") return;   // nothing to pause
-    var idx = activeDot(s);
-    s.setAttribute("data-lg-autoplay0", "true");
-    s.setAttribute("data-autoplay", "false");
-    sliderRedraw();
-    gotoDot(s, idx);
+    var W = window.Webflow;
+    try { if (W && W.destroy) W.destroy(); } catch(e){}
   }
   function resumeSlider(){
     var s = pausedSlider; pausedSlider = null;
-    if (!s || !s.getAttribute("data-lg-autoplay0")) return;
-    var idx = activeDot(s);
-    s.setAttribute("data-autoplay", s.getAttribute("data-lg-autoplay0"));
-    s.removeAttribute("data-lg-autoplay0");
-    sliderRedraw();
-    gotoDot(s, idx);
+    if (!s) return;
+    var W = window.Webflow;
+    try { if (W && W.ready) W.ready(); } catch(e){}
   }
   // A morph that rewires the DOM inside a Webflow widget leaves the engine holding references to
   // nodes that are no longer the ones on the page - the slider freezes mid-cycle, arrows and all.
@@ -1146,11 +1125,12 @@ ${CORE_INLINE}
     // THIS element is the one that moves. Without this, selecting the marquee card froze the strip and
     // then selecting anything static left it frozen forever ("замирает, но не отмирает").
     freezeMotion(false);
-    watchMotion(el);
-    // Editing inside a slider = that slider holds still (its motion is too intermittent for
-    // watchMotion to catch). Selecting anything outside lets it play again.
+    // Editing inside a slider = that slider holds still, handled through the engine's own lifecycle
+    // (its motion is too intermittent for watchMotion to catch - and measuring during the engine's
+    // own pause/resume produced false page-wide freezes, part of the "дёргается" cocktail).
     var slHost = el.closest ? el.closest(".w-slider") : null;
-    if (slHost) pauseSlider(slHost); else resumeSlider();
+    if (slHost) pauseSlider(slHost);
+    else { resumeSlider(); watchMotion(el); }
     hideHover();
     if (handle) handle.style.display = "none"; // ⠿ reorder grip is hover-driven; selected shows the resize box
     positionSelBox(el);
@@ -1676,9 +1656,6 @@ ${CORE_INLINE}
     }, true);
     // Select on click; block links/buttons from navigating while editing.
     document.addEventListener("click", function(e){
-      // Clicks the runtime itself fires at the slider's nav dots (restoring the edited slide after a
-      // pause/resume redraw) are for the ENGINE, not for selection.
-      if (synthClick) return;
       var nav = e.target.closest && e.target.closest("a,button");
       if (nav) e.preventDefault();
       // A click that lands over an image or video selects that media — even when a link, an overlay, or

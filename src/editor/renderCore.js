@@ -86,11 +86,12 @@ export const SITE_FIXES =
   "@media screen and (max-width:991px){" +
     "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx){max-width:100%;}" +
   "}" +
-  // Client's call (2026-08-02): the dark gradient band the template lays over each services card's
-  // photo, under the title, reads as an ugly подложка — off, on every card of that collection. A
-  // soft text shadow keeps the white title readable on light photos.
-  ".card_scroll-service .content_nav-service:not(#lgcmsx){background-image:none;}" +
-  ".card_scroll-service .content_nav-service :is(h1,h2,h3,h4,h5,h6){text-shadow:0 1px 14px rgba(6,20,44,.55);}";
+  // Client's call (2026-08-02): the template's card overlay laid a heavy navy haze across the WHOLE
+  // services photo — that was the ugly подложка. But the title is white and sits over the photo's
+  // bottom edge, so removing the overlay outright left it unreadable (white-on-white where the photo
+  // ends). The classic card treatment does both jobs: a slim fade pinned to the bottom, under the
+  // title only — the photo stays clean, the title stays readable on any image.
+  ".card_scroll-service .content_nav-service:not(#lgcmsx){background-image:linear-gradient(180deg,rgba(12,41,89,0) 55%,rgba(12,41,89,.82) 100%);}";
 
 /**
  * Repairs that exist ONLY inside the editing canvas — never published.
