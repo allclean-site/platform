@@ -21,13 +21,16 @@ const DIRS = "images|video|fonts|js";
 
 /** Canonical → preview (used when rendering markup inside the editor iframe). */
 export function toPreview(html: string): string {
+  // Only ROOT-RELATIVE references are rewritten — a reference is one when the character before the
+  // slash is a delimiter (quote, =, parenthesis, comma, whitespace), never a path character. The
+  // same directory names appear INSIDE absolute urls (cdn.prod.website-files.com/<id>/js/webflow.*)
+  // and the old blind split/join prefixed those too, which 404'd webflow.js in the canvas: every
+  // Webflow widget — the services slider included — was silently dead in the editor while working
+  // on the published site ("бегущая строка зависла в редакторе").
   // Collapse first so an already-rewritten string can't gain another prefix.
   return toCanonical(html)
-    .split("/logo.svg").join(`${BASE}/logo.svg`)
-    .split("/images/").join(`${BASE}/images/`)
-    .split("/video/").join(`${BASE}/video/`)
-    .split("/fonts/").join(`${BASE}/fonts/`)
-    .split("/js/").join(`${BASE}/js/`);
+    .replace(/(^|[^\w.:/-])\/(images|video|fonts|js)\//g, `$1${BASE}/$2/`)
+    .replace(/(^|[^\w.:/-])\/logo\.svg/g, `$1${BASE}/logo.svg`);
 }
 
 /**

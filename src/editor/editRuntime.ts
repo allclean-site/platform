@@ -33,24 +33,71 @@ ${CORE_INLINE}
   var seq = 0, selected = null, lastRange = null;
   // The stale-pin heal (see lg-bp-init) must run once per page load, never on undo/redo restores.
   var bpHealed = false;
-  // THE RULE (пока правишь - ничего не движется) has a third motion engine to cover: a Webflow
-  // slider auto-advances on its own setTimeout, which neither the CSS animation pause nor the GSAP
-  // freeze can reach - on the phone canvas the services slide moved away from under the caret every
-  // three seconds, so the section read as "нельзя редактировать". The engine reads its config from
-  // data-autoplay when it initialises, so the config is flipped SYNCHRONOUSLY here - this script
-  // runs before any DOMContentLoaded handler, Webflow's included. Canvas-only by construction: the
-  // original value rides in data-lg-autoplay0 and cleanHtml restores it on the way to publish, so
-  // the live site keeps auto-playing exactly as built. Arrows and swipes still work while editing.
+  // A pause left over from an earlier editing session must not survive into this load: a block
+  // saved while its slider was paused carries the flipped config, and booting Webflow with it would
+  // leave the canvas slider dead - the opposite of WYSIWYG. Runs SYNCHRONOUSLY (this script executes
+  // before any DOMContentLoaded handler, Webflow's included), so the engine always boots with the
+  // site's own autoplay.
   (function(){
-    var sl = document.querySelectorAll(".w-slider"), i;
+    var sl = document.querySelectorAll("[data-lg-autoplay0]"), i;
     for (i = 0; i < sl.length; i++){
-      var v = sl[i].getAttribute("data-autoplay");
-      if (v === "true" || v === "1"){
-        sl[i].setAttribute("data-lg-autoplay0", v);
-        sl[i].setAttribute("data-autoplay", "false");
-      }
+      sl[i].setAttribute("data-autoplay", sl[i].getAttribute("data-lg-autoplay0"));
+      sl[i].removeAttribute("data-lg-autoplay0");
     }
   })();
+  // ---- Webflow sliders: THE RULE, third engine ----------------------------------------------------
+  // A Webflow slider advances on its own setTimeout - neither the CSS animation pause nor the GSAP
+  // freeze can reach it, and its motion is INTERMITTENT (still for 3s, then a 0.5s jump), so the
+  // measure-two-frames freeze never catches it either: the slide steals the caret mid-edit. The rule
+  // is applied STRUCTURALLY instead: while the selection sits inside a slider, that slider's
+  // autoplay is off. Done through the engine's own config (flip data-autoplay + redraw), never by
+  // fighting its timers; the slide being edited is put back afterwards via the slider's own nav
+  // dots. cleanHtml restores the original config on the way to publish, and the synchronous heal
+  // above restores it on the way back in - the live site always auto-plays as built.
+  var pausedSlider = null, synthClick = false;
+  function sliderMod(){
+    try { return window.Webflow && window.Webflow.require ? window.Webflow.require("slider") : null; } catch(e){ return null; }
+  }
+  function sliderRedraw(){
+    var m = sliderMod();
+    try { if (m && m.redraw) m.redraw(); } catch(e){}
+  }
+  function activeDot(s){
+    var dots = s.querySelectorAll(".w-slider-nav>div"), i;
+    for (i = 0; i < dots.length; i++){ if ((dots[i].className || "").indexOf("w-active") >= 0) return i; }
+    return 0;
+  }
+  function gotoDot(s, idx){
+    var dots = s.querySelectorAll(".w-slider-nav>div"), d = dots[idx];
+    if (!d) return;
+    synthClick = true;
+    try {
+      d.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      d.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      d.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    } catch(e){}
+    synthClick = false;
+  }
+  function pauseSlider(s){
+    if (pausedSlider === s) return;
+    resumeSlider();
+    pausedSlider = s;
+    if ((s.getAttribute("data-autoplay") || "") !== "true") return;   // nothing to pause
+    var idx = activeDot(s);
+    s.setAttribute("data-lg-autoplay0", "true");
+    s.setAttribute("data-autoplay", "false");
+    sliderRedraw();
+    gotoDot(s, idx);
+  }
+  function resumeSlider(){
+    var s = pausedSlider; pausedSlider = null;
+    if (!s || !s.getAttribute("data-lg-autoplay0")) return;
+    var idx = activeDot(s);
+    s.setAttribute("data-autoplay", s.getAttribute("data-lg-autoplay0"));
+    s.removeAttribute("data-lg-autoplay0");
+    sliderRedraw();
+    gotoDot(s, idx);
+  }
   // A desktop edit touched the base rule layer → the host has to be told when the drag is committed.
   var baseDirty = false;
   // ---- Per-breakpoint overrides ----------------------------------------------------------------
@@ -1073,6 +1120,7 @@ ${CORE_INLINE}
     hideSelBox(); hideHover();
     if (handle) handle.style.display = "none";
     freezeMotion(false);
+    resumeSlider();
     parent.postMessage({ type:"lg-elem-deselect" }, "*");
   }
 
@@ -1084,6 +1132,10 @@ ${CORE_INLINE}
     // then selecting anything static left it frozen forever ("замирает, но не отмирает").
     freezeMotion(false);
     watchMotion(el);
+    // Editing inside a slider = that slider holds still (its motion is too intermittent for
+    // watchMotion to catch). Selecting anything outside lets it play again.
+    var slHost = el.closest ? el.closest(".w-slider") : null;
+    if (slHost) pauseSlider(slHost); else resumeSlider();
     hideHover();
     if (handle) handle.style.display = "none"; // ⠿ reorder grip is hover-driven; selected shows the resize box
     positionSelBox(el);
@@ -1210,6 +1262,11 @@ ${CORE_INLINE}
       curBp = d.breakpoint || "desktop";
       if (selected) select(selected);   // select() unfreezes, then re-freezes only what still moves
       else freezeMotion(false);
+      // Webflow builds its widgets for the width the page LOADED at; the canvas loads at desktop, so
+      // a slider that only exists on the phone came up sized against a hidden layout and just stood
+      // there - "бегущая строка зависла". The device switch resizes the iframe without a reload, so
+      // the engine is told to rebuild for the new width the same way it would on a real resize.
+      setTimeout(sliderRedraw, 150);
       return;
     }
     // Load persisted per-breakpoint rules and build the overrides stylesheet.
@@ -1600,6 +1657,9 @@ ${CORE_INLINE}
     }, true);
     // Select on click; block links/buttons from navigating while editing.
     document.addEventListener("click", function(e){
+      // Clicks the runtime itself fires at the slider's nav dots (restoring the edited slide after a
+      // pause/resume redraw) are for the ENGINE, not for selection.
+      if (synthClick) return;
       var nav = e.target.closest && e.target.closest("a,button");
       if (nav) e.preventDefault();
       // A click that lands over an image or video selects that media — even when a link, an overlay, or

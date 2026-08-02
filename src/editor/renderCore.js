@@ -43,8 +43,12 @@ export const SITE_FIXES =
   // clones, no inline styles, so the canvas and the published page render the same DOM and the
   // editor's motion freeze (animation-play-state) pauses it while editing.
   // translateY(min(0px, 840px - 100%)) = a column shorter than the window simply does not move.
+  // The window's edges FADE instead of chopping a card mid-sentence: a hard clip read as "блок
+  // обрезан", a fade reads as a window with more content drifting through it — which it is.
   "@media screen and (min-width:768px){" +
-    ".marquee-thirds{max-height:840px;overflow:hidden;}" +
+    ".marquee-thirds{max-height:840px;overflow:hidden;" +
+      "-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 28px,#000 calc(100% - 96px),transparent 100%);" +
+      "mask-image:linear-gradient(180deg,transparent 0,#000 28px,#000 calc(100% - 96px),transparent 100%);}" +
     ".marquee-thirds>.marquee-vertical{animation:lgcms-marq 64s ease-in-out infinite alternate;}" +
     ".marquee-thirds>.marquee-vertical:nth-child(2){animation-duration:81s;}" +
     ".marquee-thirds>.marquee-vertical:nth-child(3){animation-duration:55s;}" +
@@ -59,7 +63,7 @@ export const SITE_FIXES =
   "@media screen and (max-width:767px){" +
     ".marquee-thirds:not(#lgcmsx){display:grid;grid-template-columns:1fr;max-height:none;overflow:visible;}" +
     ".marquee-thirds>.marquee-vertical:not(#lgcmsx){display:block;animation:none;}" +
-    ".single-marquee-testimonials[data-lgcms-extra]{display:none !important;}" +
+    ".single-marquee-testimonials[data-lgcms-extra],.card_testimonial-marquee[data-lgcms-extra]{display:none !important;}" +
   "}" +
   // Heading TYPOGRAPHY only — deliberately nothing about size. The broad layer that once lived here
   // also capped max-width and auto-fitted fonts, and that is what froze resizing; these two rules
@@ -319,37 +323,50 @@ export const VIDEO_BOOT = [
  * Done at runtime (no DOM parser needed in the Node publisher) on both the canvas and the published
  * page, so they match. Idempotent: once the strays are inside the grid there is nothing left to move.
  */
+// The block's real content is NINE distinct reviews; the export shipped every one of them TWICE
+// (seam copies for a loop that never ran — the card unit is .card_testimonial-marquee, sometimes
+// wrapped in .single-marquee-testimonials) and scattered them so unevenly that one column stood
+// almost empty while another showed the same review twice, side by side. The block is rebuilt from
+// its own content on every load: strays back into the grid, cards DEDUPLICATED by their text (our
+// ping-pong window needs no seam copies — a visitor must never see one review twice), then dealt
+// tallest-first into the shortest column so the three columns come out even. Self-correcting
+// whatever state was saved, and what the canvas saves is already the clean arrangement.
 export const MARQUEE_FIX = [
-  "(function(){function fix(){",
+  "(function(){function txt(n){return (n.textContent||'').replace(/\\s+/g,' ').trim();}",
+  "function fix(){",
   "var grids=document.querySelectorAll('.marquee-thirds'),g,i;",
   "for(g=0;g<grids.length;g++){var grid=grids[g],par=grid.parentElement;if(!par)continue;",
   "var kids=[].slice.call(par.children),k;",
   "for(k=0;k<kids.length;k++){var c=kids[k];if(c===grid)continue;",
   "var cl=c.className||'';",
-  // a whole column that spilled out → back into the grid as another column
   "if(/\\bmarquee-vertical\\b/.test(cl)){grid.appendChild(c);continue;}",
-  // an orphan review card → into a column's testimonials list so it is not full-width
-  "if(/\\bsingle-marquee-testimonials\\b/.test(cl)){var mt=grid.querySelector('.marquee_testimonials');if(mt)mt.appendChild(c);}}",
-  // The export also scattered the cards 3/2/1, which read as "одна колонка почти пустая" — worst on
-  // a tablet, where the wall was fully visible. The cards are dealt back out greedily (tallest first,
-  // always into the currently shortest list), so the three columns end up roughly equal. Runs on the
-  // real DOM on every load, so it is self-correcting whatever state was saved; when heights are not
-  // measurable (the grid is display:none on phones) it deals by count instead.
+  "if(/\\bsingle-marquee-testimonials\\b/.test(cl)){var mt0=grid.querySelector('.marquee_testimonials');if(mt0)mt0.appendChild(c);}}",
   "var lists=[],cols=grid.querySelectorAll('.marquee-vertical'),ci;",
   "for(ci=0;ci<cols.length;ci++){var l=cols[ci].querySelector('.marquee_testimonials');if(l)lists.push(l);}",
-  "var cards=[].slice.call(grid.querySelectorAll('.single-marquee-testimonials'));",
-  "if(lists.length>1&&cards.length>lists.length){",
-  "var meas=cards.map(function(c2){return {el:c2,h:c2.offsetHeight||0};});",
-  "var byH=meas.slice().sort(function(a,b){return b.h-a.h;});",
-  "var canMeasure=byH[0].h>0;",
+  "if(lists.length<2)continue;",
+  // The unit is the CARD. The export nested cards in .single-marquee-testimonials GROUPS of two and
+  // three (one column ended up holding eleven cards, another one) - a group can never be balanced,
+  // and removing a "duplicate" group would take unique reviews with it. Groups and lists stack with
+  // the same 16px gap, so dissolving the groups changes nothing visually.
+  "var cards=[].slice.call(grid.querySelectorAll('.card_testimonial-marquee')),uniq=[],seen={},cd;",
+  "for(cd=0;cd<cards.length;cd++){var key=txt(cards[cd]);if(!key)continue;",
+  "if(seen[key]){var p0=cards[cd].parentNode;if(p0)p0.removeChild(cards[cd]);continue;}",
+  "seen[key]=1;uniq.push(cards[cd]);}",
+  "if(uniq.length<lists.length)continue;",
+  // Balanced by TEXT LENGTH, not by measured height: a card's height is proportional to its text at
+  // any column width, while offsetHeight depends on the width the page happened to LOAD at (and is
+  // zero for cards a narrower layout hides) - dealing by it balanced one width and skewed the rest.
+  "function wt(n){return txt(n).length+40;}",
+  "uniq.sort(function(a,b){return wt(b)-wt(a);});",
   "var tot=lists.map(function(){return 0;});",
-  "if(canMeasure){for(i=0;i<byH.length;i++){var best=0,bi;for(bi=1;bi<tot.length;bi++){if(tot[bi]<tot[best])best=bi;}",
-  "lists[best].appendChild(byH[i].el);tot[best]+=byH[i].h;}}",
-  "else{for(i=0;i<meas.length;i++){lists[i%lists.length].appendChild(meas[i].el);}}}",
-  // Rank the cards so the phone layout can show the first five and keep the rest for the reviews
-  // button: data-lgcms-extra marks everything beyond five. Recomputed on every load (and stripped on
-  // publish), so it never becomes stale content.
-  "var all=grid.querySelectorAll('.single-marquee-testimonials'),r;",
+  "for(i=0;i<uniq.length;i++){var best=0,bi;for(bi=1;bi<tot.length;bi++){if(tot[bi]<tot[best])best=bi;}",
+  "lists[best].appendChild(uniq[i]);tot[best]+=wt(uniq[i]);}",
+  // group shells left empty by the deal are gone for good
+  "var shells=grid.querySelectorAll('.single-marquee-testimonials'),sh;",
+  "for(sh=shells.length-1;sh>=0;sh--){if(!shells[sh].querySelector('.card_testimonial-marquee'))shells[sh].parentNode.removeChild(shells[sh]);}",
+  // Rank the cards so the phone layout shows the first five and keeps the rest for the reviews
+  // button. Recomputed on every load and stripped on publish, so it never goes stale.
+  "var all=grid.querySelectorAll('.card_testimonial-marquee'),r;",
   "for(r=0;r<all.length;r++){if(r>=5)all[r].setAttribute('data-lgcms-extra','1');else all[r].removeAttribute('data-lgcms-extra');}}}",
   "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();",
   "window.addEventListener('load',fix);",

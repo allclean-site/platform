@@ -149,7 +149,8 @@ function checkTestimonials(doc, W) {
   const fails = [];
   const win = doc.defaultView;
   if (win.getComputedStyle(grid).display === "none") return [{ kind: "reviews-hidden", W }];
-  const cards = (col) => [...col.querySelectorAll(".single-marquee-testimonials")]
+  // The card UNIT is .card_testimonial-marquee (sometimes wrapped in .single-marquee-testimonials).
+  const cards = (col) => [...col.querySelectorAll(".card_testimonial-marquee")]
     .filter((c) => c.getBoundingClientRect().height > 40);
   if (W >= 768) {
     const cols = [...grid.children].filter((c) => c.getBoundingClientRect().width > 50);
@@ -158,6 +159,9 @@ function checkTestimonials(doc, W) {
       const mx = Math.max(...heights), mn = Math.min(...heights);
       if (mn <= 0 || mx / mn > 2.2) fails.push({ kind: "reviews-unbalanced", W, heights: heights.map(Math.round) });
     }
+    // A visitor must never see the same review twice — the export's seam copies get deduplicated.
+    const texts = cards(grid).map((c) => c.textContent.replace(/\s+/g, " ").trim());
+    if (new Set(texts).size !== texts.length) fails.push({ kind: "reviews-duplicates", W });
   } else {
     const visible = cards(grid).length;
     if (visible < 3 || visible > 5) fails.push({ kind: "reviews-mobile", W, visible });
