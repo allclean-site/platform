@@ -59,7 +59,13 @@ export const SITE_FIXES =
   // horizontal scrollbar at some widths (measured on the RU blog at 768). Clipping the x-axis on the
   // top wrapper removes the whole class at the root; `clip` (not `hidden`) keeps vertical scroll and
   // sticky positioning intact, and only the x-axis is affected.
-  ".page-wrapper{overflow-x:clip;}";
+  ".page-wrapper{overflow-x:clip;}" +
+  // A background video always fills its wrapper — it is `position:absolute` and meant to cover the box,
+  // never to be sized on its own. A stray resize once wrote `width:20px` onto the hero video and saved
+  // it, collapsing it to a sliver. Forcing the inner <video> to fill (id-level specificity, so it beats
+  // that saved per-element override) heals the squish on the live site without anyone resetting an edit,
+  // and makes resizing the video meaningless — the wrapper is the thing you size.
+  ".w-background-video video:not(#lgcmsx),.w-background-video-atom video:not(#lgcmsx){width:100% !important;height:100% !important;}";
 
 /**
  * THE RULE: a size measured on one screen may never be applied unchanged on another.

@@ -878,13 +878,22 @@ ${CORE_INLINE}
   // essentially a single image or video — one media inside, filling most of the box — select that
   // media instead, so "заменить фото/видео" is always one click away. A section that merely contains a
   // small logo is untouched (the media must cover most of the wrapper).
-  function preferMedia(el){
+  function preferMedia(el, x, y){
     var k = kindOf(el);
-    if (k === "image" || k === "video" || k === "text" || k === "link") return el;
+    if (k === "image" || k === "video") return el;
     var media = el.querySelectorAll ? el.querySelectorAll("img,video") : [];
     if (media.length !== 1) return el;
-    var m = media[0], er = el.getBoundingClientRect(), mr = m.getBoundingClientRect();
-    if (er.width * er.height > 0 && mr.width * mr.height >= er.width * er.height * 0.5) return m;
+    var m = media[0];
+    // The click landed ON the single media — take it, even inside a card <a> with a caption. This is
+    // how a photo click on a services card reaches "заменить фото" instead of selecting the link.
+    if (x != null){
+      var b = m.getBoundingClientRect();
+      if (b.width > 2 && b.height > 2 && x >= b.left - 2 && x <= b.right + 2 && y >= b.top - 2 && y <= b.bottom + 2) return m;
+    }
+    // A wrapper whose whole point IS the media (no own text — a background-video box, an image tile)
+    // selects that media even when it has been collapsed to a sliver by a bad edit, so it can be fixed
+    // or replaced. Where the wrapper also has its own text, a plain click keeps editing the text.
+    if (!(el.textContent || "").trim()) return m;
     return el;
   }
 
@@ -1458,17 +1467,23 @@ ${CORE_INLINE}
     document.addEventListener("click", function(e){
       var nav = e.target.closest && e.target.closest("a,button");
       if (nav) e.preventDefault();
-      // A click that lands on an image or video always selects that media — even inside a link the
-      // editor made contenteditable (the services cards are <a> wrappers, so a photo click was being
-      // swallowed as "Ссылка" with no replace button). Media wins over the contenteditable ancestor.
-      var mediaHit = e.target.closest && e.target.closest("img,video");
-      if (mediaHit && mediaHit.getAttribute("data-lg-id")){ select(mediaHit); return; }
+      // A click that lands over an image or video selects that media — even when a link, an overlay, or
+      // the card's own <a> sits on top of it (the services cards are <a> wrappers, and a Webflow
+      // background video hides its <video> under decorative layers). The whole stack under the cursor is
+      // inspected, not just e.target, so the photo/video wins over whatever covers it — that is what
+      // brings back "заменить фото/видео". A media element that is not directly hittable is still found
+      // below via preferMedia.
+      var stack = document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [];
+      for (var si = 0; si < stack.length; si++){
+        var se = stack[si];
+        if ((se.tagName === "IMG" || se.tagName === "VIDEO") && se.getAttribute("data-lg-id")){ select(se); return; }
+      }
       // Otherwise prefer the whole editable field (block text / standalone link) over a word-div inside it.
       var ce = e.target.closest && e.target.closest('[contenteditable="true"]');
       var el = ce || (e.target.closest && e.target.closest("[data-lg-id]"));
       // Clicking away from everything editable is how the client says "done" — the selection goes and
       // anything that was held still starts moving again.
-      if (el) select(ce ? el : preferMedia(el)); else deselect();
+      if (el) select(preferMedia(el, e.clientX, e.clientY)); else deselect();
     }, true);
     // Hover highlight: outline + label chip on the element under the cursor (not while dragging/selected).
     document.addEventListener("mouseover", function(e){
