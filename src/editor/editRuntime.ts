@@ -1426,6 +1426,13 @@ ${CORE_INLINE}
     st.textContent =
       // The same repairs the published page gets, so the device preview tells the truth about them.
       SITE_FIXES +
+      // EDITOR-ONLY: a hero sized with min-height 100vh is one screen tall on the real site, but the
+      // canvas makes the iframe as tall as the WHOLE page (so it all shows without inner scroll) — so
+      // 100vh there means the whole page, the hero fills it, the page grows, and it spirals to tens of
+      // thousands of px (the /about page rendered a 48000px empty block). Neutralising min-height on
+      // hero boxes in the canvas makes them content-tall here; the published page keeps its real 100vh.
+      // Verified: /about hero 48670 to 678, and the content-sized home hero is unchanged (929).
+      "[class*=hero]:not(#lgcmsx){min-height:auto !important;}" +
       ".lg-selected{outline:2px solid #7c3aed !important; outline-offset:2px; cursor:pointer;}" +
       "[data-lg-block] img{cursor:pointer;}" +
       // Motion is held still while a moving element is being edited (see freezeMotion). Videos keep
