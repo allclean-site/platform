@@ -306,11 +306,41 @@ export const TEXT_FIT = [
   "})();",
 ].join("");
 
-/** The repairs every rendered page gets: site CSS fixes + the video and heading-fit guarantees. */
+/**
+ * The testimonials marquee is put back together.
+ *
+ * The imported "3 vertical columns" review marquee is broken in the original export: its grid
+ * (`.marquee-thirds`, three columns) holds only two of the columns, and the third `.marquee-vertical`
+ * plus a stray review card spilled out as full-width siblings AFTER the grid. On the live site this
+ * hides far below the fold, but in the editor's whole-page view it reads as a broken block — two
+ * columns, then a full-width row of reviews. Verified: the stray column and card belong in the grid;
+ * putting them back yields a clean 3×371px marquee and shrinks the section from ~4020px to ~2840px.
+ *
+ * Done at runtime (no DOM parser needed in the Node publisher) on both the canvas and the published
+ * page, so they match. Idempotent: once the strays are inside the grid there is nothing left to move.
+ */
+export const MARQUEE_FIX = [
+  "(function(){function fix(){",
+  "var grids=document.querySelectorAll('.marquee-thirds'),g,i;",
+  "for(g=0;g<grids.length;g++){var grid=grids[g],par=grid.parentElement;if(!par)continue;",
+  "var kids=[].slice.call(par.children),k;",
+  "for(k=0;k<kids.length;k++){var c=kids[k];if(c===grid)continue;",
+  "var cl=c.className||'';",
+  // a whole column that spilled out → back into the grid as another column
+  "if(/\\bmarquee-vertical\\b/.test(cl)){grid.appendChild(c);continue;}",
+  // an orphan review card → into a column's testimonials list so it is not full-width
+  "if(/\\bsingle-marquee-testimonials\\b/.test(cl)){var mt=grid.querySelector('.marquee_testimonials');if(mt)mt.appendChild(c);}}}}",
+  "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();",
+  "window.addEventListener('load',fix);",
+  "})();",
+].join("");
+
+/** The repairs every rendered page gets: site CSS fixes + the video, heading-fit and marquee guarantees. */
 export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
     '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>" +
-    '<script id="lgcms-fit">' + TEXT_FIT + "</scr" + "ipt>";
+    '<script id="lgcms-fit">' + TEXT_FIT + "</scr" + "ipt>" +
+    '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>";
 }
 
 /** Put those repairs in the page head — same position for the publisher and the editing canvas. */
