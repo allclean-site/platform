@@ -36,6 +36,12 @@ export declare function siteRuntimeTags(): string;
 export declare function dropHeadingFontPins(html: string): string;
 /** Those repairs, placed in the page head of the given html. */
 export declare function withSiteRuntime(html: string): string;
+/** Canvas-only CSS repairs (100vh-hero feedback spiral) — injected by the runtime AND the harness. */
+export declare const EDITOR_ONLY_CSS: string;
+/** The editor's block wrapper (marker div, display:contents) — shared with the harness. */
+export declare function wrapBlockForEdit(html: string, id: string): string;
+/** Stamp stable per-element ids (blockId~index) — shared by the runtime and the harness. */
+export declare function stampIds(root: ParentNode, blockId: string): void;
 
 export declare function fluidFont(v: string): string;
 /** A link made safe to publish: anything but a known navigation scheme becomes "#". */

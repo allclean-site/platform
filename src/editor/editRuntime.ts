@@ -16,7 +16,7 @@ import type { ImportedBlock, ImportedPage } from "./reassemble";
 // the editing canvas generates literally the same code the publisher runs — the drift this project
 // kept hitting is impossible by construction, not by remembering to patch three copies.
 import renderCoreSrc from "./renderCore.js?raw";
-import { relaxLegacyChains, withSiteRuntime, dropHeadingFontPins } from "./renderCore.js";
+import { relaxLegacyChains, withSiteRuntime, wrapBlockForEdit } from "./renderCore.js";
 
 /** The core, ready to paste inside the runtime IIFE (module `export` keywords removed). */
 const CORE_INLINE = renderCoreSrc.replace(/^export\s+/gm, "");
@@ -31,6 +31,8 @@ ${CORE_INLINE}
   // -----------------------------------------------------------------------------------------------
   var W = "[data-lg-block]";
   var seq = 0, selected = null, lastRange = null;
+  // The stale-pin heal (see lg-bp-init) must run once per page load, never on undo/redo restores.
+  var bpHealed = false;
   // A desktop edit touched the base rule layer → the host has to be told when the drag is committed.
   var baseDirty = false;
   // ---- Per-breakpoint overrides ----------------------------------------------------------------
@@ -255,6 +257,69 @@ ${CORE_INLINE}
     }
     return changed;
   }
+  // ---- split-text flattening ---------------------------------------------------------------------
+  // A heading the previous editors touched is often not text at all: its words live in per-line divs
+  // (Webflow split text) or under a tower of nested spans (the RU hero carries eighteen). Words can
+  // never move between those boxes, so dragging the field wider leaves the lines exactly where they
+  // were - "слова не встают по размеру контейнера". Dissolving the wrappers into one natural flow is
+  // what makes width mean width again. It happens ONLY on the client's own horizontal resize of that
+  // field (taking the handle IS saying "let the text follow the box"), never as a page-wide pass -
+  // an untouched heading keeps its designed frozen lines to the pixel.
+  function lineWrapsOnly(el){
+    var i, n;
+    if (!el.children || !el.children.length) return false;
+    // a single flat child is already one flow - nothing to dissolve
+    if (el.children.length === 1 && !el.children[0].children.length) return false;
+    for (i = 0; i < el.childNodes.length; i++){
+      n = el.childNodes[i];
+      if (n.nodeType === 3){ if (n.nodeValue.replace(/[\\s\\u00a0]+/g, "") !== "") return false; }
+      else if (n.nodeType === 1){
+        if (n.tagName === "BR") continue;
+        if (n.tagName !== "DIV" && n.tagName !== "SPAN" && !/^H[1-6]$/.test(n.tagName)) return false;
+        // anything beyond pure text inside means this is a composed widget, not split text - keep out
+        if (n.querySelector("img,video,a,button,input,select,ul,ol,table,iframe,svg")) return false;
+      } else if (n.nodeType !== 8) return false;
+    }
+    return true;
+  }
+  /** Merge a split-text field into ONE text flow inside its first visible line element (that element
+   *  keeps the site's typography classes). Explicit br breaks the client typed are kept; hidden
+   *  legacy lines (display:none leftovers of older editors) are dropped for good. */
+  function flattenTextFlow(el){
+    if (!lineWrapsOnly(el)) return false;
+    var parts = [], first = null, k, q, kids = [].slice.call(el.children);
+    function hidden(e){ return getComputedStyle(e).display === "none"; }
+    function collect(node, out){
+      for (var i = 0; i < node.childNodes.length; i++){
+        var n = node.childNodes[i];
+        if (n.nodeType === 3){ out.push({ t: n.nodeValue.replace(/[\\s\\u00a0]+/g, " ") }); }
+        else if (n.nodeType === 1){
+          if (n.tagName === "BR") out.push({ br: 1 });
+          else if (!hidden(n)) collect(n, out);
+        }
+      }
+    }
+    for (k = 0; k < kids.length; k++){
+      if (hidden(kids[k])) continue;
+      if (!first) first = kids[k];
+      var seg = []; collect(kids[k], seg);
+      var has = false;
+      for (q = 0; q < seg.length; q++){ if (seg[q].br || seg[q].t.replace(/ /g, "") !== ""){ has = true; break; } }
+      if (!has) continue;
+      if (parts.length) parts.push({ t: " " });      // separate lines become a normal word gap
+      for (q = 0; q < seg.length; q++) parts.push(seg[q]);
+    }
+    if (!first || !parts.length) return false;
+    while (el.firstChild) el.removeChild(el.firstChild);
+    while (first.firstChild) first.removeChild(first.firstChild);
+    for (k = 0; k < parts.length; k++){
+      if (parts[k].br) first.appendChild(document.createElement("br"));
+      else first.appendChild(document.createTextNode(parts[k].t));
+    }
+    first.normalize();
+    el.appendChild(first);
+    return true;
+  }
   function kindOf(el){
     if (el.tagName==="IMG") return "image";
     if (el.tagName==="VIDEO") return "video";
@@ -264,21 +329,8 @@ ${CORE_INLINE}
     if (el.getAttribute("contenteditable")==="true") return "text";
     return el.children && el.children.length ? "container" : "text";
   }
-  // Stamp every element with a stable id so ANY element (incl. containers) can be selected/edited.
-  // Ids are BLOCK-SCOPED (blockId + "~" + index-within-block): deterministic across reloads and
-  // collision-free between blocks, so per-breakpoint @media rules keyed to data-lg-id stay stable
-  // regardless of which other blocks were edited.
-  function stampIds(root, blockId){
-    var all = root.querySelectorAll("*");
-    // Allocate above whatever ids the markup already carries, so an id is assigned ONCE and keeps
-    // pointing at the same element for the life of the block.
-    var next = 0, pre = "" + blockId + "~";
-    for (var j=0;j<all.length;j++){
-      var cur = all[j].getAttribute("data-lg-id");
-      if (cur && cur.indexOf(pre) === 0){ var n = parseInt(cur.slice(pre.length), 10); if (n >= next) next = n + 1; }
-    }
-    for (var i=0;i<all.length;i++){ if (!all[i].getAttribute("data-lg-id")) all[i].setAttribute("data-lg-id", pre + (next++)); }
-  }
+  // stampIds now lives in the injected render core (top of this IIFE): the regression harness stamps
+  // its canvas-twin pages with the SAME function, so per-element ids mean the same thing in both.
   function label(el){
     var t = el.tagName;
     if (/^H[1-6]$/.test(t)) return "Заголовок";
@@ -770,6 +822,12 @@ ${CORE_INLINE}
       }
     }
     isDragging = true; hideHover(); txnBegin();   // whole drag = one undo step
+    // A split-text field cannot re-wrap - dissolve it into one flow the moment the client takes a
+    // horizontal handle, so the words actually follow the box being dragged. One undo step with the
+    // drag itself; the block is saved by the same commit.
+    if ((dir.indexOf("e") >= 0 || dir.indexOf("w") >= 0) && el.isContentEditable && el.children.length){
+      flattenTextFlow(el);
+    }
     function move(ev){
       var dw = ev.clientX - startX, dh = ev.clientY - startY, w = startW, h = startH;
       if (dir.indexOf("e") >= 0) w = Math.max(20, startW + dw);
@@ -792,6 +850,17 @@ ${CORE_INLINE}
           var own = gridPair.tracks[gridPair.idx] + delta;
           var other = gridPair.tracks[gridPair.mate] - delta;
           if (own >= 40 && other >= 40){
+            // From this gesture on, the TRACKS govern the row. A width an old drag once saved onto a
+            // column's own box would otherwise sit under the tracks as that column's minimum and veto
+            // this very gesture - the boundary drags and nothing moves (the dead подложка bug).
+            if (!gridPair.cleared){
+              gridPair.cleared = true;
+              for (var q3 = 0; q3 < rg.row.length; q3++){
+                var it = rg.row[q3].el;
+                setStyleProp(it, "width", ""); setStyleProp(it, "max-width", "");
+                setStyleProp(it, "min-width", ""); setStyleProp(it, "flex-shrink", "");
+              }
+            }
             var line = gridPair.tracks.slice();
             line[gridPair.idx] = own; line[gridPair.mate] = other;
             var value = line.map(function(t){ return Math.round(t) + "px"; }).join(" ");
@@ -1110,7 +1179,34 @@ ${CORE_INLINE}
     // Load persisted per-breakpoint rules and build the overrides stylesheet.
     if (d.type === "lg-bp-init"){
       bp = { base:(d.rules&&d.rules.base)||{}, tablet:(d.rules&&d.rules.tablet)||{}, mobile:(d.rules&&d.rules.mobile)||{}, hover:(d.rules&&d.rules.hover)||{}, active:(d.rules&&d.rules.active)||{} };
-      renderOverrides(); if (selected) select(selected); return;
+      // Heal a conflict older saves carry: when a grid's column split is governed by an override,
+      // its DIRECT children must not be pinned to their own widths - the pin acts as the column's
+      // minimum and the split silently stops responding (drag looks dead until the pin dies). The
+      // pin is dropped from the DATA, and the host is told so the heal persists past this load.
+      // ONLY on the first init of a page: lg-bp-init is also how undo/redo restore breakpoint state,
+      // and healing those restores re-recorded history on every step - undo then popped its own
+      // heal entries forever and looked completely dead.
+      if (!bpHealed){
+        bpHealed = true;
+        var bs0 = bp.base || {}, healed = false, gid, ci, cid, gel;
+        for (gid in bs0){
+          if (!bs0[gid] || !bs0[gid]["grid-template-columns"]) continue;
+          gel = document.querySelector('[data-lg-id="' + gid + '"]');
+          if (!gel) continue;
+          for (ci = 0; ci < gel.children.length; ci++){
+            cid = gel.children[ci].getAttribute ? gel.children[ci].getAttribute("data-lg-id") : null;
+            if (cid && bs0[cid] && bs0[cid]["width"]){
+              delete bs0[cid]["width"];
+              if (!Object.keys(bs0[cid]).length) delete bs0[cid];
+              gel.children[ci].style.removeProperty("width");
+              healed = true;
+            }
+          }
+        }
+        if (healed) parent.postMessage({ type:"lg-bp-changed", rules: bp }, "*");
+      }
+      renderOverrides();
+      if (selected) select(selected); return;
     }
     // Layers panel: hide/show an element (persisted as inline display:none in the block html).
     if (d.type === "lg-elem-hide"){
@@ -1426,13 +1522,9 @@ ${CORE_INLINE}
     st.textContent =
       // The same repairs the published page gets, so the device preview tells the truth about them.
       SITE_FIXES +
-      // EDITOR-ONLY: a hero sized with min-height 100vh is one screen tall on the real site, but the
-      // canvas makes the iframe as tall as the WHOLE page (so it all shows without inner scroll) — so
-      // 100vh there means the whole page, the hero fills it, the page grows, and it spirals to tens of
-      // thousands of px (the /about page rendered a 48000px empty block). Neutralising min-height on
-      // hero boxes in the canvas makes them content-tall here; the published page keeps its real 100vh.
-      // Verified: /about hero 48670 to 678, and the content-sized home hero is unchanged (929).
-      "[class*=hero]:not(#lgcmsx){min-height:auto !important;}" +
+      // Canvas-only repairs (the 100vh-hero feedback spiral) - defined in the render core so the
+      // regression harness builds its canvas-twins with exactly this CSS.
+      EDITOR_ONLY_CSS +
       ".lg-selected{outline:2px solid #7c3aed !important; outline-offset:2px; cursor:pointer;}" +
       "[data-lg-block] img{cursor:pointer;}" +
       // Motion is held still while a moving element is being edited (see freezeMotion). Videos keep
@@ -1554,10 +1646,10 @@ ${CORE_INLINE}
 })();
 `;
 
-// dropHeadingFontPins runs here as well as in reassemble(): the canvas must show what the publisher
-// writes, and a block saved from a canvas that never had the pins cannot put them back.
-const wrap = (b: ImportedBlock) =>
-  `<div data-lg-block="${b.id}" style="display:contents">${dropHeadingFontPins(b.content.html)}</div>`;
+// dropHeadingFontPins runs inside wrapBlockForEdit as well as in reassemble(): the canvas must show
+// what the publisher writes, and a block saved from a canvas that never had the pins cannot put them
+// back. The wrapper itself is defined in the render core, shared with the regression harness.
+const wrap = (b: ImportedBlock) => wrapBlockForEdit(b.content.html, b.id);
 
 export function reassembleForEdit(p: ImportedPage): string {
   let body: string;

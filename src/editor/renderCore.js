@@ -35,7 +35,83 @@ export const MQ = { tablet: "(max-width: 991px)", mobile: "(max-width: 479px)" }
 export const SITE_FIXES =
   "@media screen and (max-width:991px){.right_home-features{min-width:0}}" +
   ".page-wrapper{overflow-x:clip;}" +
-  ".w-background-video video:not(#lgcmsx),.w-background-video-atom video:not(#lgcmsx){width:100% !important;height:100% !important;}";
+  ".w-background-video video:not(#lgcmsx),.w-background-video-atom video:not(#lgcmsx){width:100% !important;height:100% !important;}" +
+  // The testimonials marquee, finished. The import lost the template's animation wiring, so the
+  // "3 scrolling columns" block rendered as a static 3600px wall of reviews (and the columns that
+  // MARQUEE_FIX puts back had nowhere to scroll). This gives the block its designed shape back:
+  // a window the height of a screen, and columns that drift slowly inside it. Pure CSS on the two
+  // marquee classes only — no clones, no inline styles, so the canvas and the published page render
+  // the same DOM and the editor's motion freeze (animation-play-state) pauses it while editing.
+  // translateY(min(0px, 840px - 100%)) = a column shorter than the window simply does not move.
+  "@media screen and (min-width:992px){" +
+    ".marquee-thirds{max-height:840px;overflow:hidden;}" +
+    ".marquee-thirds>.marquee-vertical{animation:lgcms-marq 64s ease-in-out infinite alternate;}" +
+    ".marquee-thirds>.marquee-vertical:nth-child(2){animation-duration:81s;}" +
+    ".marquee-thirds>.marquee-vertical:nth-child(3){animation-duration:55s;}" +
+  "}" +
+  "@keyframes lgcms-marq{from{transform:translateY(0)}to{transform:translateY(min(0px,calc(840px - 100%)))}}" +
+  "@media (prefers-reduced-motion:reduce){.marquee-thirds>.marquee-vertical{animation:none !important;}}" +
+  // Heading TYPOGRAPHY only — deliberately nothing about size. The broad layer that once lived here
+  // also capped max-width and auto-fitted fonts, and that is what froze resizing; these two rules
+  // change how TEXT WRAPS and nothing else, and the harness's resize probes now stand guard over
+  // that distinction. (1) On desktop widths a heading never breaks inside a word: the site ships
+  // word-break:break-word + hyphens:auto, which split "Профессиональные" wherever the line happens
+  // to end — inside legacy span towers even when there is room. Whole-word wrapping is what a
+  // heading is expected to do; on phones (<768px) the site's own hyphenation stays. (2) Below the
+  // desktop breakpoint a heading cannot be wider than its container: the import pins several
+  // headings to 920/924px in the site's OWN stylesheet, which overflowed every tablet. Media-guarded,
+  // so desktop editing (and the client's freedom to drag a heading wider) is untouched; a client's
+  // own tablet edit still wins — it is written at id-level specificity with !important.
+  "@media screen and (min-width:768px){" +
+    "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx)," +
+    "[class*=heading-style]:not(#lgcmsx)," +
+    "h1 :not(#lgcmsx),h2 :not(#lgcmsx),h3 :not(#lgcmsx),h4 :not(#lgcmsx),h5 :not(#lgcmsx),h6 :not(#lgcmsx)," +
+    "[class*=heading-style] :not(#lgcmsx)" +
+    "{hyphens:manual;overflow-wrap:normal;word-break:normal;}" +
+  "}" +
+  "@media screen and (max-width:991px){" +
+    "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx){max-width:100%;}" +
+  "}";
+
+/**
+ * Repairs that exist ONLY inside the editing canvas — never published.
+ *
+ * The canvas stretches its iframe to the height of the whole page (so the page shows without an
+ * inner scrollbar), which turns every `min-height:100vh` hero into "as tall as the whole page" and
+ * spirals (/about once rendered a 48000px empty block). Neutralising min-height on hero boxes in the
+ * canvas keeps them content-tall THERE; the published page keeps its real 100vh.
+ *
+ * Lives in the render core so the regression harness can build a canvas-twin of a page with exactly
+ * the CSS the canvas uses — if this rule and the runtime ever disagree, the harness fails visibly.
+ */
+export const EDITOR_ONLY_CSS = "[class*=hero]:not(#lgcmsx){min-height:auto !important;}";
+
+/**
+ * The canvas wraps each section block in a marker div: zero layout box (display:contents), but a
+ * stable handle for selection, saving and per-block updates. One definition for the editor runtime
+ * AND the harness's canvas-twin, so "editor DOM" means the same thing everywhere.
+ */
+export function wrapBlockForEdit(html, id) {
+  return '<div data-lg-block="' + id + '" style="display:contents">' + dropHeadingFontPins(html) + "</div>";
+}
+
+/**
+ * Stamp every element of a block with a stable id (blockId + "~" + index): deterministic across
+ * reloads, collision-free between blocks — the key every per-element override rule hangs off.
+ * Allocates ABOVE whatever ids the markup already carries, so an id is assigned once and keeps
+ * pointing at the same element for the life of the block. In the core (not the runtime) because the
+ * harness stamps its canvas-twin with the same function the editor uses.
+ */
+export function stampIds(root, blockId) {
+  const all = root.querySelectorAll("*");
+  let next = 0;
+  const pre = "" + blockId + "~";
+  for (let j = 0; j < all.length; j++) {
+    const cur = all[j].getAttribute("data-lg-id");
+    if (cur && cur.indexOf(pre) === 0) { const n = parseInt(cur.slice(pre.length), 10); if (n >= next) next = n + 1; }
+  }
+  for (let i = 0; i < all.length; i++) { if (!all[i].getAttribute("data-lg-id")) all[i].setAttribute("data-lg-id", pre + (next++)); }
+}
 
 /**
  * THE RULE: a size measured on one screen may never be applied unchanged on another.
@@ -84,13 +160,17 @@ const PX_TRACK = /^(?:minmax\(\s*0(?:px)?\s*,\s*)?(\d+(?:\.\d+)?)px\s*\)?$/;
  * proportion, but the row now fills whatever container it lands in instead of freezing at one width.
  * Returns null when any track is not a fixed px value (a deliberate `200px 1fr` is left as the author
  * meant it). One definition, used both for the imported legacy CSS and for a client's own column drag.
+ *
+ * Every track is emitted as minmax(0, Nfr) — a bare `Nfr` keeps `auto` as its minimum, which means
+ * any child with its own width becomes the column's floor and the track list silently stops
+ * governing the row. That is exactly how "потяни границу колонок — ничего не двигается" happened:
+ * an old drag had saved width:735px onto the video column's box, and from then on no track rule,
+ * however correct, could move that boundary. minmax(0, …) makes the split the single authority.
  */
 function pxTracksToFr(value) {
   const tracks = splitTopLevel(value);
   if (tracks.length < 2 || !tracks.every((t) => PX_TRACK.test(t))) return null;
-  return tracks
-    .map((t) => (t.indexOf("minmax") === 0 ? `minmax(0,${PX_TRACK.exec(t)[1]}fr)` : `${PX_TRACK.exec(t)[1]}fr`))
-    .join(" ");
+  return tracks.map((t) => `minmax(0,${PX_TRACK.exec(t)[1]}fr)`).join(" ");
 }
 
 /** Split a CSS value on top-level whitespace (never inside parentheses). */
