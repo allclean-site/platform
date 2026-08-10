@@ -186,6 +186,44 @@ function checkServicesSlider(doc, W) {
   return [];
 }
 
+/** Every form must be submittable and speak the page's language. The booking form shipped with a
+ *  decorative anchor over its submit control (a click reached nothing), Webflow's "Вариант 1"
+ *  placeholder options, and option VALUES like "First" that would have reached the CRM. */
+function checkForms(doc) {
+  const fails = [];
+  for (const f of doc.querySelectorAll("form")) {
+    const subs = [...f.querySelectorAll("input[type=submit],button[type=submit]")];
+    if (!subs.length) { fails.push({ kind: "form-no-submit" }); continue; }
+    // something the visitor can actually click must lead to a submit: either a visible submit
+    // control, or an anchor wired to it by the repair layer.
+    const visibleSubmit = subs.some((s) => {
+      const r = s.getBoundingClientRect();
+      const cs = doc.defaultView.getComputedStyle(s);
+      if (r.width < 4 || r.height < 4 || cs.visibility === "hidden" || cs.display === "none") return false;
+      const el = doc.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!el && (el === s || s.contains(el) || (el.closest && el.closest("[data-lgcms-submit]")));
+    });
+    const wired = f.querySelector("a[data-lgcms-submit]");
+    if (!visibleSubmit && !wired) fails.push({ kind: "form-unsubmittable" });
+    for (const s of f.querySelectorAll("select")) {
+      for (const o of s.options) {
+        if (/^\s*(Вариант|Varianta|Option)\s*\d+\s*$/i.test(o.textContent || "")) {
+          fails.push({ kind: "form-placeholder-option", field: s.name, text: o.textContent.trim() });
+        }
+        if (!o.value || /^(First|Second|Third)$/.test(o.value)) {
+          fails.push({ kind: "form-option-value", field: s.name, value: o.value, text: (o.textContent || "").trim().slice(0, 20) });
+        }
+      }
+    }
+    for (const i of f.querySelectorAll("input,textarea")) {
+      const p = i.getAttribute("placeholder") || "";
+      if (/^(John Doe|Optional)$/i.test(p)) fails.push({ kind: "form-english-placeholder", field: i.name || i.id, text: p });
+      if (i.type === "submit" && /^(Send message|Submit)$/i.test(i.value || "")) fails.push({ kind: "form-english-submit", text: i.value });
+    }
+  }
+  return fails;
+}
+
 async function loadFrame(url) {
   return new Promise((resolve) => {
     let settled = false;
@@ -288,6 +326,7 @@ function probeGrids(doc) {
       const rev = (url === "/" || url === "/ru/")
         ? [...checkTestimonials(doc, W), ...checkServicesSlider(doc, W)]
         : [];
+      if (W === 1280) rev.push(...checkForms(doc));   // forms are width-independent: check once
       if (W === 1280) pubH[url] = doc.documentElement.scrollHeight;
       if (of > 2 || mid.length || rev.length) {
         out.fail++;

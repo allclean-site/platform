@@ -430,12 +430,102 @@ export const SLIDER_FILL = [
   "})();",
 ].join("");
 
+/**
+ * The booking form, made usable. Three defects shipped with the template, all of them invisible
+ * until someone actually tries to book:
+ *
+ *  1. NOTHING SUBMITTED IT. The visible button is a decorative `<a href="#">` laid exactly on top
+ *     of the real `<input type="submit">` — measured: a click at the button's centre lands on the
+ *     anchor's background layer, the form's submit event never fires, no request is made. So the
+ *     page took a name and a phone number and quietly threw them away. Any anchor with a dead href
+ *     that COVERS a submit control is treated as that control's face: clicking it submits the form.
+ *     Geometry, not class names, so it holds for every form on the site.
+ *  2. THE DROPDOWNS SAID "Вариант 1". Webflow's own placeholder options were never filled in, and
+ *     their values ("First", "Second") are what would reach the CRM — as would an EMPTY value for
+ *     the first option, which is the one a visitor who touches nothing sends. Placeholders are
+ *     replaced with the real choices and every option carries its own text as its value, so a lead
+ *     says "Генеральная уборка", not "First". ONLY options that still read as placeholders are
+ *     touched — the moment the client edits one, it is theirs and this leaves it alone.
+ *  3. THE ENGLISH LEFTOVERS ("John Doe", "Optional", "Send message", "Phone (required)") on a page
+ *     that is otherwise Russian or Romanian.
+ *
+ * Runs on both the canvas and the published page, so what the client edits is what visitors get.
+ */
+const FORM_TEXT = {
+  ru: {
+    "Service-type": ["Уборка квартиры", "Генеральная уборка", "Уборка после ремонта", "Уборка офиса"],
+    "Number-of-bedrooms": ["1 комната", "2 комнаты", "3 комнаты", "4 и больше"],
+    ph: { name: "Ваше имя", Message: "Необязательно" },
+    label: { Phone: "Телефон" },
+    submit: "Отправить заявку", wait: "Отправляем…",
+  },
+  ro: {
+    "Service-type": ["Curățenie apartament", "Curățenie generală", "Curățenie după renovare", "Curățenie birou"],
+    "Number-of-bedrooms": ["1 cameră", "2 camere", "3 camere", "4 și mai multe"],
+    ph: { name: "Numele dvs.", Message: "Opțional" },
+    label: { Phone: "Telefon" },
+    submit: "Trimite cererea", wait: "Se trimite…",
+  },
+};
+
+export const FORM_FIX = [
+  "(function(){var T=" + JSON.stringify(FORM_TEXT) + ";",
+  "var PH=/^\\s*(Вариант|Varianta|Option|Select one)\\s*\\d*\\s*$/i;",
+  "function dead(a){var h=(a.getAttribute('href')||'').trim();return h===''||h==='#';}",
+  "function fix(){",
+  "var L=(document.documentElement.lang||'ru').indexOf('ro')===0?'ro':'ru',t=T[L];",
+  "var forms=document.querySelectorAll('form'),i,j,k;",
+  "for(i=0;i<forms.length;i++){var f=forms[i];",
+  // (1) a dead anchor covering the real submit control IS the submit button
+  "var subs=f.querySelectorAll('input[type=submit],button[type=submit]');",
+  "var links=f.querySelectorAll('a');",
+  "for(j=0;j<links.length;j++){var a=links[j];",
+  "if(!dead(a)||a.getAttribute('data-lgcms-submit'))continue;",
+  "var ar=a.getBoundingClientRect(),covers=null;",
+  "for(k=0;k<subs.length;k++){var sr=subs[k].getBoundingClientRect();",
+  "if(sr.width<1&&sr.height<1)continue;",
+  "var ov=Math.max(0,Math.min(ar.right,sr.right)-Math.max(ar.left,sr.left))*Math.max(0,Math.min(ar.bottom,sr.bottom)-Math.max(ar.top,sr.top));",
+  "if(ov>sr.width*sr.height*0.5){covers=subs[k];break;}}",
+  "if(!covers)continue;",
+  "a.setAttribute('data-lgcms-submit','1');",
+  "a.addEventListener('click',function(e){e.preventDefault();",
+  // In the editing canvas the same click means "select this button" — sending the form from under
+  // the client would be absurd. The canvas is recognisable by its block markers and by nothing else.
+  "if(document.querySelector('[data-lg-block]'))return;",
+  "var fm=this.closest('form');if(!fm)return;",
+  // requestSubmit runs the browser's own validation and fires a real submit event, which is what
+  // the site's lead script listens for; the plain .submit() would bypass both.
+  "if(fm.requestSubmit)fm.requestSubmit();else{var s=fm.querySelector('input[type=submit],button[type=submit]');if(s)s.click();}});}",
+  // (2) placeholder options -> the real choices; every option carries its text as its value
+  "var sels=f.querySelectorAll('select');",
+  "for(j=0;j<sels.length;j++){var s2=sels[j],nm=s2.getAttribute('name')||'',list=t[nm];",
+  "var os=s2.options;",
+  "for(k=0;k<os.length;k++){var o=os[k];",
+  "if(list&&PH.test(o.textContent||'')&&list[k])o.textContent=list[k];",
+  "var txt=(o.textContent||'').replace(/\\s+/g,' ').replace(/^ | $/g,'');",
+  "if(txt&&o.value!==txt&&(!o.value||o.value==='First'||o.value==='Second'||o.value==='Third'||PH.test(o.value)))o.value=txt;}}",
+  // (3) English leftovers on a Russian / Romanian page
+  "var ins=f.querySelectorAll('input,textarea');",
+  "for(j=0;j<ins.length;j++){var el=ins[j],id=el.getAttribute('name')||el.id||'';",
+  "var p=t.ph[id];if(p&&/^(John Doe|Optional|Your name|Message)$/i.test(el.getAttribute('placeholder')||''))el.setAttribute('placeholder',p);",
+  "if(el.type==='submit'){if(/^(Send message|Submit|Send)$/i.test(el.value||''))el.value=t.submit;",
+  "if(/^Please wait/i.test(el.getAttribute('data-wait')||''))el.setAttribute('data-wait',t.wait);}}",
+  "var labs=f.querySelectorAll('.text-input-label');",
+  "for(j=0;j<labs.length;j++){var lt=(labs[j].textContent||'').trim();",
+  "if(/^Phone( \\(required\\))?$/i.test(lt))labs[j].textContent=t.label.Phone;}",
+  "}}",
+  "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();",
+  "window.addEventListener('load',fix);",
+  "})();",
+].join("");
+
 /** The repairs every rendered page gets: site CSS fixes + the video, marquee and slider guarantees. */
 export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
     '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>" +
     '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>" +
-    '<script id="lgcms-sliderfill">' + SLIDER_FILL + "</scr" + "ipt>";
+    '<script id="lgcms-sliderfill">' + SLIDER_FILL + "</scr" + "ipt>" +
+    '<script id="lgcms-formfix">' + FORM_FIX + "</scr" + "ipt>";
 }
 
 /** Put those repairs in the page head — same position for the publisher and the editing canvas. */
