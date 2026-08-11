@@ -246,6 +246,27 @@ function checkTextFits(doc, W) {
     if (over > 25 && over > box * 0.15) {
       fails.push({ kind: "heading-text-overflows", W, over, box, size: cs.fontSize, text: txt.slice(0, 30) });
     }
+    // scrollWidth is blind to text spilling to the LEFT (negative coordinates never count), which is
+    // exactly how a centred heading too big for the screen looks on a phone: first letters sliced
+    // off. Measure where the ink actually lands relative to the viewport — but not for anything
+    // riding a horizontal track (marquee, slider): being off-screen is the whole point there.
+    let onTrack = false;
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const pcs = doc.defaultView.getComputedStyle(p);
+      if (p.scrollWidth - p.clientWidth > 50 && pcs.overflowX !== "visible") { onTrack = true; break; }
+      if (/marquee|slider|w-slide/.test(String(p.className))) { onTrack = true; break; }
+    }
+    if (onTrack) continue;
+    const rng = doc.createRange();
+    rng.selectNodeContents(el);
+    const rects = [...rng.getClientRects()].filter((r) => r.width > 1);
+    if (rects.length) {
+      const minL = Math.min(...rects.map((r) => r.left));
+      const maxR = Math.max(...rects.map((r) => r.right));
+      const vw = doc.documentElement.clientWidth;
+      const cut = Math.max(minL < 0 ? -minL : 0, maxR > vw ? maxR - vw : 0);
+      if (cut > 8) fails.push({ kind: "heading-text-offscreen", W, cut: Math.round(cut), text: txt.slice(0, 30) });
+    }
   }
   return fails;
 }
