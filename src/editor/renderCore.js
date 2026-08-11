@@ -109,6 +109,9 @@ export const SITE_FIXES =
   // once. No !important, so a client's own size for a title still wins.
   "@media screen and (max-width:991px){" +
     ".section_hero-article h1:not(#lgcmsx){font-size:clamp(30px,6.4vw,64px);line-height:1.12;}" +
+    // The "how it works" headline keeps its 80px inside a 448px half-column on every service page,
+    // where "FUNCȚIONEAZĂ?" alone is wider than the column. Same treatment, same narrow scope.
+    ".headline_hiw h2:not(#lgcmsx){font-size:clamp(28px,5.6vw,56px);line-height:1.12;}" +
   "}";
 
 /**
