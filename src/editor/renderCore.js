@@ -96,7 +96,14 @@ export const SITE_FIXES =
   // portrait photos, so it never said so — and the first landscape photo the client uploaded
   // covered half the card, leaving the title fade painted over white ("непрозрачная подложка").
   // Same rule as the background-video heal: fill the box, crop with object-fit.
-  ".card_scroll-service .image-wrap_nav-service img:not(#lgcmsx){width:100%;height:100%;object-fit:cover;}";
+  ".card_scroll-service .image-wrap_nav-service img:not(#lgcmsx){width:100%;height:100%;object-fit:cover;}" +
+  // A services card is 332px wide on a tablet and phone, but the template keeps its title at the
+  // desktop 44px — "Curățenie apartamente" then needs 325px of a 224px text column and gets sliced
+  // mid-word ("РЕСТАВРАЦИ / Я ПОЛОВ"). Sized for the card it actually sits in, below the desktop
+  // breakpoint only. No !important: a client's own size for this heading still wins.
+  "@media screen and (max-width:991px){" +
+    ".card_scroll-service .heading-style-h4:not(#lgcmsx){font-size:28px;line-height:1.1;}" +
+  "}";
 
 /**
  * Repairs that exist ONLY inside the editing canvas — never published.
@@ -719,8 +726,13 @@ export function overridesCss(pageBp) {
       for (const p of Object.keys(props)) {
         if (props[p] === "") continue;
         const sv = safeValue(props[p]); if (!sv) continue;
+        // fitValue on BOTH lines. The descendants used to get the raw value, and that is where the
+        // text actually lives: a heading built of word/line divs kept a flat `font-size:74px` on
+        // every child while the heading itself scaled fluidly — so on a phone the box shrank and
+        // the letters did not, and a long word ran off both edges of the screen. The rule "a size
+        // measured on one screen is not a layout" has to reach the children too.
         decl += `${p}:${fitValue(p, sv)} !important;`;
-        if (CASCADE[p]) cdecl += `${p}:${sv} !important;`;
+        if (CASCADE[p]) cdecl += `${p}:${fitValue(p, sv)} !important;`;
       }
       if (decl) body += `[data-lg-id="${id}"]${B}{${decl}}`;
       if (cdecl) body += `[data-lg-id="${id}"] *${B}{${cdecl}}`;

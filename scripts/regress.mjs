@@ -224,6 +224,31 @@ function checkForms(doc) {
   return fails;
 }
 
+/** Text that does not fit its own heading box. The document-level overflow check cannot see this:
+ *  sections clip horizontally, so a word running off the screen leaves the page width untouched and
+ *  simply gets cut in half on a phone — which is exactly what the client photographed. Measured per
+ *  heading, so it fails where the defect is. */
+function checkTextFits(doc, W) {
+  const SEL = "h1,h2,h3,h4,[class*=heading-style]";
+  const fails = [];
+  for (const el of doc.querySelectorAll(SEL)) {
+    if (el.querySelector(SEL)) continue;                 // measure the innermost heading box
+    const cs = doc.defaultView.getComputedStyle(el);
+    if (cs.display === "none" || cs.visibility === "hidden") continue;
+    const txt = (el.textContent || "").trim();
+    if (!txt) continue;
+    const box = el.clientWidth;
+    if (box < 40) continue;
+    const over = el.scrollWidth - box;
+    // A few pixels are rounding and italic overhang; what matters is text visibly running out of
+    // its box — a tenth of the width, and at least 12px, is where a reader sees a cut-off letter.
+    if (over > 12 && over > box * 0.1) {
+      fails.push({ kind: "heading-text-overflows", W, over, box, size: cs.fontSize, text: txt.slice(0, 30) });
+    }
+  }
+  return fails;
+}
+
 async function loadFrame(url) {
   return new Promise((resolve) => {
     let settled = false;
@@ -327,6 +352,7 @@ function probeGrids(doc) {
         ? [...checkTestimonials(doc, W), ...checkServicesSlider(doc, W)]
         : [];
       if (W === 1280) rev.push(...checkForms(doc));   // forms are width-independent: check once
+      rev.push(...checkTextFits(doc, W));
       if (W === 1280) pubH[url] = doc.documentElement.scrollHeight;
       if (of > 2 || mid.length || rev.length) {
         out.fail++;
