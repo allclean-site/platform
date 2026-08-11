@@ -681,11 +681,14 @@ export function safeValue(v) {
  */
 function fitValue(prop, sv) {
   if (prop === "font-size") return fluidFont(sv);
-  // A width the client dragged is capped at the VIEWPORT, not the container: it keeps their size (and
-  // scales down only when it would exceed the screen, so it never causes a page-wide scrollbar), but
-  // it does NOT stop them from making a box wider than its column — capping at 100% did exactly that,
+  // A width the client dragged is capped at the VIEWPORT, not at the container: it keeps their size,
+  // and it does NOT stop them making a box wider than its column — capping at 100% did exactly that,
   // so a full-width heading could not be resized at all, which read as "текст не тянется".
-  if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) return `min(${sv},100vw)`;
+  // The page's own side padding is subtracted, because a box that starts AFTER that padding and is
+  // a full viewport wide runs off the right edge by exactly the padding — measured on a phone: a
+  // heading dragged to 487px sat at x=16 and ended at 406 on a 390px screen, slicing its last
+  // letters. Still far wider than any column, so dragging stays free.
+  if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) return `min(${sv},calc(100vw - 2rem))`;
   // A column boundary the client dragged writes fixed px tracks — the same freeze, made proportional.
   if (prop === "grid-template-columns") return pxTracksToFr(sv) || sv;
   return sv;
