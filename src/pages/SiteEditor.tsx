@@ -35,6 +35,24 @@ const DEVICE_W = { desktop: 1440, tablet: 834, mobile: 390 } as const;
 // Default canvas = a REAL laptop width (1440), not 1920 — so a size that looks balanced on the canvas
 // also fits the viewer's actual screen (WYSIWYG). Wider options stay available in the picker.
 const DESK_WIDTHS = [1440, 1366, 1280, 1600, 1920] as const;
+/**
+ * Phone widths that real visitors actually have. CSS does not scale a layout down to a narrower
+ * screen — it RE-FLOWS it, so the same page legitimately looks different at 390 and at 430: the two
+ * rating chips sit side by side on the wider one and stack on the narrower. Showing one fixed width
+ * made that read as "the editor lies". Now the client picks the phone they are holding.
+ * Labels name the device, because "430px" means nothing and "iPhone Pro Max" does.
+ */
+const PHONE_WIDTHS = [
+  { w: 390, label: "390 · iPhone 12–16" },
+  { w: 360, label: "360 · Android" },
+  { w: 412, label: "412 · Pixel" },
+  { w: 430, label: "430 · iPhone Pro Max" },
+] as const;
+const TABLET_WIDTHS = [
+  { w: 834, label: "834 · iPad" },
+  { w: 768, label: "768 · iPad mini" },
+  { w: 1024, label: "1024 · iPad Pro" },
+] as const;
 type Device = keyof typeof DEVICE_W;
 const TENANT = "tenant-allclean";
 const clampZoom = (z: number) => Math.min(2, Math.max(0.2, z));
@@ -58,6 +76,10 @@ export function SiteEditor() {
   const [page, setPage] = useState<ImportedPage | null>(null);
   const [device, setDevice] = useState<Device>("desktop");
   const [deskW, setDeskW] = useState<number>(1440); // desktop canvas width (shown scaled-to-fit, Tilda-like)
+  // The phone/tablet the client is checking against. Real devices differ enough to re-flow a layout,
+  // so the canvas has to be able to BE the device in their hand — see PHONE_WIDTHS.
+  const [phoneW, setPhoneW] = useState<number>(DEVICE_W.mobile);
+  const [tabW, setTabW] = useState<number>(DEVICE_W.tablet);
   const [edit, setEdit] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [selEl, setSelEl] = useState<SelectedEl | null>(null);
@@ -610,7 +632,7 @@ export function SiteEditor() {
     docRef.current = { key: docKey, html: previewDoc(page, edit, edit ? undefined : mergedBp(page.id)) };
   }
   const srcDoc = page ? docRef.current.html : "";
-  const frameW = device === "desktop" ? deskW : DEVICE_W[device];
+  const frameW = device === "desktop" ? deskW : device === "tablet" ? tabW : phoneW;
   /**
    * The number on «Опубликовать» is what is WAITING to be published, not what has ever been edited.
    *
@@ -997,6 +1019,18 @@ export function SiteEditor() {
           {device === "desktop" && (
             <select className="se__wsel" value={deskW} onChange={(e) => setDeskW(Number(e.target.value))} title="Ширина холста (масштабируется под окно)">
               {DESK_WIDTHS.map((w) => <option key={w} value={w}>{w}px</option>)}
+            </select>
+          )}
+          {device === "mobile" && (
+            <select className="se__wsel" value={phoneW} onChange={(e) => setPhoneW(Number(e.target.value))}
+              title="Экран телефона. Разные телефоны — разная ширина, и вёрстка на них ложится по-разному.">
+              {PHONE_WIDTHS.map((p) => <option key={p.w} value={p.w}>{p.label}</option>)}
+            </select>
+          )}
+          {device === "tablet" && (
+            <select className="se__wsel" value={tabW} onChange={(e) => setTabW(Number(e.target.value))}
+              title="Экран планшета.">
+              {TABLET_WIDTHS.map((p) => <option key={p.w} value={p.w}>{p.label}</option>)}
             </select>
           )}
         </Toolbar>
