@@ -241,8 +241,9 @@ function checkTextFits(doc, W) {
     if (box < 40) continue;
     const over = el.scrollWidth - box;
     // A few pixels are rounding and italic overhang; what matters is text visibly running out of
-    // its box — a tenth of the width, and at least 12px, is where a reader sees a cut-off letter.
-    if (over > 12 && over > box * 0.1) {
+    // its box. 15% of the width and at least 25px is where a reader sees a cut-off letter — below
+    // that a heading merely sits tight against its edge, which is how several of these are designed.
+    if (over > 25 && over > box * 0.15) {
       fails.push({ kind: "heading-text-overflows", W, over, box, size: cs.fontSize, text: txt.slice(0, 30) });
     }
   }

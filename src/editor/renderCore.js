@@ -97,12 +97,18 @@ export const SITE_FIXES =
   // covered half the card, leaving the title fade painted over white ("непрозрачная подложка").
   // Same rule as the background-video heal: fill the box, crop with object-fit.
   ".card_scroll-service .image-wrap_nav-service img:not(#lgcmsx){width:100%;height:100%;object-fit:cover;}" +
-  // A services card is 332px wide on a tablet and phone, but the template keeps its title at the
-  // desktop 44px — "Curățenie apartamente" then needs 325px of a 224px text column and gets sliced
-  // mid-word ("РЕСТАВРАЦИ / Я ПОЛОВ"). Sized for the card it actually sits in, below the desktop
-  // breakpoint only. No !important: a client's own size for this heading still wins.
+  // A services card is 332px wide at EVERY screen size — it is a fixed marquee tile, not a
+  // responsive column — yet the template titles it at 44px, which needs 325px of its 224px text
+  // column. The card clips, so the longest names simply lost their ends ("РЕСТАВРАЦИ / Я ПОЛОВ",
+  // and every Romanian name, which run longer than the Russian ones). Sized for the card it sits
+  // in, at all widths since the card never changes. No !important: a client's own size still wins.
+  ".card_scroll-service .heading-style-h4:not(#lgcmsx){font-size:28px;line-height:1.1;}" +
+  // An article's own title keeps its 104px below the desktop breakpoint, where a single Russian
+  // word ("поддерживающая") needs 940px of a 689px column and hangs off the page. Scoped to the
+  // article hero, not to headings in general — the blanket heading rules are what froze resizing
+  // once. No !important, so a client's own size for a title still wins.
   "@media screen and (max-width:991px){" +
-    ".card_scroll-service .heading-style-h4:not(#lgcmsx){font-size:28px;line-height:1.1;}" +
+    ".section_hero-article h1:not(#lgcmsx){font-size:clamp(30px,6.4vw,64px);line-height:1.12;}" +
   "}";
 
 /**
