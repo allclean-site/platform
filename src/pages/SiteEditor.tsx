@@ -872,6 +872,29 @@ export function SiteEditor() {
     frameRef.current?.contentWindow?.postMessage({ type: "lg-zoom", zoom }, "*");
   }, [zoom]);
 
+  /**
+   * The canvas gets the size rules whenever they CHANGE, not only when it happens to be ready first.
+   *
+   * They used to be pushed once, on `lg-ready`. The published and drafted rules arrive from the
+   * network, and on the real cabinet that lands AFTER the iframe reports ready — so the canvas kept
+   * an empty override sheet and rendered the page as if the client had never resized anything, while
+   * the live site (built from those same rules) showed the real sizes. Measured on production: the
+   * hero heading was 33px in the editor and 46px on the phone, and switching pages and back "fixed"
+   * it — the tell-tale of a race. Locally it never reproduced because the mock answered instantly.
+   *
+   * `syncTick` bumps when published/draft edits land — the arrival this has to catch. Rules the
+   * client changes here are already live in the runtime, so they are deliberately NOT re-sent:
+   * pushing a rule set back mid-drag would fight the gesture. Re-sending is otherwise safe —
+   * lg-bp-init replaces the runtime's rules with exactly what the host holds, which is the same
+   * value the publisher builds from.
+   */
+  useEffect(() => {
+    if (!page) return;
+    frameRef.current?.contentWindow?.postMessage(
+      { type: "lg-bp-init", rules: mergedBp(page.id) || emptyPageBp() }, "*");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page?.id, syncTick]);
+
   const scrollToBlock = (id: string) => {
     setSelected(id);
     const doc = frameRef.current?.contentDocument;
