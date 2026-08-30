@@ -42,7 +42,7 @@ export interface LeadDetail {
   estimate?: string;      // price text as submitted, e.g. "1200 MDL"
   fields: LeadField[];    // every answer / parameter, label → value
   comment?: string;
-  photos: string[];       // public image URLs (calc-uploads bucket)
+  photos: string[];       // ссылки на снимки: подписанные /api/leads на час (бакет calc-uploads закрыт)
   sourceUrl?: string;
   locale?: string;
   serviceSlug?: string;   // calculator slug, e.g. "apartments"

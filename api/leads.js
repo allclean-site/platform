@@ -11,6 +11,40 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const EDIT_KEY = (process.env.EDIT_KEY || "").trim();
 
+// Фотографии помещений лежат в ЗАКРЫТОМ бакете calc-uploads: снимок чужого жилья не
+// должен открываться вечной ссылкой у всякого, кто её увидел. Сайт кладёт в заявку ПУТЬ
+// файла, а не адрес, поэтому подписываем ссылки здесь — на сервере, где и так есть
+// служебный ключ. Часа хватает: панель показывает заявку, пока с ней работают.
+// Заявки, созданные до перехода, хранят полный публичный адрес — такие отдаём как есть.
+const PHOTO_TTL = 60 * 60;
+
+async function signPhoto(path) {
+  const r = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/sign/calc-uploads/${path}`, {
+    method: "POST",
+    headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "content-type": "application/json" },
+    body: JSON.stringify({ expiresIn: PHOTO_TTL }),
+  });
+  if (!r.ok) return null;
+  const { signedURL } = await r.json();
+  return signedURL ? `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1${signedURL}` : null;
+}
+
+/** Заменяет пути фотографий в notes подписанными ссылками. Ошибка подписи одной
+ *  фотографии не должна лишать сотрудника всей заявки — такой снимок просто пропадёт. */
+async function signLeadPhotos(lead) {
+  if (typeof lead?.notes !== "string" || !lead.notes.trim().startsWith("{")) return lead;
+  let json;
+  try { json = JSON.parse(lead.notes); } catch { return lead; }
+  if (!json || !Array.isArray(json.photos) || !json.photos.length) return lead;
+  const signed = [];
+  for (const p of json.photos.map(String)) {
+    if (/^https?:\/\//.test(p)) { signed.push(p); continue; }
+    const url = await signPhoto(p).catch(() => null);
+    if (url) signed.push(url);
+  }
+  return { ...lead, notes: JSON.stringify({ ...json, photos: signed }) };
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -32,5 +66,6 @@ export default async function handler(req, res) {
   const r = await fetch(url, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
   if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()) });
   const leads = await r.json();
-  return res.status(200).json({ ok: true, leads });
+  const withPhotos = Array.isArray(leads) ? await Promise.all(leads.map(signLeadPhotos)) : leads;
+  return res.status(200).json({ ok: true, leads: withPhotos });
 }
