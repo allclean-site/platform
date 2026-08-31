@@ -81,7 +81,7 @@ const privacyRu = {
   blocks: [
     { h: "1. Кто обрабатывает ваши данные", p: [
       `Оператор персональных данных — ${O.legalNameRu}, IDNO ${O.idno}, ${O.addressRu}. Сайт allclean.md принадлежит этой компании и работает под маркой «All Clean».`,
-      `Вопросы о персональных данных, отзыв согласия и любые запросы из раздела 8 — на ${O.email} или по телефону ${O.phone}. Отвечает руководитель компании. Отдельный ответственный за защиту данных (DPO) не назначен: компания не является органом власти, не ведёт масштабного систематического наблюдения за людьми и не обрабатывает специальные категории данных в больших объёмах (ст. 37 Закона № 195/2024).`,
+      `Вопросы о персональных данных, отзыв согласия и любые запросы из раздела 9 — на ${O.email} или по телефону ${O.phone}. Отвечает руководитель компании. Отдельный ответственный за защиту данных (DPO) не назначен: компания не является органом власти, не ведёт масштабного систематического наблюдения за людьми и не обрабатывает специальные категории данных в больших объёмах (ст. 37 Закона № 195/2024).`,
     ] },
     { h: "2. Какие данные мы собираем",
       p: ["Мы не собираем ничего, кроме того, что вы сами вводите в форму, и технических записей, без которых сайт не может работать."],
@@ -103,6 +103,7 @@ const privacyRu = {
       ] },
       p2: [
         `Согласие даётся отметкой в поле рядом со ссылкой на эту политику. Оно добровольно: без него мы не примем заявку через сайт, но вы всегда можете просто позвонить. Согласие можно отозвать в любой момент письмом на ${O.email} — это не влияет на законность обработки, которая шла до отзыва.`,
+        "Обязаны ли вы давать данные. Нет: ни закон, ни договор не требуют от вас заполнять форму. Имя и телефон нужны только для того, чтобы мы могли ответить и назвать цену, — без них заявка через сайт не отправится. Никаких других последствий отказ не влечёт: вы можете просто позвонить нам или написать на почту.",
         "Мы не рассылаем рекламу по собранным на сайте контактам и не передаём их для рекламы третьим лицам. Если такая рассылка когда-нибудь появится, для неё будет отдельная галочка и отдельная запись в этой политике.",
       ] },
     { h: "5. Кому передаются данные",
@@ -115,6 +116,7 @@ const privacyRu = {
       ] },
       p2: [
         "Данные могут быть переданы государственным органам, если этого требует закон, — только в объёме требования и только по официальному запросу.",
+        "О передаче за пределы Молдовы. Решения Национального центра о достаточном уровне защиты данных в США и ОАЭ на дату этой редакции нет. Поэтому передача опирается на стандартные договорные условия, включённые в договоры об обработке с Vercel и Supabase (ст. 46 Закона № 195/2024); копию этих условий можно запросить у нас письмом на " + O.email + ", мы храним их у себя. Для Telegram таких гарантий не существует — именно поэтому персональные данные из уведомлений и убираются.",
         "Примечание о Telegram. Уведомление о заявке приходит сотруднику в мессенджер, чтобы вам ответили быстро. Это передача данных в страну, с сервисом которой нельзя заключить договор об обработке, поэтому мы переводим уведомления на канал без персональных данных: в сообщении останется только факт «пришла новая заявка», а сама заявка будет открываться в защищённой панели.",
       ] },
     { h: "6. Сколько храним",
@@ -126,27 +128,31 @@ const privacyRu = {
         ["Журналы хостинга", "несколько недель, срок задаёт хостинг"],
         ["Отметка о согласии: факт, момент, редакция политики", "столько же, сколько сама заявка, — это доказательство того, что согласие было"],
       ] } },
-    { h: "7. Cookie и память браузера", p: [
+    { h: "7. Переходы на сторонние сервисы", p: [
+      "На страницах есть кнопки «написать в WhatsApp» и «написать в Telegram», а в подвале — ссылки на наши страницы в социальных сетях. Пока вы на них не нажали, браузер к этим сервисам не обращается и ничего им о вас не сообщает.",
+      "Как только вы нажали, вы оказываетесь в чужом сервисе, и дальше действуют его правила: он видит ваш номер или учётную запись и ведёт свои записи. Мы на это повлиять не можем и отвечаем только за то, что вы напишете нам в переписке, — на такие обращения распространяются разделы 4 и 6 этой политики.",
+    ] },
+    { h: "8. Cookie и память браузера", p: [
       "Сайт не ставит рекламных и аналитических cookie. На нём нет Google Analytics, нет пикселей социальных сетей, нет тепловых карт и записи сессий, нет рекламных сетей. Отдельного окна согласия на cookie нет ровно потому, что спрашивать не о чем.",
       'Подробности — на странице <a href="/ru/cookies">«Cookie и память браузера»</a>.',
     ] },
-    { h: "8. Ваши права",
+    { h: "9. Ваши права",
       p: ["По Закону № 195/2024 вы вправе:"],
       ul: [
-        "узнать, какие ваши данные у нас есть, откуда они, зачем обрабатываются и кому передавались (ст. 15–16);",
-        "исправить неточные данные (ст. 17);",
-        "потребовать удаления, если данные больше не нужны для целей раздела 4 (ст. 18);",
-        "потребовать ограничить обработку вместо удаления (ст. 19);",
-        "получить свои данные в машиночитаемом виде или попросить передать их другому оператору (ст. 21);",
-        "возразить против обработки, которая идёт на основании законного интереса (ст. 22);",
+        "узнать, какие ваши данные у нас есть, откуда они, зачем обрабатываются и кому передавались, и получить их копию (ст. 15);",
+        "исправить неточные и дополнить неполные данные (ст. 16);",
+        "потребовать удаления, если данные больше не нужны для целей раздела 4 (ст. 17);",
+        "потребовать ограничить обработку вместо удаления (ст. 18);",
+        "получить свои данные в машиночитаемом виде или попросить передать их другому оператору (ст. 20);",
+        "возразить против обработки, которая идёт на основании законного интереса (ст. 21);",
         "отозвать согласие в любой момент — так же просто, как оно было дано.",
       ],
       p2: [
         `Как воспользоваться: напишите на ${O.email} с того адреса или с указанием того номера телефона, с которого вы к нам обращались, — так мы поймём, что это вы. Копию удостоверения личности мы не просим: закон этого не требует, а лишний документ сам по себе был бы избыточным сбором данных.`,
         "Ответ бесплатный, срок — один месяц с получения запроса. Если запрос сложный, срок может быть продлён ещё на два месяца, и мы сообщим об этом в течение первого месяца.",
-        `Если ответ вас не устроил, вы вправе подать жалобу в ${AUTH_RU}.`,
+        `Если ответ вас не устроил или мы не приняли мер по вашему запросу, вы вправе подать жалобу в ${AUTH_RU} и обратиться в суд.`,
       ] },
-    { h: "9. Как мы защищаем данные", ul: [
+    { h: "10. Как мы защищаем данные", ul: [
       "сайт работает только по HTTPS, соединение шифруется;",
       "заявки видят только сотрудники, которым это нужно для работы; вход в панель — по паролю;",
       "на страницах нет счётчиков, рекламных сетей и чужих шрифтов: стили, шрифты и скрипты лежат на нашем домене. Единственный внешний адрес, к которому обращается страница, — хранилище Supabase, откуда отдаётся часть изображений; это наш обработчик по договору из раздела 5;",
@@ -154,13 +160,13 @@ const privacyRu = {
       "фотографии помещений лежат в закрытом хранилище со случайными именами файлов и открываются только по ссылке с ограниченным сроком;",
       "при утечке, опасной для ваших прав, мы уведомляем Национальный центр в течение 72 часов, а вас — если риск для вас высокий.",
     ] },
-    { h: "10. Чего мы не делаем", ul: [
+    { h: "11. Чего мы не делаем", ul: [
       "не принимаем решений о вас автоматически и не занимаемся профилированием;",
       "не собираем специальные категории данных: о здоровье, вероисповедании, политических взглядах, биометрию;",
-      "сайт не предназначен для детей, и мы сознательно не собираем данные лиц младше 16 лет; если такие данные попали к нам, напишите — удалим;",
+      "сайт не предназначен для детей: по ст. 8 Закона № 195/2024 ребёнок может дать согласие сам с 14 лет, за младших это делает законный представитель. Мы сознательно не собираем данные детей; если такие данные попали к нам, напишите — удалим;",
       "не передаём данные для рекламы и не продаём их.",
     ] },
-    { h: "11. Изменения политики", p: [
+    { h: "12. Изменения политики", p: [
       `Действующая редакция — от ${POLICY_VERSION}. При изменении процессов мы правим эту страницу и меняем номер редакции. Вместе с каждой заявкой сохраняется та редакция, которая действовала в момент отправки, поэтому всегда видно, на что именно вы соглашались.`,
     ] },
   ],
@@ -178,7 +184,7 @@ const privacyRo = {
   blocks: [
     { h: "1. Cine prelucrează datele dvs.", p: [
       `Operatorul de date cu caracter personal este ${O.legalNameRo}, IDNO ${O.idno}, ${O.addressRo}. Site-ul allclean.md aparține acestei companii și funcționează sub marca „All Clean”.`,
-      `Întrebările privind datele cu caracter personal, retragerea consimțământului și orice cerere din secțiunea 8 — la ${O.email} sau la telefonul ${O.phone}. Răspunde administratorul companiei. Un responsabil cu protecția datelor (DPO) nu este desemnat: compania nu este autoritate publică, nu efectuează monitorizare sistematică pe scară largă și nu prelucrează categorii speciale de date la scară largă (art. 37 din Legea nr. 195/2024).`,
+      `Întrebările privind datele cu caracter personal, retragerea consimțământului și orice cerere din secțiunea 9 — la ${O.email} sau la telefonul ${O.phone}. Răspunde administratorul companiei. Un responsabil cu protecția datelor (DPO) nu este desemnat: compania nu este autoritate publică, nu efectuează monitorizare sistematică pe scară largă și nu prelucrează categorii speciale de date la scară largă (art. 37 din Legea nr. 195/2024).`,
     ] },
     { h: "2. Ce date colectăm",
       p: ["Nu colectăm nimic în afară de ceea ce introduceți dvs. în formular și de înregistrările tehnice fără de care site-ul nu poate funcționa."],
@@ -200,6 +206,7 @@ const privacyRo = {
       ] },
       p2: [
         `Consimțământul se exprimă prin bifarea căsuței de lângă linkul către această politică. Este benevol: fără el nu putem primi cererea prin site, dar ne puteți oricând suna. Consimțământul poate fi retras oricând printr-un mesaj la ${O.email} — retragerea nu afectează legalitatea prelucrării de până la ea.`,
+        "Sunteți obligat să furnizați datele? Nu: nici legea, nici un contract nu vă obligă să completați formularul. Numele și telefonul ne sunt necesare doar ca să vă putem răspunde și indica prețul — fără ele cererea nu poate fi trimisă prin site. Refuzul nu are alte consecințe: ne puteți pur și simplu suna sau scrie pe e-mail.",
         "Nu trimitem publicitate la contactele colectate pe site și nu le transmitem terților în scop publicitar. Dacă va apărea vreodată o astfel de comunicare, ea va avea o căsuță separată și o mențiune separată în această politică.",
       ] },
     { h: "5. Cui sunt transmise datele",
@@ -212,6 +219,7 @@ const privacyRo = {
       ] },
       p2: [
         "Datele pot fi transmise autorităților publice dacă legea o cere — doar în volumul solicitat și doar în baza unei cereri oficiale.",
+        "Despre transferul în afara Moldovei. La data acestei versiuni nu există o decizie a Centrului Național privind caracterul adecvat al nivelului de protecție în SUA și în EAU. De aceea transferul se întemeiază pe clauzele contractuale standard incluse în acordurile de prelucrare cu Vercel și Supabase (art. 46 din Legea nr. 195/2024); o copie a acestor clauze poate fi cerută de la noi printr-un mesaj la " + O.email + ", le păstrăm la sediu. Pentru Telegram astfel de garanții nu există — tocmai de aceea datele cu caracter personal sunt scoase din notificări.",
         "Notă despre Telegram. Notificarea despre cerere ajunge la angajat în mesagerie, ca să vi se răspundă repede. Acesta este un transfer într-o țară cu al cărei serviciu nu poate fi încheiat un acord de prelucrare, de aceea mutăm notificările pe un canal fără date cu caracter personal: în mesaj va rămâne doar faptul „a sosit o cerere nouă”, iar cererea se va deschide în panoul protejat.",
       ] },
     { h: "6. Cât timp păstrăm",
@@ -223,27 +231,31 @@ const privacyRo = {
         ["Jurnalele găzduirii", "câteva săptămâni, termenul este stabilit de furnizor"],
         ["Marca consimțământului: fapt, moment, versiunea politicii", "cât și cererea — este dovada că a existat consimțământ"],
       ] } },
-    { h: "7. Cookie și memoria browserului", p: [
+    { h: "7. Trecerea la servicii terțe", p: [
+      "Pe pagini există butoanele „scrie pe WhatsApp” și „scrie pe Telegram”, iar în subsol — linkuri către paginile noastre din rețelele sociale. Până când nu le apăsați, browserul nu se adresează acestor servicii și nu le comunică nimic despre dvs.",
+      "De îndată ce le apăsați, ajungeți într-un serviciu străin, unde se aplică regulile lui: el vă vede numărul sau contul și ține propriile evidențe. Noi nu putem influența acest lucru și răspundem doar pentru ceea ce ne scrieți în corespondență — acestor mesaje li se aplică secțiunile 4 și 6 din această politică.",
+    ] },
+    { h: "8. Cookie și memoria browserului", p: [
       "Site-ul nu plasează cookie publicitare sau de analiză. Nu există Google Analytics, pixeli ai rețelelor sociale, hărți termice sau înregistrarea sesiunilor, nu există rețele publicitare. Nu există o fereastră separată de consimțământ pentru cookie tocmai pentru că nu avem ce întreba.",
       'Detalii — pe pagina <a href="/cookies">„Cookie și memoria browserului”</a>.',
     ] },
-    { h: "8. Drepturile dvs.",
+    { h: "9. Drepturile dvs.",
       p: ["Conform Legii nr. 195/2024 aveți dreptul:"],
       ul: [
-        "să aflați ce date ale dvs. deținem, de unde provin, în ce scop sunt prelucrate și cui au fost transmise (art. 15–16);",
-        "să corectați datele inexacte (art. 17);",
-        "să cereți ștergerea, dacă datele nu mai sunt necesare pentru scopurile din secțiunea 4 (art. 18);",
-        "să cereți restricționarea prelucrării în locul ștergerii (art. 19);",
-        "să primiți datele într-un format care poate fi citit automat sau să cereți transmiterea lor altui operator (art. 21);",
-        "să vă opuneți prelucrării întemeiate pe interesul legitim (art. 22);",
+        "să aflați ce date ale dvs. deținem, de unde provin, în ce scop sunt prelucrate și cui au fost transmise, și să primiți o copie (art. 15);",
+        "să corectați datele inexacte și să completați datele incomplete (art. 16);",
+        "să cereți ștergerea, dacă datele nu mai sunt necesare pentru scopurile din secțiunea 4 (art. 17);",
+        "să cereți restricționarea prelucrării în locul ștergerii (art. 18);",
+        "să primiți datele într-un format care poate fi citit automat sau să cereți transmiterea lor altui operator (art. 20);",
+        "să vă opuneți prelucrării întemeiate pe interesul legitim (art. 21);",
         "să retrageți consimțământul oricând — la fel de simplu cum a fost dat.",
       ],
       p2: [
         `Cum procedați: scrieți la ${O.email} de la adresa sau indicând numărul de telefon de la care ne-ați contactat — astfel înțelegem că sunteți dvs. Nu cerem copia actului de identitate: legea nu o impune, iar un document în plus ar fi el însuși o colectare excesivă de date.`,
         "Răspunsul este gratuit, termenul — o lună de la primirea cererii. Dacă cererea este complexă, termenul poate fi prelungit cu încă două luni, iar noi vă anunțăm despre aceasta în prima lună.",
-        `Dacă răspunsul nu vă mulțumește, aveți dreptul să depuneți o plângere la ${AUTH_RO}.`,
+        `Dacă răspunsul nu vă mulțumește sau nu am luat măsuri la cererea dvs., aveți dreptul să depuneți o plângere la ${AUTH_RO} și să vă adresați instanței de judecată.`,
       ] },
-    { h: "9. Cum protejăm datele", ul: [
+    { h: "10. Cum protejăm datele", ul: [
       "site-ul funcționează doar prin HTTPS, conexiunea este criptată;",
       "cererile sunt văzute doar de angajații cărora le sunt necesare pentru lucru; accesul în panou — cu parolă;",
       "pe pagini nu există contoare, rețele publicitare sau fonturi străine: stilurile, fonturile și scripturile se află pe domeniul nostru. Singura adresă externă la care se adresează pagina este stocarea Supabase, de unde este livrată o parte din imagini; acesta este prestatorul nostru conform contractului din secțiunea 5;",
@@ -251,13 +263,13 @@ const privacyRo = {
       "fotografiile spațiilor se află într-o stocare închisă, cu nume de fișiere aleatorii, și se deschid doar printr-un link cu termen limitat;",
       "în caz de incident periculos pentru drepturile dvs. notificăm Centrul Național în 72 de ore, iar pe dvs. — dacă riscul pentru dvs. este ridicat.",
     ] },
-    { h: "10. Ce nu facem", ul: [
+    { h: "11. Ce nu facem", ul: [
       "nu luăm decizii automate despre dvs. și nu facem profilare;",
       "nu colectăm categorii speciale de date: despre sănătate, religie, opinii politice, date biometrice;",
-      "site-ul nu este destinat copiilor și nu colectăm cu bună știință date ale persoanelor sub 16 ani; dacă astfel de date au ajuns la noi, scrieți-ne și le ștergem;",
+      "site-ul nu este destinat copiilor: conform art. 8 din Legea nr. 195/2024 copilul își poate da singur consimțământul de la 14 ani, iar pentru cei mai mici o face reprezentantul legal. Nu colectăm cu bună știință date ale copiilor; dacă astfel de date au ajuns la noi, scrieți-ne și le ștergem;",
       "nu transmitem datele în scop publicitar și nu le vindem.",
     ] },
-    { h: "11. Modificarea politicii", p: [
+    { h: "12. Modificarea politicii", p: [
       `Versiunea în vigoare — din ${POLICY_VERSION}. La schimbarea proceselor modificăm această pagină și numărul versiunii. Împreună cu fiecare cerere se păstrează versiunea valabilă în momentul trimiterii, astfel încât se vede întotdeauna cu ce anume ați fost de acord.`,
     ] },
   ],
