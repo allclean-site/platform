@@ -5,13 +5,18 @@
  *  • Supabase Storage (when VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are set): the picked image is
  *    downscaled client-side, then uploaded via the Storage REST API and its PUBLIC URL is returned.
  *    No SDK dependency — a plain `fetch` to `/storage/v1/object/<bucket>/<path>` does it.
- *  • Data-URL fallback (no creds, or upload fails): the downscaled image is inlined as a data: URL,
- *    exactly as before. So the editor keeps working locally with zero configuration.
+ *  • The SITE's own /api/upload (service_role, server-side) when no browser key is configured — the
+ *    cabinet is already signed in to it, so a photo becomes a URL without anyone pasting a key.
+ *  • Data-URL fallback (nothing reachable): the downscaled image is inlined as a data: URL, so the
+ *    editor keeps working locally with zero configuration. ⚠️ This is a LAST resort: an inlined photo
+ *    is ~200KB of base64 inside the block's HTML, and eighteen of them grew one section to 3.1MB —
+ *    past the 4.5MB body limit, which is what made "Опубликовать" fail with "Failed to fetch".
  *
  * Same public shape either way: `pickImage()` opens the file dialog and resolves to a usable `src`.
  */
 
 import { loadSettings } from "../settings/store";
+import { postSiteApi, siteApiReady } from "./siteApi";
 
 const ENV_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, "");
 const ENV_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -73,12 +78,29 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/** Upload a blob/file to the configured Supabase Storage bucket → public URL, or null when Storage
- *  isn't configured or the upload fails. Used by the media library for both images and video. */
+/** Upload a blob/file to storage → public URL, or null when nothing is reachable. Used by the media
+ *  library for both images and video. */
 export async function putToStorage(tenant: string, blob: Blob, ext: string, type: string): Promise<string | null> {
   const cfg = storageCfg();
-  if (!cfg) return null;
-  return uploadToSupabase(cfg, blob, ext, type, tenant);
+  const direct = cfg ? await uploadToSupabase(cfg, blob, ext, type, tenant) : null;
+  return direct ?? uploadViaSite(blob, ext, type);
+}
+
+/**
+ * The site uploads it for us. /api/upload holds the service_role key server-side and is gated by the
+ * same EDIT_KEY the cabinet already signed in with, so this works with nothing configured in the
+ * browser — and it is what keeps replaced photos out of the page HTML.
+ */
+async function uploadViaSite(blob: Blob, ext: string, type: string): Promise<string | null> {
+  if (!siteApiReady()) return null;
+  try {
+    const dataUrl = await blobToDataUrl(blob);
+    const dataBase64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+    const r = await postSiteApi<{ url?: string }>("upload", { file: { name: `photo.${ext}`, type, dataBase64 } });
+    return r.ok && r.data?.url ? r.data.url : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Upload a Blob to Supabase Storage and return its public URL, or null on failure. */
@@ -118,11 +140,8 @@ export function pickImage(tenant = "tenant"): Promise<string | null> {
       if (!file) return resolve(null);
       try {
         const { blob, ext, type } = await downscale(file);
-        const cfg = storageCfg();
-        if (cfg) {
-          const url = await uploadToSupabase(cfg, blob, ext, type, tenant);
-          if (url) return resolve(url);
-        }
+        const url = await putToStorage(tenant, blob, ext, type);
+        if (url) return resolve(url);
         return resolve(await blobToDataUrl(blob));
       } catch {
         // Last-ditch: raw data URL of the original file.

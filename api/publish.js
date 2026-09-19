@@ -28,6 +28,10 @@ export default async function handler(req, res) {
   if (EDIT_KEY && String(body.editKey || "").trim() !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
 
   const project = body.project || "allclean";
+  // The cabinet sends big sites in several calls (Vercel rejects a >4.5MB body at the edge, without
+  // CORS headers, so the browser only ever sees "Failed to fetch"). Every call saves its own pages;
+  // the restore point and the deploy fire once, on the one marked `finish`.
+  const finish = body.finish !== false;
   const overrides = body.overrides || {};
   const breakpoints = body.breakpoints || {};
   const pageIds = new Set([...Object.keys(overrides), ...Object.keys(breakpoints)]);
@@ -54,8 +58,16 @@ export default async function handler(req, res) {
   // Record what we just shipped, so this publish becomes a point the client can come back to.
   // Publishing is the only irreversible action in the product; without a snapshot a regretted change
   // could only be undone by rebuilding it from memory. Failing to record must never fail the publish.
-  try {
-    const edits = Object.values(overrides).reduce((n, o) => n + Object.keys(o || {}).length, 0);
+  if (finish) try {
+    // Read the whole project back rather than snapshotting this call's slice: with a chunked publish
+    // the last call knows only its own pages, and a restore point missing the rest is worse than none.
+    const all = await fetch(
+      `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_overrides?project=eq.${encodeURIComponent(project)}&select=page_id,overrides,breakpoints`,
+      { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } }
+    ).then((r) => (r.ok ? r.json() : []));
+    const snapOv = {}, snapBp = {};
+    for (const row of all) { snapOv[row.page_id] = row.overrides || {}; snapBp[row.page_id] = row.breakpoints || {}; }
+    const edits = Object.values(snapOv).reduce((n, o) => n + Object.keys(o || {}).length, 0);
     await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_versions`, {
       method: "POST",
       headers: {
@@ -65,9 +77,9 @@ export default async function handler(req, res) {
       body: JSON.stringify([{
         project,
         created_by: String(body.by || "").slice(0, 80),
-        note: `${rows.length} стр., ${edits} правок`,
-        pages: rows.length,
-        snapshot: { overrides, breakpoints },
+        note: `${Object.keys(snapOv).length} стр., ${edits} правок`,
+        pages: Object.keys(snapOv).length,
+        snapshot: { overrides: snapOv, breakpoints: snapBp },
       }]),
     });
   } catch { /* history is a convenience — never block the publish on it */ }
@@ -96,7 +108,7 @@ export default async function handler(req, res) {
   // result was a publish that stored the edits and changed nothing anyone could see.
   // Pass rebuild:false explicitly once serving is genuinely on-demand.
   let rebuild = false;
-  if (DEPLOY_HOOK && body.rebuild !== false) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
+  if (finish && DEPLOY_HOOK && body.rebuild !== false) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
   return res.status(200).json({ ok: true, pages: rows.length, rebuild, warmed });
 }
 
