@@ -14,6 +14,7 @@ import { applyOverrides, loadOverrides, saveOverrides, mergeOverrideLayers,
   type SiteOverrides, type PageOverrides, type StoredSiteOverrides } from "../editor/realStore";
 import { fetchPublishedOverrides } from "../editor/overridesClient";
 import { fetchDraft, saveDraftPage, beaconDraftPage, draftConfigured, type DraftMeta } from "../editor/draftClient";
+import { liftOverrides } from "../editor/liftImages";
 import { toCanonical, toPreview, canonicalizeOverrides } from "../editor/assetPaths";
 import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
@@ -282,6 +283,13 @@ export function SiteEditor() {
       // Merge (not spread) so a tombstone REMOVES the block from what we push: undoing an edit that
       // already reached the draft has to delete it there too, or the next sync brings it back and
       // publishing ships it anyway.
+      // A photo inlined as base64 goes to storage first, and the LOCAL copy is rewritten too — else
+      // the same three megabytes ride along on every future save and publish (see liftImages.ts).
+      const cleaned = await liftOverrides(overrides.current[pageId] || {}, TENANT);
+      if (cleaned) {
+        overrides.current[pageId] = cleaned;
+        saveOverrides(TENANT, SITE, overrides.current);
+      }
       const pushedLocal = { ...overrides.current[pageId] };
       const ov = mergeOverrideLayers(draftOv.current[pageId], overrides.current[pageId]);
       const bp = mergedBp(pageId);
