@@ -50,6 +50,19 @@ export default async function handler(req, res) {
       });
     }
 
+    // Read one snapshot WITHOUT restoring it. Comparing "what was live then" against "what is live
+    // now" is how a client's "мои правки пропали" gets answered with the actual missing blocks
+    // instead of a guess — and restoring blind, just to look, would overwrite the current state.
+    if (body.action === "get") {
+      if (!body.id) return res.status(400).json({ error: "id required" });
+      const g = await fetch(`${REST("site_versions")}?id=eq.${encodeURIComponent(body.id)}&select=snapshot,created_at,created_by,note`, { headers: auth() });
+      if (!g.ok) return res.status(502).json({ error: "read failed: " + (await g.text()) });
+      const found = await g.json();
+      if (!found || !found.length) return res.status(404).json({ error: "version not found" });
+      return res.status(200).json({ ok: true, createdAt: found[0].created_at, createdBy: found[0].created_by || "",
+        note: found[0].note || "", snapshot: found[0].snapshot || {} });
+    }
+
     if (body.action === "restore") {
       if (!body.id) return res.status(400).json({ error: "id required" });
       const g = await fetch(`${REST("site_versions")}?id=eq.${encodeURIComponent(body.id)}&select=snapshot`, { headers: auth() });
