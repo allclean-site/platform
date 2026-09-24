@@ -5,6 +5,7 @@
  */
 
 import { publishConfig } from "../settings/store";
+import { isStale } from "../app/version";
 import { postSiteApi, siteApiConfigured } from "./siteApi";
 import type { SiteOverrides } from "./realStore";
 import type { SiteBp } from "./bpStore";
@@ -59,6 +60,14 @@ export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteB
     message: "Похоже, вы вошли в кабинет давно — сессия устарела и права на публикацию у неё нет. Войдите заново, и кнопка заработает.",
     detail: `endpoint: ${p.endpoint}
 editKey: пусто (сессия без ключа). Если после повторного входа ключа всё ещё нет — на сайтовом проекте не задан EDIT_KEY.`,
+  };
+
+  // Old code in an old tab is how the size limit was hit five days after it was fixed: the cabinet
+  // had been redeployed, the client's tab had not. Publishing is the one action worth stopping for.
+  if (await isStale()) return {
+    ok: false,
+    message: "Кабинет обновился — эта вкладка ещё работает на старой версии. Обновите страницу (Ctrl+Shift+R) и нажмите «Опубликовать» снова.",
+    detail: "running bundle != served bundle (src/app/version.ts)",
   };
 
   const ids = [...new Set([...Object.keys(overrides), ...Object.keys(breakpoints)])];

@@ -60,6 +60,21 @@ export function watchVersion(onStale: () => void): () => void {
   return () => { window.removeEventListener("focus", onFocus); window.clearInterval(timer); };
 }
 
+/**
+ * "Is this tab provably behind?" — asked before anything that must not run on old code.
+ *
+ * The banner alone was not enough: a client kept a tab open for days, published from it, and hit a
+ * limit that the deployed cabinet had already stopped hitting. Publishing now refuses to run on a
+ * bundle we can prove is stale. Unknown (dev server, check failed) is NOT stale — an unreachable
+ * version check must never stand between the client and publishing.
+ */
+export async function isStale(): Promise<boolean> {
+  const mine = runningVersion();
+  if (!mine) return false;
+  const theirs = await servedVersion();
+  return Boolean(theirs) && theirs !== mine;
+}
+
 /** Short human-readable build id, for the "which version am I on?" line in Настройки. */
 export function versionLabel(): string {
   const m = /index-([A-Za-z0-9_-]+)\.js/.exec(runningVersion());
