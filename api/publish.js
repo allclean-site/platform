@@ -34,13 +34,50 @@ export default async function handler(req, res) {
   const finish = body.finish !== false;
   const overrides = body.overrides || {};
   const breakpoints = body.breakpoints || {};
+  // Pages the client means to have NO edits at all. Everything else that arrives empty is treated as
+  // "this call knows nothing about that page", never as "delete what is published there".
+  const clearPages = new Set(Array.isArray(body.clearPages) ? body.clearPages : []);
   const pageIds = new Set([...Object.keys(overrides), ...Object.keys(breakpoints)]);
-  const rows = [...pageIds].map((id) => ({
-    project, page_id: id,
-    overrides: overrides[id] || {},
-    breakpoints: breakpoints[id] || {},
-    updated_at: new Date().toISOString(),
-  }));
+
+  /**
+   * ⚠️ WHY THIS READS THE LIVE ROWS FIRST — a client lost three days of work here.
+   *
+   * A publish used to write `overrides[id] || {}` for every page id it saw, including pages that only
+   * appeared in `breakpoints`. So a cabinet whose published layer had not finished loading, or that
+   * carried sizes for 38 pages and edits for 3, did not publish 3 edits — it ERASED the other 58 and
+   * the live site lost a calculator, a reviews block and every deleted English leftover came back.
+   * The client saw it as "мои правки пропали", and nothing in the flow said otherwise.
+   *
+   * Publishing states what a page contains; it cannot state anything about a page it did not send.
+   * An empty (or absent) map therefore PRESERVES what is stored, unless the page is named in
+   * `clearPages` — which is how the editor says "this page really has no edits now".
+   */
+  let stored = {};
+  {
+    const q = [...pageIds].map((id) => `"${id.replace(/"/g, '\\"')}"`).join(",");
+    const r = await fetch(
+      `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_overrides?project=eq.${encodeURIComponent(project)}` +
+      `&page_id=in.(${encodeURIComponent(q)})&select=page_id,overrides,breakpoints`,
+      { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } }
+    ).catch(() => null);
+    if (r && r.ok) for (const row of await r.json()) stored[row.page_id] = row;
+  }
+
+  const has = (m) => m && typeof m === "object" && Object.keys(m).length > 0;
+  const rows = [...pageIds].map((id) => {
+    const keepOv = !clearPages.has(id) && !has(overrides[id]) && has(stored[id]?.overrides);
+    const keepBp = !clearPages.has(id) && !has(breakpoints[id]) && has(stored[id]?.breakpoints);
+    return {
+      project, page_id: id,
+      overrides: keepOv ? stored[id].overrides : (overrides[id] || {}),
+      breakpoints: keepBp ? stored[id].breakpoints : (breakpoints[id] || {}),
+      updated_at: new Date().toISOString(),
+    };
+  });
+  const preserved = rows.filter((r, i) => {
+    const id = r.page_id;
+    return !clearPages.has(id) && !has(overrides[id]) && has(stored[id]?.overrides);
+  }).length;
 
   if (rows.length) {
     const r = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_overrides?on_conflict=project,page_id`, {
@@ -109,7 +146,7 @@ export default async function handler(req, res) {
   // Pass rebuild:false explicitly once serving is genuinely on-demand.
   let rebuild = false;
   if (finish && DEPLOY_HOOK && body.rebuild !== false) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
-  return res.status(200).json({ ok: true, pages: rows.length, rebuild, warmed });
+  return res.status(200).json({ ok: true, pages: rows.length, rebuild, warmed, preserved });
 }
 
 /** page_id ("ru/pricing/index.html") → the URL it is served at ("/ru/pricing"). */

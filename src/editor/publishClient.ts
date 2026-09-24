@@ -47,8 +47,14 @@ function chunkPages(ids: string[], size: (id: string) => number): string[][] {
   return out;
 }
 
-/** `by` is recorded with the restore point so the history says who published what. */
-export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteBp, by = ""): Promise<PublishResult> {
+/**
+ * `by` is recorded with the restore point so the history says who published what.
+ * `clearPages` — pages the client has deliberately stripped of every edit. Without that list the
+ * server keeps what is already published for a page it receives empty, because an empty page used to
+ * mean "erase it" even when the cabinet simply had not loaded the published layer yet (that is how a
+ * publish once reduced the whole site to three edits).
+ */
+export async function publishToSite(overrides: SiteOverrides, breakpoints: SiteBp, by = "", clearPages: string[] = []): Promise<PublishResult> {
   const p = publishConfig();
   if (!p.endpoint) return { ok: false, message: "Публикация не настроена (Настройки → Публикация)." };
   // The right to publish now arrives WITH the session. A session opened before that change (or one
@@ -82,7 +88,7 @@ editKey: пусто (сессия без ключа). Если после пов
       if (breakpoints[id]) bp[id] = breakpoints[id];
     }
     const r = await postSiteApi<{ rebuild?: boolean; pages?: number; instant?: boolean }>(
-      "publish", { project: "allclean", overrides: ov, breakpoints: bp, by, finish: last }
+      "publish", { project: "allclean", overrides: ov, breakpoints: bp, by, clearPages, finish: last }
     );
     if (r.offline) {
       // One page too heavy for a single request — name it, because the fix is on that page.

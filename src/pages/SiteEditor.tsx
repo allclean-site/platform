@@ -225,6 +225,16 @@ export function SiteEditor() {
     return out;
   };
   /**
+   * Pages that HAD published edits and have none now — the client undid them, and publishing must
+   * actually take them off the site. Everything else that comes out empty is "we know nothing about
+   * this page", which the server now leaves alone rather than erasing.
+   */
+  const clearedPages = (): string[] =>
+    Object.keys(pubOverrides.current).filter(
+      (pid) => Object.keys(pubOverrides.current[pid] || {}).length > 0 && Object.keys(mergedOv(pid)).length === 0
+    );
+
+  /**
    * Pages whose pending edits are not this browser's work — they arrived through the shared draft.
    * Publishing has always pushed the merged state, so a client pressing «Опубликовать» also ships
    * whatever the agency happens to have in progress. The dialog now says which pages those are, and
@@ -1330,6 +1340,7 @@ export function SiteEditor() {
           publishedBy={session?.name || ""}
           overrides={allOverrides()}
           bp={allBp()}
+          clearPages={clearedPages()}
           othersPages={othersPages()}
           /**
            * What just went live becomes the new baseline, here and now. Without this the editor keeps

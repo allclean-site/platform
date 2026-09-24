@@ -21,6 +21,7 @@ import type { PageOverrides } from "../editor/realStore";
 
 export function PublishDialog({
   index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "", othersPages = [], onRelogin, onPublished,
+  clearPages = [],
 }: {
   index: SiteIndex;
   dataBase: string;
@@ -37,6 +38,8 @@ export function PublishDialog({
   onRelogin?: () => void;
   /** What actually went live, so the editor can move its baseline without a reload. */
   onPublished?: (overrides: SiteOverrides, bp: SiteBp) => void;
+  /** Pages whose published edits the client has undone — see publishToSite. */
+  clearPages?: string[];
 }) {
   // Publishing pushes the merged state, so a client can end up shipping the agency's unfinished work
   // (and the other way round). Every edited page can be left out of this publish instead.
@@ -129,7 +132,7 @@ export function PublishDialog({
   const doPublish = async () => {
     setPubState("publishing"); setPubMsg(""); setPubDetail(""); setCopied(false);
     const payload = selected(await ensureExpanded());
-    const r = await publishToSite(payload, selectedBp(), publishedBy);
+    const r = await publishToSite(payload, selectedBp(), publishedBy, clearPages);
     setPubState(r.ok ? "done" : "error");
     setPubMsg(r.message);
     setNeedsRelogin(Boolean(r.needsRelogin));
