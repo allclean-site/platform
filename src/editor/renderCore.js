@@ -123,6 +123,23 @@ export const SITE_FIXES =
   // bottom edge, so removing the overlay outright left it unreadable (white-on-white where the photo
   // ends). The classic card treatment does both jobs: a slim fade pinned to the bottom, under the
   // title only — the photo stays clean, the title stays readable on any image.
+  // Калькулятор на телефоне: карточки типа уборки стоят в два столбца по 135px, а подпись
+  // «Поддерживающая» требует 147px и вылезает за скруглённый край карточки (по-румынски названия
+  // ещё длиннее). Ниже 420px ставим их в одну колонку — подпись помещается целиком, попадать
+  // пальцем удобнее. Плитки-галочки остаются в два столбца: там подписи короткие.
+  "@media screen and (max-width:420px){.calc-cards:not(#lgcmsx){grid-template-columns:1fr !important;}}" +
+  // Пальцем в ссылку высотой 16px не попасть: в меню, в подвале, в карточках отзывов и в верхней
+  // плашке ссылки ростом 16–20px. Увеличиваем НЕ саму ссылку, а её область нажатия — невидимым
+  // слоем поверх: вид и вёрстка не меняются ни на пиксель, а цель становится 24px, как просит
+  // WCAG 2.2. Только на узких экранах и только там, где ссылка стоит отдельно, а не внутри абзаца.
+  "@media screen and (max-width:767px){" +
+    "a.link_underline-animated:not(#lgcmsx),a.link-socials:not(#lgcmsx),a.link-banner:not(#lgcmsx)," +
+    "a.link_footer-legal:not(#lgcmsx),.card_testimonial-marquee a:not(#lgcmsx){position:relative;}" +
+    "a.link_underline-animated:not(#lgcmsx)::after,a.link-socials:not(#lgcmsx)::after," +
+    "a.link-banner:not(#lgcmsx)::after,a.link_footer-legal:not(#lgcmsx)::after," +
+    ".card_testimonial-marquee a:not(#lgcmsx)::after{content:\"\";position:absolute;left:0;right:0;" +
+      "top:50%;transform:translateY(-50%);height:24px;}" +
+  "}" +
   ".card_scroll-service .content_nav-service:not(#lgcmsx){background-image:linear-gradient(180deg,rgba(12,41,89,0) 55%,rgba(12,41,89,.82) 100%);}" +
   // A services-card photo FILLS its wrapper, whatever its shape. The template only ever shipped
   // portrait photos, so it never said so — and the first landscape photo the client uploaded
