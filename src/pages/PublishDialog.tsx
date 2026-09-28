@@ -102,8 +102,10 @@ export function PublishDialog({
       // Теперь общий патч применяется всегда, когда его удаётся разместить на этой странице; если
       // разместить нельзя (у страницы другая вёрстка блока) — остаётся то, что у неё есть.
         const r = resolveShared(base, val);
-        if (r.missed) { missedOn.current.add(p.slug); continue; }
-        out[blockId] = r.html;
+        // Один непоместившийся патч не отменяет остальные: применяем то, что легло, а страницу
+        // называем в предупреждении — клиент видит, где правка дошла не полностью.
+        if (r.missed) missedOn.current.add(p.slug);
+        if (r.html) out[blockId] = r.html;
       }
     }
     return out;

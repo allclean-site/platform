@@ -72,7 +72,12 @@ export default async function handler(req, res) {
           { headers: auth() });
         if (c.ok) {
           const cur = (await c.json())[0];
-          if (cur && cur.updated_at && cur.updated_at !== (body.expectedAt || "")) {
+          // ⚠️ СРАВНИВАЕМ МОМЕНТЫ, А НЕ СТРОКИ. Сохранение возвращает `…064Z`, а чтение — `…064+00:00`:
+          // это одно и то же время в двух записях, и посимвольное сравнение превращало КАЖДОЕ второе
+          // сохранение в конфликт (измерено на живом API).
+          const same = cur && cur.updated_at && body.expectedAt &&
+            Date.parse(cur.updated_at) === Date.parse(body.expectedAt);
+          if (cur && cur.updated_at && !same) {
             return res.status(409).json({
               error: "conflict", conflict: true,
               updatedAt: cur.updated_at, updatedBy: cur.updated_by || "",

@@ -114,6 +114,11 @@ export default async function handler(req, res) {
         await fetch(`${REST("site_drafts")}?project=eq.${encodeURIComponent(project)}&page_id=eq.${encodeURIComponent(id)}`,
           { method: "DELETE", headers: { ...auth(), Prefer: "return=minimal" } }).catch(() => {});
       }
+      // Общая правка шапки/подвала живёт ТОЛЬКО в черновике (`__shared:<язык>`) и при рендере
+      // сильнее того, что записано на странице. Не убрать её здесь — значит откатить сайт и тут же
+      // получить ту же правку обратно на каждой странице.
+      await fetch(`${REST("site_drafts")}?project=eq.${encodeURIComponent(project)}&page_id=like.__shared*`,
+        { method: "DELETE", headers: { ...auth(), Prefer: "return=minimal" } }).catch(() => {});
 
       let rebuild = false;
       if (DEPLOY_HOOK) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }

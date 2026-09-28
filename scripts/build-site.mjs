@@ -21,7 +21,7 @@ const SITE = "https://allclean.md";
 // The assembly / cleaning / override-CSS logic is NOT re-implemented here any more. It is imported
 // from the same module the editor uses, so the published page and the editor canvas cannot drift.
 import {
-  applyOverrides, cleanHtml, overridesCss, keptIds, reassemble, exportPageHtml,
+  applyOverrides, cleanHtml, overridesCss, keptIds, reassemble, exportPageHtml, applyMedia,
   MEDIA_KEY,
   decodeMedia,
 } from "../src/editor/renderCore.js";
@@ -37,7 +37,16 @@ async function supabaseEdits() {
   // client project's current env works with no new variables.
   const URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
   const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.PUBLIC_SUPABASE_ANON;
-  if (!URL || !KEY) return null;
+  // Нет ключей — это та же катастрофа, что и упавшее чтение: сборка выложит сайт без единой правки
+  // клиента. Локальная сборка из файла правок (аргумент) и заведомо чистая первая сборка остаются
+  // возможными, но их надо назвать вслух.
+  if (!URL || !KEY) {
+    if (process.argv[2] || process.env.ALLOW_CLEAN_MIRROR === "1") return null;
+    console.error("[build] ОСТАНОВЛЕНО: не заданы SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY — сборка вышла бы без правок клиента.");
+    console.error("[build] если чистое зеркало действительно нужно: ALLOW_CLEAN_MIRROR=1");
+    process.exitCode = 1;
+    throw new Error("no supabase credentials");
+  }
   try {
     const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/site_overrides?select=page_id,overrides,breakpoints&project=eq.${PROJECT}`,
       { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
@@ -133,7 +142,7 @@ function buildHead(prefix, a, roSlug, ruSlug) {
 }
 
 /** Fetch published articles from Supabase (anon read) grouped, then render new ones to pages. */
-async function generateArticles(written) {
+async function generateArticles(written, media = []) {
   const URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
   const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.PUBLIC_SUPABASE_ANON;
   const PROJECT_ID = "8878db57-c541-4502-bfa6-ae812dc3aefd";
@@ -143,9 +152,16 @@ async function generateArticles(written) {
   else try {
     const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/articles?select=group_id,locale,slug,title,excerpt,body,cover_url,seo_title,seo_description,meta,jsonld,created_at&project_id=eq.${PROJECT_ID}&status=eq.published`,
       { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
-    if (!r.ok) { console.log(`[build] blog: articles fetch HTTP ${r.status} — skipping`); return { urls: [], newByLocale: {} }; }
+    // Пропустить статьи нельзя: страницы блога генерируются на каждой сборке, и «пропустили» значит
+    // «удалили с сайта все опубликованные из кабинета статьи».
+    if (!r.ok) throw new Error(`articles HTTP ${r.status}`);
     arts = await r.json();
-  } catch (e) { console.log("[build] blog: articles fetch failed:", e.message); return { urls: [], newByLocale: {} }; }
+  } catch (e) {
+    console.error("[build] ОСТАНОВЛЕНО: не удалось прочитать статьи блога —", e.message);
+    console.error("[build] сборка без них удалила бы уже опубликованные статьи; предыдущий деплой остаётся.");
+    process.exitCode = 1;
+    throw e;
+  }
 
   // group_id → { ro?, ru? } for hreflang pairing
   const byGroup = new Map();
@@ -167,7 +183,9 @@ async function generateArticles(written) {
       prefix: buildHead(tpl.prefix, a, pair.ro?.slug, pair.ru?.slug),
       blocks: tpl.blocks.map((b) => (b.content.region === "main" ? { ...b, content: { ...b.content, html: buildSec0(a, dateStr) } } : b)),
     };
-    const doc = reassemble(page);
+    // Страницы статей собираются здесь, мимо exportPageHtml — без этой строки заменённое фото
+    // меняется на 38 страницах зеркала и остаётся старым в шапке и подвале каждой статьи.
+    const doc = applyMedia(reassemble(page), media);
     const dest = join(OUT, path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, doc);
@@ -236,7 +254,7 @@ async function main() {
 
   // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept)
   // and add their cards to the /blog and /ru/blog index grids.
-  const { urls: articleUrls, newByLocale } = await generateArticles(written);
+  const { urls: articleUrls, newByLocale } = await generateArticles(written, media);
   await injectCards("blog/index.html", newByLocale.ro || [], "ro");
   await injectCards("ru/blog/index.html", newByLocale.ru || [], "ru");
 

@@ -226,7 +226,9 @@ export function SiteEditor() {
       // Теперь общий патч применяется всегда, когда его удаётся разместить на этой странице; если
       // разместить нельзя (у страницы другая вёрстка блока) — остаётся то, что у неё есть.
       const r = resolveShared(base, val);
-      if (!r.missed) out[blockId] = r.html;
+      // Патчи применяются по одному: если один не нашёл своего места, остальные всё равно на месте.
+      // Отбрасывать весь блок из-за одного промаха — значит терять и те правки, которые легли.
+      if (r.html) out[blockId] = r.html;
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -610,7 +612,11 @@ export function SiteEditor() {
         const from = String(d.from || ""), to = String(d.to);
         const fromId = mediaIdentity(from);
         const scope = d.link ? `link:${linkSlot(String(d.link))}` : `url:${fromId}`;
-        if (fromId && mediaIdentity(to) !== fromId) {
+        // Правило разносит адрес по всему сайту. Если хранилище было недоступно и вместо ссылки
+        // пришёл data:-URL на сотни килобайт, такое правило впечатало бы его в каждую страницу.
+        if (to.startsWith("data:")) {
+          say("Фото сохранено только здесь: хранилище сейчас недоступно, поэтому на другие страницы оно не разошлось.");
+        } else if (fromId && mediaIdentity(to) !== fromId) {
           const next = mediaRules()
             // Replacing the SAME slot again just moves that rule; and a rule that pointed at the photo
             // being replaced now points at the new one, so repeated swaps never form a broken chain.
