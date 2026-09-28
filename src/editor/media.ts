@@ -29,7 +29,11 @@ const uid = () => "m" + Date.now().toString(36) + Math.random().toString(36).sli
 export function loadMedia(tenant: string): MediaAsset[] {
   try { return JSON.parse(localStorage.getItem(KEY(tenant)) || "[]"); } catch { return []; }
 }
-function save(tenant: string, list: MediaAsset[]) { localStorage.setItem(KEY(tenant), JSON.stringify(list)); }
+/** The gallery is a convenience; the client's edits are not. On a nearly full origin this throw used
+ *  to escape through the frame-load and settle handlers and abort the media indexing pass with it. */
+function save(tenant: string, list: MediaAsset[]): boolean {
+  try { localStorage.setItem(KEY(tenant), JSON.stringify(list)); return true; } catch { return false; }
+}
 
 export const activeMedia = (tenant: string) => loadMedia(tenant).filter((m) => !m.deleted);
 export const trashedMedia = (tenant: string) => loadMedia(tenant).filter((m) => m.deleted);

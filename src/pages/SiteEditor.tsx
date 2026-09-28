@@ -154,16 +154,16 @@ export function SiteEditor() {
   // Pull the PUBLISHED edits (shared state) so the editor matches the live site and shows the client's
   // published edits — not just this browser's local ones. Published = base, local unpublished edits win
   // per block. Graceful no-op when publish isn't configured or offline (falls back to local-only).
-  useEffect(() => {
-    let cancelled = false;
-    fetchPublishedOverrides("allclean").then((pub) => {
-      if (!pub || cancelled) return;
-      pubOverrides.current = canonicalizeOverrides(pub.overrides);
-      pubBp.current = pub.breakpoints;
-      setSyncTick((t) => t + 1); // re-render the current page with the merged (published + local) edits
-    });
-    return () => { cancelled = true; };
-  }, [SITE]);
+  const pullPublished = useCallback(async () => {
+    const pub = await fetchPublishedOverrides("allclean");
+    if (!pub) return false;
+    pubOverrides.current = canonicalizeOverrides(pub.overrides);
+    pubBp.current = pub.breakpoints;
+    setSyncTick((t) => t + 1); // re-render the current page with the merged (published + local) edits
+    return true;
+  }, []);
+
+  useEffect(() => { void pullPublished(); }, [SITE, pullPublished]);
 
   // Layers, weakest first: PUBLISHED (live site) → SHARED DRAFT (everyone's unpublished work) → LOCAL
   // (this browser, freshest). Local wins per block because it is what the user is typing right now.
@@ -215,10 +215,18 @@ export function SiteEditor() {
     const shared = mergedOv(sharedKey(lang));
     for (const blockId of Object.keys(shared)) {
       const val = shared[blockId];
-      if (val == null || own[blockId] != null) continue;   // a page-specific edit is the more specific one
+      if (val == null) continue;
       const base = p.blocks.find((b) => b.id === blockId)?.content.html;
       if (base == null) continue;
-      out[blockId] = resolveShared(base, val).html;
+      // ⚠️ ОБЩАЯ ПРАВКА СИЛЬНЕЕ СЛЕДА ПРОШЛОЙ ПУБЛИКАЦИИ. Здесь стояла проверка «если у страницы
+      // есть своя версия блока — она главнее». Звучит разумно, но своя версия у шапки и подвала
+      // появляется ровно одним способом: предыдущая публикация РАЗВЕРНУЛА общую правку в каждую
+      // страницу и записала её как обычный оверрайд. После первой же публикации любая СЛЕДУЮЩАЯ
+      // правка шапки или подвала молча переставала доходить — и до холста, и до сайта.
+      // Теперь общий патч применяется всегда, когда его удаётся разместить на этой странице; если
+      // разместить нельзя (у страницы другая вёрстка блока) — остаётся то, что у неё есть.
+      const r = resolveShared(base, val);
+      if (!r.missed) out[blockId] = r.html;
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -365,7 +373,7 @@ export function SiteEditor() {
       window.clearTimeout(draftTimers.current[pageId]);
       delete draftTimers.current[pageId];
       const ov = mergeOverrideLayers(draftOv.current[pageId], overrides.current[pageId]);
-      beaconDraftPage("allclean", pageId, ov, mergedBp(pageId), session?.name || "");
+      beaconDraftPage("allclean", pageId, ov, mergedBp(pageId), session?.name || "", draftMeta.current[pageId]?.updatedAt);
     }
   }, [session?.name]);
 
@@ -484,13 +492,20 @@ export function SiteEditor() {
     autoCommit();
     return true;
   };
-  const writeBp = (pageId: string, rules: PageBp) => {
+  const writeBp = (pageId: string, rules: PageBp): boolean => {
     openTxn(pageId); recordBp(pageId);
     bpOverrides.current[pageId] = rules;
-    saveBp(TENANT, SITE, bpOverrides.current);
+    // The same check writeBlock makes: a full localStorage refused the write silently here, so every
+    // phone/tablet size and colour the client set was gone on reload while the panel said «сохранено».
+    if (!saveBp(TENANT, SITE, bpOverrides.current)) {
+      setSaveState("idle");
+      say("Не удалось сохранить правку в этом браузере: закончилось место. Опубликуйте изменения или очистите данные сайта.");
+      return false;
+    }
     setSaveState("saved");
     scheduleDraft(pageId);
     autoCommit();
+    return true;
   };
 
   useEffect(() => {
@@ -1133,7 +1148,10 @@ export function SiteEditor() {
               : <>общий черновик{draftWho ? ` · ${draftWho}` : ""}</>}
           </span>
         )}
-        <button className="se__publish" onClick={() => setPublishing(true)}>
+        {/* Сначала перечитываем то, что уже опубликовано, и только потом открываем диалог: вкладка,
+            открытая несколько часов назад, иначе публикует свою старую картину поверх того, что за
+            это время выложили с другого устройства. Диалог снимает состояние один раз при открытии. */}
+        <button className="se__publish" onClick={async () => { await pullPublished(); setPublishing(true); }}>
           <Rocket size={15} /> Опубликовать{pendingEdits ? ` (${pendingEdits})` : ""}
         </button>
       </div>
@@ -1398,7 +1416,11 @@ export function SiteEditor() {
            * publish that silently failed.
            */
           onPublished={(pubOv, pubBpNew) => {
-            for (const pid of Object.keys(pubOv)) pubOverrides.current[pid] = { ...(pubOverrides.current[pid] ?? {}), ...pubOv[pid] };
+            // ЗАМЕНА, а не слияние: сервер записал для этих страниц ровно то, что мы отправили.
+            // Домешивание оставляло в базе блоки, которых публикация как раз лишилась — кабинет
+            // считал их опубликованными, показывал их на холсте и возвращал на сайт следующей
+            // публикацией, а счётчик «есть неопубликованные правки» никогда не обнулялся.
+            for (const pid of Object.keys(pubOv)) pubOverrides.current[pid] = { ...pubOv[pid] };
             for (const pid of Object.keys(pubBpNew)) pubBp.current[pid] = pubBpNew[pid];
             setSyncTick((t) => t + 1);
           }}

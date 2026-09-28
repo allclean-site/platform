@@ -73,32 +73,51 @@ export default async function handler(req, res) {
       const snap = found[0].snapshot || {};
       const overrides = snap.overrides || {};
       const breakpoints = snap.breakpoints || {};
+      const pageIds = [...new Set([...Object.keys(overrides), ...Object.keys(breakpoints)])];
 
-      // Replace the published state with the snapshot. Pages that existed then but not now would
-      // otherwise keep their current edits, so clear the project first and write the snapshot back.
-      const del = await fetch(`${REST("site_overrides")}?project=eq.${encodeURIComponent(project)}`,
-        { method: "DELETE", headers: { ...auth(), Prefer: "return=minimal" } });
-      if (!del.ok) return res.status(502).json({ error: "clear failed: " + (await del.text()) });
+      // Пустой снимок восстанавливать нельзя: это не "вернуть как было", это "стереть сайт".
+      // Такие снимки существуют — их записывал publish в те моменты, когда чтение состояния падало.
+      if (!pageIds.length && body.force !== true) {
+        return res.status(409).json({ error: "в этой точке отката нет ни одной страницы — восстановление отменено" });
+      }
 
-      const ids = new Set([...Object.keys(overrides), ...Object.keys(breakpoints)]);
-      const rows = [...ids].map((id) => ({
+      // ⚠️ ПОРЯДОК ВАЖЕН: СНАЧАЛА ПИШЕМ, ПОТОМ УБИРАЕМ ЛИШНЕЕ. Раньше здесь сначала удалялись все
+      // строки проекта, и сбой записи (таймаут, слишком большой payload) оставлял сайт вообще без
+      // правок — с одним 502 в ответ. Теперь неудачная запись не меняет ничего.
+      const rows = pageIds.map((id) => ({
         project, page_id: id,
         overrides: overrides[id] || {},
         breakpoints: breakpoints[id] || {},
         updated_at: new Date().toISOString(),
       }));
-      if (rows.length) {
-        const w = await fetch(`${REST("site_overrides")}?on_conflict=project,page_id`, {
-          method: "POST",
-          headers: { ...auth(), Prefer: "resolution=merge-duplicates,return=minimal" },
-          body: JSON.stringify(rows),
-        });
-        if (!w.ok) return res.status(502).json({ error: "restore failed: " + (await w.text()) });
+      const up = await fetch(`${REST("site_overrides")}?on_conflict=project,page_id`, {
+        method: "POST",
+        headers: { ...auth(), Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify(rows),
+      });
+      if (!up.ok) return res.status(502).json({ error: "restore failed: " + (await up.text()) });
+
+      // Страницы, которых в снимке нет, гасим по одной — по имени, а не "всё, что есть в проекте".
+      const cur = await fetch(`${REST("site_overrides")}?project=eq.${encodeURIComponent(project)}&select=page_id`, { headers: auth() })
+        .then((r) => (r.ok ? r.json() : []))
+        .catch(() => []);
+      const extra = (cur || []).map((r) => r.page_id).filter((id) => !pageIds.includes(id));
+      for (const id of extra) {
+        await fetch(`${REST("site_overrides")}?project=eq.${encodeURIComponent(project)}&page_id=eq.${encodeURIComponent(id)}`,
+          { method: "DELETE", headers: { ...auth(), Prefer: "return=minimal" } }).catch(() => {});
+      }
+
+      // Общий черновик лежит ПОВЕРХ опубликованного слоя: если его не тронуть, кабинет продолжит
+      // показывать состояние до восстановления, а следующая публикация вернёт его на сайт — то есть
+      // откат молча отменится. Чистим ровно те страницы, которые восстановили.
+      for (const id of pageIds) {
+        await fetch(`${REST("site_drafts")}?project=eq.${encodeURIComponent(project)}&page_id=eq.${encodeURIComponent(id)}`,
+          { method: "DELETE", headers: { ...auth(), Prefer: "return=minimal" } }).catch(() => {});
       }
 
       let rebuild = false;
       if (DEPLOY_HOOK) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
-      return res.status(200).json({ ok: true, pages: rows.length, rebuild });
+      return res.status(200).json({ ok: true, pages: rows.length, removed: extra.length, rebuild });
     }
 
     return res.status(400).json({ error: "unknown action" });

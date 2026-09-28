@@ -60,13 +60,19 @@ export default async function handler(req, res) {
       // or two tabs), and each save replaces the whole page — so without this the tab that saves last
       // silently destroys the other one's work. The client sends the timestamp it last saw; if the
       // stored row has moved on since, we refuse and hand back who changed it and when.
-      if (body.expectedAt) {
+      // ⚠️ БЕЗ ЭТОЙ ПРОВЕРКИ ОДНА ВКЛАДКА СТИРАЕТ РАБОТУ ДРУГОЙ. Раньше проверка стояла ТОЛЬКО когда
+      // клиент прислал expectedAt — а его нет ровно в двух случаях: страница ещё не успела прочитать
+      // черновик (первые секунды после открытия) и последний "маячок" при закрытии вкладки. То есть
+      // защита выключалась именно тогда, когда она нужна. Теперь строка без метки времени может быть
+      // только СОЗДАНА; перезапись существующей всегда требует, чтобы отправитель видел её последнюю
+      // версию.
+      {
         const c = await fetch(
           `${REST()}?project=eq.${encodeURIComponent(project)}&page_id=eq.${encodeURIComponent(pageId)}&select=updated_at,updated_by`,
           { headers: auth() });
         if (c.ok) {
           const cur = (await c.json())[0];
-          if (cur && cur.updated_at && cur.updated_at !== body.expectedAt) {
+          if (cur && cur.updated_at && cur.updated_at !== (body.expectedAt || "")) {
             return res.status(409).json({
               error: "conflict", conflict: true,
               updatedAt: cur.updated_at, updatedBy: cur.updated_by || "",

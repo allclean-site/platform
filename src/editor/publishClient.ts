@@ -88,7 +88,7 @@ editKey: пусто (сессия без ключа). Если после пов
       if (breakpoints[id]) bp[id] = breakpoints[id];
     }
     const r = await postSiteApi<{ rebuild?: boolean; pages?: number; instant?: boolean }>(
-      "publish", { project: "allclean", overrides: ov, breakpoints: bp, by, clearPages, finish: last }
+      "publish", { project: "allclean", overrides: ov, breakpoints: bp, by, clearPages, first: i === 0, finish: last }
     );
     if (r.offline) {
       // One page too heavy for a single request — name it, because the fix is on that page.

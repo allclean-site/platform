@@ -69,6 +69,32 @@ export default async function handler(req, res) {
     for (const row of await r.json()) stored[row.page_id] = row;
   }
 
+  // Точка отката ДО записи. Раньше снимок писался только после последней части, и публикация,
+  // оборвавшаяся на середине (сеть, закрытая вкладка), оставляла сайт в половинчатом состоянии без единой
+  // точки, куда можно вернуться. Теперь первая часть сначала фотографирует то, что было.
+  if (body.first === true) {
+    try {
+      const all = await fetch(
+        `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_overrides?project=eq.${encodeURIComponent(project)}&select=page_id,overrides,breakpoints`,
+        { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } }
+      ).then((r) => (r.ok ? r.json() : []));
+      if (all.length) {
+        const snapOv = {}, snapBp = {};
+        for (const row of all) { snapOv[row.page_id] = row.overrides || {}; snapBp[row.page_id] = row.breakpoints || {}; }
+        const edits = Object.values(snapOv).reduce((n, o) => n + Object.keys(o || {}).length, 0);
+        await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_versions`, {
+          method: "POST",
+          headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "content-type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify([{
+            project, created_by: String(body.by || "").slice(0, 80),
+            note: `до публикации: ${Object.keys(snapOv).length} стр., ${edits} правок`,
+            pages: Object.keys(snapOv).length, snapshot: { overrides: snapOv, breakpoints: snapBp },
+          }]),
+        });
+      }
+    } catch { /* точка отката — страховка, она никогда не должна мешать публикации */ }
+  }
+
   const has = (m) => m && typeof m === "object" && Object.keys(m).length > 0;
   const rows = [...pageIds].map((id) => {
     const keepOv = !clearPages.has(id) && !has(overrides[id]) && has(stored[id]?.overrides);

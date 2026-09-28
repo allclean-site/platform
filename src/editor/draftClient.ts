@@ -87,9 +87,12 @@ export function beaconDraftPage(
   pageId: string,
   overrides: PageOverrides,
   breakpoints: PageBp | undefined,
-  by: string
+  by: string,
+  expectedAt?: string
 ): boolean {
-  return beaconSiteApi("draft", { project, action: "save", pageId, overrides, breakpoints: breakpoints || {}, by });
+  // The closing tab must prove it saw the current row, exactly like a normal save: without it the
+  // last thing a tab does on its way out is overwrite whatever someone else drafted meanwhile.
+  return beaconSiteApi("draft", { project, action: "save", pageId, overrides, breakpoints: breakpoints || {}, by, expectedAt });
 }
 
 /** Drop the shared draft (whole project, or one page) — used after a successful publish. */

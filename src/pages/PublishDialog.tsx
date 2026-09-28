@@ -81,6 +81,8 @@ export function PublishDialog({
   const expanded = useRef<SiteOverrides>({});
   const scanned = useRef<Set<string>>(new Set());
   const missedOn = useRef<Set<string>>(new Set());
+  /** Страницы, JSON которых не удалось прочитать на этом экране — их общие правки не развернулись. */
+  const unreadable = useRef<Set<string>>(new Set());
   const hasShared = Object.keys(overrides).some(isSharedKey);
 
   const expandForPage = (p: ImportedPage): PageOverrides => {
@@ -89,12 +91,19 @@ export function PublishDialog({
       if (!isSharedKey(key) || langOfSharedKey(key) !== p.lang) continue;
       for (const blockId of Object.keys(overrides[key])) {
         const val = overrides[key][blockId];
-        if (val == null || out[blockId] != null) continue;   // a page-specific edit is more specific
+        if (val == null) continue;
         const base = p.blocks.find((b) => b.id === blockId)?.content.html;
         if (base == null) continue;
+      // ⚠️ ОБЩАЯ ПРАВКА СИЛЬНЕЕ СЛЕДА ПРОШЛОЙ ПУБЛИКАЦИИ. Здесь стояла проверка «если у страницы
+      // есть своя версия блока — она главнее». Звучит разумно, но своя версия у шапки и подвала
+      // появляется ровно одним способом: предыдущая публикация РАЗВЕРНУЛА общую правку в каждую
+      // страницу и записала её как обычный оверрайд. После первой же публикации любая СЛЕДУЮЩАЯ
+      // правка шапки или подвала молча переставала доходить — и до холста, и до сайта.
+      // Теперь общий патч применяется всегда, когда его удаётся разместить на этой странице; если
+      // разместить нельзя (у страницы другая вёрстка блока) — остаётся то, что у неё есть.
         const r = resolveShared(base, val);
+        if (r.missed) { missedOn.current.add(p.slug); continue; }
         out[blockId] = r.html;
-        if (r.missed) missedOn.current.add(p.slug);
       }
     }
     return out;
@@ -111,7 +120,12 @@ export function PublishDialog({
       try {
         const p: ImportedPage = await fetch(`${dataBase}/${entry.file}.json`).then((r) => r.json());
         noteScanned(p);
-      } catch { /* a page we cannot read keeps whatever it already had */ }
+      } catch {
+        // Молчать здесь нельзя: общая правка шапки или подвала просто не доедет до этой страницы, и
+        // никто об этом не узнает. Страница попадает в список непрочитанных — публикация общих
+        // правок блокируется до повторной попытки.
+        unreadable.current.add(entry.slug || entry.id);
+      }
     }
     return expanded.current;
   };
@@ -133,6 +147,12 @@ export function PublishDialog({
   const doPublish = async () => {
     setPubState("publishing"); setPubMsg(""); setPubDetail(""); setCopied(false);
     const payload = selected(await ensureExpanded());
+    if (hasShared && unreadable.current.size) {
+      setPubState("error");
+      setPubMsg(`Не удалось загрузить ${unreadable.current.size} стр. — правка в шапке или подвале не попала бы на них. Проверьте интернет и откройте окно публикации заново.`);
+      setPubDetail("не прочитаны: " + [...unreadable.current].join(", "));
+      return;
+    }
     const r = await publishToSite(payload, selectedBp(), publishedBy, clearPages);
     setPubState(r.ok ? "done" : "error");
     setPubMsg(r.message);
