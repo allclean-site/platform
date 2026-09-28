@@ -22,6 +22,8 @@ const SITE = "https://allclean.md";
 // from the same module the editor uses, so the published page and the editor canvas cannot drift.
 import {
   applyOverrides, cleanHtml, overridesCss, keptIds, reassemble, exportPageHtml,
+  MEDIA_KEY,
+  decodeMedia,
 } from "../src/editor/renderCore.js";
 
 // ---- build --------------------------------------------------------------------------------------
@@ -39,7 +41,12 @@ async function supabaseEdits() {
   try {
     const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/site_overrides?select=page_id,overrides,breakpoints&project=eq.${PROJECT}`,
       { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
-    if (!r.ok) { console.log(`[build] Supabase edits skipped (HTTP ${r.status})`); return null; }
+    // ⚠️ A FAILED READ IS NOT "NO EDITS". This used to return null, and null means "build the clean
+    // mirror" — so one Supabase hiccup during a rebuild republished all 38 pages WITHOUT a single
+    // client edit, while the rows sat untouched in the database and the cabinet said «Опубликовано».
+    // Every publish triggers a rebuild, so that is a site-wide wipe on a transient network error.
+    // Failing the build instead keeps the previous deploy live, which is always the safer state.
+    if (!r.ok) throw new Error(`Supabase HTTP ${r.status}`);
     const rows = await r.json();
     const overrides = {}, breakpoints = {};
     for (const row of rows) {
@@ -49,8 +56,9 @@ async function supabaseEdits() {
     console.log(`[build] Supabase edits: ${rows.length} page(s)`);
     return { overrides, breakpoints };
   } catch (e) {
-    console.log("[build] Supabase edits skipped:", e.message);
-    return null;
+    console.error("[build] ОСТАНОВЛЕНО: не удалось прочитать правки из Supabase —", e.message);
+    console.error("[build] сборка без правок затёрла бы живой сайт; предыдущий деплой остаётся на месте.");
+    process.exit(1);
   }
 }
 
@@ -204,6 +212,10 @@ async function main() {
     console.log("[build] no edits — clean mirror");
   }
 
+  // The site's photo rules live under a reserved key, once for the whole site — see renderCore.js.
+  const media = decodeMedia(edits.overrides?.[MEDIA_KEY]?.[MEDIA_KEY]);
+  if (media.length) console.log(`[build] media rules: ${media.length}`);
+
   const idx = JSON.parse(await readFile(join(IMPORT, "_pages.json"), "utf8"));
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
@@ -212,7 +224,7 @@ async function main() {
   const written = new Set();
   for (const entry of idx.pages) {
     const page = JSON.parse(await readFile(join(IMPORT, entry.file + ".json"), "utf8"));
-    const html = exportPageHtml(page, edits.overrides?.[page.id], edits.breakpoints?.[page.id]);
+    const html = exportPageHtml(page, edits.overrides?.[page.id], edits.breakpoints?.[page.id], { media });
     const rel = slugToFile(entry.slug);
     const dest = join(OUT, rel);
     await mkdir(dirname(dest), { recursive: true });

@@ -15,7 +15,7 @@
  * because Supabase is having a bad day.
  */
 
-import { exportPageHtml } from "../src/editor/renderCore.js";
+import { MEDIA_KEY, decodeMedia, exportPageHtml } from "../src/editor/renderCore.js";
 
 const PROJECT = "allclean";
 /** Cached per warm instance: the mirror never changes between deploys. */
@@ -44,17 +44,25 @@ async function loadPage(origin, file) {
   return p;
 }
 
-/** The published edits for one page. Any problem here means "serve the page without edits". */
+/**
+ * The published edits for one page — plus the site-wide photo rules, which live under their own
+ * reserved key. Both come back in ONE round trip; a photo replacement has to reach a page the client
+ * never opened, and that is exactly what this renderer serves.
+ * Any problem here means "serve the page without edits".
+ */
 async function loadOverrides(pageId) {
   const url = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.PUBLIC_SUPABASE_ANON;
   if (!url || !key) return null;
   try {
-    const q = `${url}/rest/v1/site_overrides?project=eq.${encodeURIComponent(PROJECT)}&page_id=eq.${encodeURIComponent(pageId)}&select=overrides,breakpoints`;
+    const ids = `("${String(pageId).replace(/"/g, '\\"')}","${MEDIA_KEY}")`;
+    const q = `${url}/rest/v1/site_overrides?project=eq.${encodeURIComponent(PROJECT)}&page_id=in.${encodeURIComponent(ids)}&select=page_id,overrides,breakpoints`;
     const r = await fetch(q, { headers: { apikey: key, authorization: `Bearer ${key}` } });
     if (!r.ok) return null;
-    const rows = await r.json();
-    return rows && rows[0] ? rows[0] : null;
+    const rows = (await r.json()) || [];
+    const own = rows.find((x) => x.page_id === pageId) || null;
+    const mediaRow = rows.find((x) => x.page_id === MEDIA_KEY);
+    return { ...(own || {}), media: decodeMedia(mediaRow?.overrides?.[MEDIA_KEY]) };
   } catch {
     return null;
   }
@@ -80,7 +88,7 @@ export default async function handler(req, res) {
     if (!entry) { res.status(404).send("Not found"); return; }
     const page = await loadPage(origin, entry.file);
     const row = await loadOverrides(entry.id);
-    const html = exportPageHtml(page, row?.overrides, row?.breakpoints);
+    const html = exportPageHtml(page, row?.overrides, row?.breakpoints, { media: row?.media || [] });
     res.setHeader("content-type", "text/html; charset=utf-8");
     // Served from the edge cache immediately; at most one background revalidation per second keeps it
     // current, and a publish warms these URLs itself, so an edit is live in about a second.

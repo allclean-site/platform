@@ -60,7 +60,13 @@ export default async function handler(req, res) {
       `&page_id=in.(${encodeURIComponent(q)})&select=page_id,overrides,breakpoints`,
       { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } }
     ).catch(() => null);
-    if (r && r.ok) for (const row of await r.json()) stored[row.page_id] = row;
+    // The guard below is only sound when `stored` is known-good: with an empty `stored` every page
+    // that arrived without edits would be written as empty — the exact erasure this code exists to
+    // prevent. So a failed read fails the publish instead of silently degrading to it.
+    if (!r || !r.ok) return res.status(503).json({
+      error: "не удалось прочитать опубликованное состояние — публикация отменена, ничего не изменено",
+    });
+    for (const row of await r.json()) stored[row.page_id] = row;
   }
 
   const has = (m) => m && typeof m === "object" && Object.keys(m).length > 0;

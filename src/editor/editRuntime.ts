@@ -1435,9 +1435,17 @@ ${CORE_INLINE}
         // could still pick the old video (or fail over to it). The old poster has to go too —
         // otherwise the previous frame stays on screen and reads as "the video is broken/white".
         var olds = mel.querySelectorAll("source");
+        var oldVid = (olds[0] && olds[0].getAttribute("src")) || mel.getAttribute("src") || "";
+        var oldPoster = mel.getAttribute("poster") || "";
         for (var oi = olds.length - 1; oi >= 0; oi--) olds[oi].parentNode.removeChild(olds[oi]);
         mel.removeAttribute("poster");
         mel.removeAttribute("src");
+        // The previous frame also lives in an inline background and in the Webflow wrapper's own
+        // attributes; leaving them paints the OLD poster over the new video whenever it has not
+        // started yet, which reads as "видео не поменялось".
+        try { mel.style.backgroundImage = ""; } catch(e){}
+        var wrapv = mel.closest ? mel.closest("[data-video-urls]") : null;
+        if (wrapv){ wrapv.setAttribute("data-video-urls", d.src); wrapv.removeAttribute("data-poster-url"); }
         var ns = document.createElement("source");
         ns.setAttribute("src", d.src);
         var ext = (d.src.split("?")[0].split(".").pop() || "").toLowerCase();
@@ -1447,11 +1455,42 @@ ${CORE_INLINE}
         mel.muted = true;
         mel.setAttribute("muted",""); mel.setAttribute("autoplay",""); mel.setAttribute("loop","");
         mel.setAttribute("playsinline",""); mel.setAttribute("preload","auto");
-        try { mel.load(); var pr = mel.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
+        try { mel.load(); var pr0 = mel.play(); if (pr0 && pr0.catch) pr0.catch(function(){}); } catch(e){}
+        if (oldVid) parent.postMessage({ type:"lg-media-swap", kind:"video", from: oldVid, to: d.src, link:"" }, "*");
+        if (oldPoster) parent.postMessage({ type:"lg-media-swap", kind:"poster", from: oldPoster, to: d.src, link:"" }, "*");
         save(d.blockId); return;
       }
       if (want === "image" && !isVid){
-        onEveryCopy(mel, function(n){ n.setAttribute("src", d.src); n.removeAttribute("srcset"); n.removeAttribute("loading"); });
+        // A photo is not a node, it is an ASSET. The import ships the same file as several separate
+        // <img> nodes - a desktop marquee card and a phone slider card, an about-hero and its mobile
+        // twin - and the site's own CSS shows one at each width. Rewriting only the node under the
+        // cursor is what the client reported as "фото поменялось только в одной ширине".
+        // Every node holding the same photo on THIS page follows at once (instant feedback), and the
+        // parent stores a rule so the other 37 pages and the other language follow at render time.
+        var oldSrc0 = mel.getAttribute("src") || "";
+        var cardA = mel.closest ? mel.closest("a[href]") : null;
+        var slot0 = cardA ? linkSlot(cardA.getAttribute("href")) : "";
+        var ident0 = mediaIdentity(oldSrc0);
+        var imgs = document.querySelectorAll("img"), i2, hit, nd, ns2;
+        for (i2 = 0; i2 < imgs.length; i2++){
+          nd = imgs[i2]; ns2 = nd.getAttribute("src") || "";
+          if (slot0){
+            // the same card, wherever it is repeated: its link is what identifies it
+            var a3 = nd.closest ? nd.closest("a[href]") : null;
+            hit = !!a3 && linkSlot(a3.getAttribute("href")) === slot0 && PHOTO_EXT.test(ns2.split("?")[0] || "");
+          } else {
+            hit = mediaIdentity(ns2) === ident0;
+            if (!hit){
+              var ss0 = nd.getAttribute("srcset") || "", pr, qi;
+              if (ss0){ pr = ss0.split(","); for (qi = 0; qi < pr.length; qi++){ if (mediaIdentity(pr[qi].replace(/^\s+|\s+$/g,"").split(/\s+/)[0]) === ident0){ hit = true; break; } } }
+            }
+          }
+          if (!hit) continue;
+          nd.setAttribute("src", d.src);
+          nd.removeAttribute("srcset"); nd.removeAttribute("sizes"); nd.removeAttribute("loading");
+        }
+        parent.postMessage({ type:"lg-media-swap", kind:"image", from: oldSrc0, to: d.src,
+          link: cardA ? (cardA.getAttribute("href") || "") : "" }, "*");
         save(d.blockId); return;
       }
       // cross-type swap
@@ -1463,6 +1502,7 @@ ${CORE_INLINE}
         var so = document.createElement("source"); so.setAttribute("src", d.src); repl.appendChild(so);
       } else {
         repl = document.createElement("img"); repl.setAttribute("src", d.src);
+        var alt0 = mel.getAttribute("alt"); if (alt0 != null) repl.setAttribute("alt", alt0);
       }
       repl.setAttribute("data-lg-id", mel.getAttribute("data-lg-id") || "");
       if (mel.getAttribute("class")) repl.setAttribute("class", mel.getAttribute("class"));

@@ -799,6 +799,178 @@ export function reassemble(p) {
  * mistaken for block HTML, which means the draft, publish, version and undo paths need no changes.
  */
 
+/* ---- site-wide media ----------------------------------------------------------------------------
+ * ONE photo, everywhere it appears.
+ *
+ * The imported site ships the SAME photo as many separate <img> nodes: a desktop marquee card and a
+ * phone slider card, an about-hero and its mobile twin, the same file on the Romanian page and on the
+ * Russian one. Measured: `/images/services/feature-image.jpg` is the src of 69 <img> nodes across the
+ * 38 page files. Replacing a photo used to rewrite the node the client clicked (plus a text-matched
+ * twin) — so the new photo appeared at one screen width, in one language, and the client reported the
+ * edit as lost. It was never lost; it simply had 67 other places to be.
+ *
+ * A replacement is therefore stored as a RULE about the site, not as an edit of one node:
+ *
+ *   { scope: "link:/services/windows", to: "https://…/new.jpg" }   ← the photo of that service card,
+ *                                                                    in every copy and both locales
+ *   { scope: "url:/images/content/book-about.avif", to: "…" }      ← that file, wherever it appears
+ *
+ * `link:` exists because the template REUSES one file for five different services: a plain url→url
+ * substitution would change all five when the client meant one. The link tail is locale-independent
+ * (`/ru/services/x` and `/services/x` reduce to the same key), which is what makes one replacement
+ * cross languages. `url:` covers everything that is not inside a card link.
+ *
+ * Rules are applied at RENDER time — the canvas, the static build and the on-demand renderer all pass
+ * the map through `exportPageHtml` — so a page nobody has opened is covered too, the payload stays a
+ * few hundred bytes instead of rewriting 38 pages of HTML, and undoing a replacement is one map entry.
+ * -------------------------------------------------------------------------------------------------- */
+
+export const MEDIA_KEY = "__media";
+const MEDIA_TAG = "lgmedia:1:";
+
+export function encodeMedia(rules) {
+  return MEDIA_TAG + JSON.stringify(rules || []);
+}
+export function decodeMedia(value) {
+  if (typeof value !== "string" || value.indexOf(MEDIA_TAG) !== 0) return [];
+  try {
+    const r = JSON.parse(value.slice(MEDIA_TAG.length));
+    return Array.isArray(r) ? r.filter((x) => x && x.scope && x.to) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Photo file types. An icon (.svg) is never swapped by a card rule — it is furniture, not content. */
+const PHOTO_EXT = /\.(jpe?g|png|webp|avif|gif)(?:[?#]|$)/i;
+
+/**
+ * The same photo under any of its addresses: absolute or relative, through the canvas asset prefix,
+ * and in any of Webflow's responsive sizes (`x-p-500.jpg`, `x-p-800.jpg` and `x.jpg` are one photo).
+ */
+export function mediaIdentity(url) {
+  return String(url == null ? "" : url)
+    .trim()
+    .replace(/^https?:\/\/[^/]+/, "")
+    .replace(/^(?:\/site-assets)+/, "")
+    .replace(/-p-\d+(?=\.[a-z0-9]+(?:[?#]|$))/i, "");
+}
+
+/** A link reduced to what identifies it ACROSS locales: /ru/services/x and /services/x are one slot. */
+export function linkSlot(href) {
+  const path = String(href == null ? "" : href).trim()
+    .replace(/^https?:\/\/[^/]+/, "")
+    .replace(/[?#].*$/, "")
+    .replace(/^\/(?:ru|ro)(?=\/|$)/, "")
+    .replace(/\/+$/, "");
+  return path || "/";
+}
+
+/** Where every <a href> opens and closes, so an image can be attributed to the card it sits in. */
+function anchorSpans(html) {
+  const spans = [];
+  const re = /<a\b((?:"[^"]*"|'[^']*'|[^>"'])*)>/gi;
+  let m;
+  while ((m = re.exec(html))) {
+    const href = /\shref\s*=\s*"([^"]*)"/i.exec(m[1]);
+    if (!href) continue;
+    const close = html.indexOf("</a", re.lastIndex);
+    spans.push({ start: m.index, end: close < 0 ? html.length : close, slot: linkSlot(href[1]) });
+  }
+  return spans;
+}
+
+const attrRe = (name, flags) => new RegExp("\\s" + name + "\\s*=\\s*\"([^\"]*)\"", flags || "i");
+const getAttr = (attrs, name) => {
+  const m = attrRe(name).exec(attrs);
+  return m ? m[1] : null;
+};
+const setAttr = (attrs, name, value) =>
+  attrRe(name).test(attrs)
+    ? attrs.replace(attrRe(name), " " + name + "=\"" + value + "\"")
+    : attrs + " " + name + "=\"" + value + "\"";
+const dropAttr = (attrs, name) => attrs.replace(attrRe(name, "gi"), "");
+
+/**
+ * Apply the site's media rules to one page's HTML. With no rules this returns the input unchanged,
+ * byte for byte — the invariant the whole publish pipeline is checked against.
+ */
+export function applyMedia(html, rules) {
+  if (!html || !rules || !rules.length) return html;
+  const byLink = new Map(), byUrl = new Map();
+  for (const r of rules) {
+    if (!r || !r.to || typeof r.scope !== "string") continue;
+    if (r.scope.indexOf("link:") === 0) byLink.set(linkSlot(r.scope.slice(5)), r.to);
+    else if (r.scope.indexOf("url:") === 0) byUrl.set(mediaIdentity(r.scope.slice(4)), r.to);
+  }
+  if (!byLink.size && !byUrl.size) return html;
+  const spans = byLink.size ? anchorSpans(html) : [];
+  const slotAt = (pos) => {
+    let slot = null;
+    for (let i = 0; i < spans.length; i++) {
+      if (spans[i].start > pos) break;
+      if (pos < spans[i].end) slot = spans[i].slot;   // innermost wins: a later span overwrites
+    }
+    return slot;
+  };
+  const urlRule = (u) => (u ? byUrl.get(mediaIdentity(u)) : undefined);
+  const rewriteList = (attrs, name) => {
+    const list = getAttr(attrs, name);
+    if (!list) return attrs;
+    const next = list.split(",").map((u) => urlRule(u.trim()) || u.trim()).join(",");
+    return next === list ? attrs : setAttr(attrs, name, next);
+  };
+
+  return html.replace(/<([a-zA-Z][\w-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g, (whole, tag, attrs, pos) => {
+    const name = tag.toLowerCase();
+    let out = attrs;
+
+    if (name === "img") {
+      const src = getAttr(attrs, "src") || "";
+      const srcset = getAttr(attrs, "srcset") || "";
+      const candidates = srcset ? srcset.split(",").map((c) => c.trim().split(/\s+/)[0]).filter(Boolean) : [];
+      let to = urlRule(src);
+      if (!to) for (let i = 0; i < candidates.length && !to; i++) to = urlRule(candidates[i]);
+      // A card rule owns the PHOTO of that card; an icon or a logo keeps its own address.
+      if (!to && PHOTO_EXT.test(src.split(/[?#]/)[0] || "")) {
+        const slot = slotAt(pos);
+        if (slot) to = byLink.get(slot);
+      }
+      if (to && to !== src) {
+        out = setAttr(out, "src", to);
+        // The responsive candidates are the OTHER addresses of the old photo — with them in place the
+        // browser keeps showing it at some widths, which is the bug this whole map exists for.
+        out = dropAttr(dropAttr(dropAttr(out, "srcset"), "sizes"), "loading");
+      }
+      return "<" + tag + out + ">";
+    }
+
+    if (name === "source" || name === "video" || name === "audio") {
+      for (const a of ["src", "poster"]) {
+        const v = getAttr(out, a);
+        const to = urlRule(v);
+        if (to && to !== v) out = setAttr(out, a, to);
+      }
+      out = rewriteList(out, "data-video-urls");
+      return "<" + tag + out + ">";
+    }
+
+    // Anything can carry a photo as an inline background — the hero poster does exactly that.
+    if (out.indexOf("url(") >= 0 || out.indexOf("data-poster-url") >= 0 || out.indexOf("data-video-urls") >= 0) {
+      out = out.replace(/url\((&quot;|["']?)([^"')]+)\1\)/g, (m0, q, u) => {
+        const to = urlRule(u);
+        return to ? "url(" + q + to + q + ")" : m0;
+      });
+      const poster = getAttr(out, "data-poster-url");
+      const toPoster = urlRule(poster);
+      if (toPoster && toPoster !== poster) out = setAttr(out, "data-poster-url", toPoster);
+      out = rewriteList(out, "data-video-urls");
+      return "<" + tag + out + ">";
+    }
+    return whole;
+  });
+}
+
 export const META_KEY = "__meta";
 const META_TAG = "lgmeta:1:";
 
@@ -863,12 +1035,15 @@ export function applyMeta(html, meta) {
   return head + rest;
 }
 
-export function exportPageHtml(page, overrides, pageBp) {
+export function exportPageHtml(page, overrides, pageBp, opts) {
+  // `opts.media` — the site's photo rules (see "site-wide media"). They ride with the SITE, not with a
+  // page, so every renderer passes the same array and a page nobody opened is covered too.
+  const media = (opts && opts.media) || [];
   const keep = keptIds(pageBp);
   const withOv = overrides ? applyOverrides(page.blocks, overrides) : page.blocks;
   const blocks = withOv.map((b) => ({ ...b, content: { ...b.content, html: cleanHtml(b.content.html, keep) } }));
   // Repairs first, so a client's own edit can still override them.
-  let doc = withSiteRuntime(reassemble({ ...page, blocks }));
+  let doc = applyMedia(withSiteRuntime(reassemble({ ...page, blocks })), media);
   const css = overridesCss(pageBp);
   if (css) {
     // id "lgcms-overrides" avoids colliding with allclean's own <style id="lg-overrides">.

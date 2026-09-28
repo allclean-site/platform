@@ -20,7 +20,8 @@ import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
 import { loadHistory, saveHistory, type Snap, type Step } from "../editor/historyStore";
 import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared } from "../editor/sharedBlocks";
-import { META_KEY, readMeta, decodeMeta, encodeMeta, type PageMeta } from "../editor/renderCore.js";
+import { META_KEY, readMeta, decodeMeta, encodeMeta, type PageMeta,
+  MEDIA_KEY, encodeMedia, decodeMedia, applyMedia, mediaIdentity, linkSlot, type MediaRule } from "../editor/renderCore.js";
 import { indexMediaFromDoc, syncSiteMedia } from "../editor/media";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
@@ -168,6 +169,12 @@ export function SiteEditor() {
   // (this browser, freshest). Local wins per block because it is what the user is typing right now.
   const mergedOv = (pid: string): PageOverrides =>
     mergeOverrideLayers(pubOverrides.current[pid], draftOv.current[pid], overrides.current[pid]);
+
+  /**
+   * The site's photo rules (see renderCore "site-wide media"). They belong to the SITE, not to a page,
+   * so they live under one reserved key and reach every page, every copy and both languages.
+   */
+  const mediaRules = (): MediaRule[] => decodeMedia(mergedOv(MEDIA_KEY)[MEDIA_KEY]);
 
   /**
    * Breakpoint rules merge PER ELEMENT, per layer — not whole-object. Taking the first layer that had
@@ -499,7 +506,9 @@ export function SiteEditor() {
         // of reloading the whole page.
         baseHtml.current = Object.fromEntries(p.blocks.map((b) => [b.id, b.content.html]));
         // resolveForPage folds in the shared header/footer edits, rebuilt against THIS page's copy.
-        const blocks = applyOverrides(p.blocks, resolveForPage(p, p.lang));
+        const rules = mediaRules();
+        const blocks = applyOverrides(p.blocks, resolveForPage(p, p.lang)).map((b) =>
+          rules.length ? { ...b, content: { ...b.content, html: applyMedia(b.content.html, rules) } } : b);
         const samePage = loadedPageId.current === p.id;
         const prev = lastHtml.current;
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));
@@ -548,6 +557,33 @@ export function SiteEditor() {
       else if (d.type === "lg-undo") undoRef.current();
       else if (d.type === "lg-redo") redoRef.current();
       else if (d.type === "lg-elem-select") { setSelEl(d as SelectedEl); setSelected(d.blockId); }
+      /**
+       * A photo was replaced. The canvas has already updated every copy it can see; this stores the
+       * decision for the whole SITE, so the same photo changes on the other 37 pages, in the other
+       * language, and at the screen widths that show a different copy of the same card.
+       *
+       * The rule is keyed by the CARD the photo sits in when there is one (`/ru/services/x` and
+       * `/services/x` are one card), because the template reuses a single file for five different
+       * services — a plain file→file substitution would change all five. Everything outside a card is
+       * keyed by the file itself.
+       */
+      else if (d.type === "lg-media-swap" && d.to) {
+        const from = String(d.from || ""), to = String(d.to);
+        const fromId = mediaIdentity(from);
+        const scope = d.link ? `link:${linkSlot(String(d.link))}` : `url:${fromId}`;
+        if (fromId && mediaIdentity(to) !== fromId) {
+          const next = mediaRules()
+            // Replacing the SAME slot again just moves that rule; and a rule that pointed at the photo
+            // being replaced now points at the new one, so repeated swaps never form a broken chain.
+            .filter((r) => r.scope !== scope)
+            .map((r) => (mediaIdentity(r.to) === fromId ? { ...r, to } : r));
+          next.push({ scope, to, from: fromId });
+          writeBlock(MEDIA_KEY, MEDIA_KEY, encodeMedia(next));
+          say(d.link
+            ? "Фото заменено во всех местах этой карточки — на всех экранах и в обеих языковых версиях."
+            : "Фото заменено везде, где оно стояло на сайте — на всех экранах и в обеих языковых версиях.");
+        }
+      }
       // Clicked away from everything editable — close the element panel so it stops describing
       // something that is no longer selected (and, in the canvas, motion resumes).
       else if (d.type === "lg-elem-deselect") setSelEl(null);

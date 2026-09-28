@@ -43,6 +43,21 @@ export declare function wrapBlockForEdit(html: string, id: string): string;
 /** Stamp stable per-element ids (blockId~index) — shared by the runtime and the harness. */
 export declare function stampIds(root: ParentNode, blockId: string): void;
 
+/**
+ * One photo, everywhere it appears. `scope` is either `link:<locale-independent link tail>` (the photo
+ * of that card, in every copy and both languages) or `url:<original file>` (that file wherever it is).
+ */
+export interface MediaRule { scope: string; to: string; from?: string }
+export interface RenderOpts { media?: MediaRule[] }
+export declare const MEDIA_KEY: string;
+export declare function encodeMedia(rules: MediaRule[]): string;
+export declare function decodeMedia(value: string | null | undefined): MediaRule[];
+export declare function applyMedia(html: string, rules: MediaRule[]): string;
+/** Same photo under any address: host, /site-assets prefix and Webflow's -p-500/-p-800 sizes removed. */
+export declare function mediaIdentity(url: string | null | undefined): string;
+/** /ru/services/x and /services/x reduce to one slot key. */
+export declare function linkSlot(href: string | null | undefined): string;
+
 export declare function fluidFont(v: string): string;
 /** A link made safe to publish: anything but a known navigation scheme becomes "#". */
 export declare function safeHref(v: string): string;
@@ -68,5 +83,6 @@ export declare function reassemble<T extends CorePage>(page: T): string;
 export declare function exportPageHtml<T extends CorePage>(
   page: T,
   overrides: Record<string, string> | undefined,
-  pageBp?: PageBp
+  pageBp?: PageBp,
+  opts?: RenderOpts
 ): string;
