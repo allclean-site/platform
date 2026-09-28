@@ -811,14 +811,20 @@ export function reassemble(p) {
  *
  * A replacement is therefore stored as a RULE about the site, not as an edit of one node:
  *
- *   { scope: "link:/services/windows", to: "https://…/new.jpg" }   ← the photo of that service card,
- *                                                                    in every copy and both locales
- *   { scope: "url:/images/content/book-about.avif", to: "…" }      ← that file, wherever it appears
+ *   { scope: "link:/services/windows", from: "/images/…-2.jpg", to: "https://…/new.jpg" }
+ *   { scope: "url:/images/content/book-about.avif", to: "…" }
  *
  * `link:` exists because the template REUSES one file for five different services: a plain url→url
  * substitution would change all five when the client meant one. The link tail is locale-independent
  * (`/ru/services/x` and `/services/x` reduce to the same key), which is what makes one replacement
- * cross languages. `url:` covers everything that is not inside a card link.
+ * cross languages. `url:` covers everything that is not part of a card.
+ *
+ * WHAT COUNTS AS "THAT CARD" — learned from the real markup, which has two shapes:
+ *   · the marquee/nav card wraps its photo:      <a href=…><img …></a>
+ *   · the catalogue card does NOT:               <div role=listitem><div><img …></div>…<a href=… ></a></div>
+ * so an image belongs to the smallest box around it that contains exactly ONE link. Keying on the
+ * anchor alone reached the first shape and silently missed the second — and the fallback (`url:`)
+ * then hit all five services that share that one file.
  *
  * Rules are applied at RENDER time — the canvas, the static build and the on-demand renderer all pass
  * the map through `exportPageHtml` — so a page nobody has opened is covered too, the payload stays a
@@ -866,19 +872,11 @@ export function linkSlot(href) {
   return path || "/";
 }
 
-/** Where every <a href> opens and closes, so an image can be attributed to the card it sits in. */
-function anchorSpans(html) {
-  const spans = [];
-  const re = /<a\b((?:"[^"]*"|'[^']*'|[^>"'])*)>/gi;
-  let m;
-  while ((m = re.exec(html))) {
-    const href = /\shref\s*=\s*"([^"]*)"/i.exec(m[1]);
-    if (!href) continue;
-    const close = html.indexOf("</a", re.lastIndex);
-    spans.push({ start: m.index, end: close < 0 ? html.length : close, slot: linkSlot(href[1]) });
-  }
-  return spans;
-}
+/** In-page links only: a phone number or a WhatsApp deep link is not a card. */
+const isPageLink = (href) => /^(?:\/|https?:\/\/)/i.test(String(href || "").trim());
+
+const VOID_TAG = /^(?:img|br|hr|input|meta|link|source|area|col|track|wbr|embed|param)$/i;
+const TAG_RE = /<(\/?)([a-zA-Z][\w-]*)((?:"[^"]*"|'[^']*'|[^>"'])*?)(\/?)\s*>/g;
 
 const attrRe = (name, flags) => new RegExp("\\s" + name + "\\s*=\\s*\"([^\"]*)\"", flags || "i");
 const getAttr = (attrs, name) => {
@@ -892,6 +890,62 @@ const setAttr = (attrs, name, value) =>
 const dropAttr = (attrs, name) => attrs.replace(attrRe(name, "gi"), "");
 
 /**
+ * Which card each photo belongs to: `position of <img> → link slot`.
+ *
+ * Built by walking the document with a tag stack, then, for every photo, climbing to the smallest
+ * enclosing element that contains exactly one distinct link. That box is the card in both markup
+ * shapes; climbing further would reach a whole section (many links) and is stopped.
+ */
+function slotOfImages(html) {
+  const stack = [];
+  const imgs = [];            // { pos, chain: frames it sits in }
+  const frames = [];          // every closed element, with the slots found inside it
+  let m;
+  TAG_RE.lastIndex = 0;
+  while ((m = TAG_RE.exec(html))) {
+    const [, closing, tag, attrs, selfClose] = m;
+    const name = tag.toLowerCase();
+    if (closing) {
+      for (let i = stack.length - 1; i >= 0; i--) {
+        if (stack[i].tag !== name) continue;
+        const dropped = stack.splice(i);
+        for (const f of dropped) {
+          const parent = stack[stack.length - 1];
+          if (parent) for (const s of f.slots) parent.slots.add(s);
+        }
+        break;
+      }
+      continue;
+    }
+    if (name === "a") {
+      const href = getAttr(attrs, "href");
+      if (href && isPageLink(href)) {
+        const slot = linkSlot(href);
+        for (const f of stack) f.slots.add(slot);   // the link belongs to every box around it
+        if (!selfClose) stack.push({ tag: name, slots: new Set([slot]), id: frames.length });
+        continue;
+      }
+    }
+    if (name === "img") {
+      const src = getAttr(attrs, "src") || "";
+      if (PHOTO_EXT.test(src.split(/[?#]/)[0] || "")) imgs.push({ pos: m.index, chain: stack.slice() });
+      continue;
+    }
+    if (!selfClose && !VOID_TAG.test(name)) { const f = { tag: name, slots: new Set(), id: frames.length }; frames.push(f); stack.push(f); }
+  }
+  const out = new Map();
+  for (const im of imgs) {
+    for (let i = im.chain.length - 1; i >= 0; i--) {
+      const f = im.chain[i];
+      if (!f.slots.size) continue;                  // no link in this box yet — climb
+      if (f.slots.size === 1) out.set(im.pos, [...f.slots][0]);
+      break;                                        // more than one link ⇒ this is a section, not a card
+    }
+  }
+  return out;
+}
+
+/**
  * Apply the site's media rules to one page's HTML. With no rules this returns the input unchanged,
  * byte for byte — the invariant the whole publish pipeline is checked against.
  */
@@ -900,26 +954,53 @@ export function applyMedia(html, rules) {
   const byLink = new Map(), byUrl = new Map();
   for (const r of rules) {
     if (!r || !r.to || typeof r.scope !== "string") continue;
-    if (r.scope.indexOf("link:") === 0) byLink.set(linkSlot(r.scope.slice(5)), r.to);
-    else if (r.scope.indexOf("url:") === 0) byUrl.set(mediaIdentity(r.scope.slice(4)), r.to);
+    const to = String(r.to).replace(/^(?:\/site-assets)+(?=\/)/, "");   // the canvas-only prefix never ships
+    if (r.scope.indexOf("link:") === 0) {
+      const slot = linkSlot(r.scope.slice(5));
+      const list = byLink.get(slot) || [];
+      list.push({ from: r.from ? mediaIdentity(r.from) : "", to });
+      byLink.set(slot, list);
+    } else if (r.scope.indexOf("url:") === 0) {
+      byUrl.set(mediaIdentity(r.scope.slice(4)), to);
+    }
   }
   if (!byLink.size && !byUrl.size) return html;
-  const spans = byLink.size ? anchorSpans(html) : [];
-  const slotAt = (pos) => {
-    let slot = null;
-    for (let i = 0; i < spans.length; i++) {
-      if (spans[i].start > pos) break;
-      if (pos < spans[i].end) slot = spans[i].slot;   // innermost wins: a later span overwrites
+
+  /** A photo replaced twice points at the newest file, not at the intermediate one. */
+  const follow = (to) => {
+    let cur = to;
+    for (let i = 0; i < 4; i++) {
+      const next = byUrl.get(mediaIdentity(cur));
+      if (!next || next === cur) break;
+      cur = next;
     }
-    return slot;
+    return cur;
   };
-  const urlRule = (u) => (u ? byUrl.get(mediaIdentity(u)) : undefined);
-  const rewriteList = (attrs, name) => {
-    const list = getAttr(attrs, name);
-    if (!list) return attrs;
-    const next = list.split(",").map((u) => urlRule(u.trim()) || u.trim()).join(",");
-    return next === list ? attrs : setAttr(attrs, name, next);
+  const urlRule = (u) => {
+    if (!u) return undefined;
+    const to = byUrl.get(mediaIdentity(u));
+    return to === undefined ? undefined : follow(to);
   };
+
+  const slots = byLink.size ? slotOfImages(html) : new Map();
+  // Per PAGE: when a card rule names the file it replaced and that file is here, only those images are
+  // it. Two different cards can share one href (the nav strip does), and without this the second card's
+  // photo would be swapped too. When the file is NOT here — the other locale ships its own original —
+  // the rule still applies to that card's photo, which is what makes one replacement cross languages.
+  const slotHasFrom = new Map();
+  if (byLink.size) {
+    TAG_RE.lastIndex = 0;
+    let m2;
+    while ((m2 = TAG_RE.exec(html))) {
+      if (m2[1] || m2[2].toLowerCase() !== "img") continue;
+      const slot = slots.get(m2.index);
+      if (!slot || !byLink.has(slot)) continue;
+      const id = mediaIdentity(getAttr(m2[3], "src") || "");
+      for (const rule of byLink.get(slot)) {
+        if (rule.from && rule.from === id) slotHasFrom.set(slot + "\u0000" + rule.from, true);
+      }
+    }
+  }
 
   return html.replace(/<([a-zA-Z][\w-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g, (whole, tag, attrs, pos) => {
     const name = tag.toLowerCase();
@@ -931,10 +1012,16 @@ export function applyMedia(html, rules) {
       const candidates = srcset ? srcset.split(",").map((c) => c.trim().split(/\s+/)[0]).filter(Boolean) : [];
       let to = urlRule(src);
       if (!to) for (let i = 0; i < candidates.length && !to; i++) to = urlRule(candidates[i]);
-      // A card rule owns the PHOTO of that card; an icon or a logo keeps its own address.
       if (!to && PHOTO_EXT.test(src.split(/[?#]/)[0] || "")) {
-        const slot = slotAt(pos);
-        if (slot) to = byLink.get(slot);
+        const slot = slots.get(pos);
+        const list = slot ? byLink.get(slot) : null;
+        if (list) {
+          const id = mediaIdentity(src);
+          const exact = list.find((r) => r.from && r.from === id);
+          const loose = list.find((r) => !r.from || !slotHasFrom.get(slot + "\u0000" + r.from));
+          const hit = exact || loose;
+          if (hit) to = follow(hit.to);
+        }
       }
       if (to && to !== src) {
         out = setAttr(out, "src", to);
@@ -951,8 +1038,8 @@ export function applyMedia(html, rules) {
         const to = urlRule(v);
         if (to && to !== v) out = setAttr(out, a, to);
       }
-      out = rewriteList(out, "data-video-urls");
-      return "<" + tag + out + ">";
+      // …and fall through: the hero <video> also paints its poster with an inline background-image,
+      // and returning here left the old frame on top of the new video.
     }
 
     // Anything can carry a photo as an inline background — the hero poster does exactly that.
@@ -964,10 +1051,13 @@ export function applyMedia(html, rules) {
       const poster = getAttr(out, "data-poster-url");
       const toPoster = urlRule(poster);
       if (toPoster && toPoster !== poster) out = setAttr(out, "data-poster-url", toPoster);
-      out = rewriteList(out, "data-video-urls");
-      return "<" + tag + out + ">";
+      const list = getAttr(out, "data-video-urls");
+      if (list) {
+        const next = list.split(",").map((u) => urlRule(u.trim()) || u.trim()).join(",");
+        if (next !== list) out = setAttr(out, "data-video-urls", next);
+      }
     }
-    return whole;
+    return out === attrs ? whole : "<" + tag + out + ">";
   });
 }
 

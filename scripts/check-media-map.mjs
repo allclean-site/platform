@@ -77,4 +77,55 @@ assert.deepEqual(decodeMedia(null), []);
 assert.deepEqual(decodeMedia("lgmedia:1:{broken"), []);
 assert.deepEqual(decodeMedia(encodeMedia([{ scope: "link:/x" }])), [], "a rule without a target is dropped");
 
+// ---- 7. НАСТОЯЩИЕ формы разметки зеркала ----------------------------------------------------------
+// (а) карточка каталога: фото и ссылка — СОСЕДИ внутри карточки, ссылка пустая и идёт ПОСЛЕ фото
+const catalogue = (href, src) =>
+  `<div cms-item="" role="listitem" class="collection-item_services w-dyn-item">` +
+  `<div class="image-wrap_service-item"><img src="${src}" loading="lazy" class="image_cover"></div>` +
+  `<div class="content_service-item"><h2>Curățenie</h2></div>` +
+  `<a cms-item="" href="${href}" class="link_service w-inline-block"></a></div>`;
+
+const grid = "<section class=\"grid\">" +
+  catalogue("/ru/services/office", "/images/services/feature-image.jpg") +       // тот же файл…
+  catalogue("/ru/services/warehouse", "/images/services/feature-image.jpg") +    // …у другой услуги
+  "</section>";
+const OFFICE = "https://cdn.example/office.jpg";
+const g1 = applyMedia(grid, [{ scope: "link:/services/office", from: "/images/services/feature-image.jpg", to: OFFICE }]);
+assert.equal((g1.match(/office\.jpg/g) || []).length, 1, "карточка каталога (ссылка-сосед) обязана попасть под правило");
+assert.ok(g1.includes(catalogue("/ru/services/warehouse", "/images/services/feature-image.jpg")), "чужая услуга с тем же файлом не тронута");
+
+// (б) две РАЗНЫЕ карточки с одной ссылкой и разными исходниками — меняется только своя
+const twin = card("/services/home-cleaning", "/images/services/feature-image.jpg") +
+             card("/services/home-cleaning", "/images/services/feature-image-1.jpg");
+const t1 = applyMedia(twin, [{ scope: "link:/services/home-cleaning", from: "/images/services/feature-image-1.jpg", to: OFFICE }]);
+assert.equal((t1.match(/office\.jpg/g) || []).length, 1, "меняется только карточка со своим исходником");
+assert.ok(t1.includes("/images/services/feature-image.jpg"), "соседняя карточка с тем же href осталась своей");
+
+// (в) другая локаль: исходника из правила на странице нет — правило всё равно применяется к слоту
+const other = card("/ru/services/home-cleaning", "/images/other-original.jpg");
+const t2 = applyMedia(other, [{ scope: "link:/services/home-cleaning", from: "/images/services/feature-image-1.jpg", to: OFFICE }]);
+assert.ok(t2.includes(OFFICE), "в другой языковой версии слот меняется, даже если исходник там другой");
+
+// ---- 8. замена дважды: адрес ведёт на последнее фото ----------------------------------------------
+const chain = applyMedia('<img src="/images/a.jpg">', [
+  { scope: "url:/images/a.jpg", to: "https://cdn.example/b.jpg" },
+  { scope: "url:https://cdn.example/b.jpg", to: "https://cdn.example/c.jpg" },
+]);
+assert.ok(chain.includes("c.jpg") && !chain.includes("b.jpg"), "цепочка замен ведёт к последнему фото");
+
+// ---- 9. секция с НЕСКОЛЬКИМИ ссылками — не карточка ----------------------------------------------
+const section = '<section><a href="/services/office">Услуги</a><a href="/pricing">Цены</a>' +
+  '<img src="/images/hero.jpg"></section>';
+assert.equal(applyMedia(section, [{ scope: "link:/services/office", to: OFFICE }]), section,
+  "фото в секции с несколькими ссылками не приписывается ни одной");
+
+// ---- 10. постер фонового видео живёт в трёх местах — переписать надо все три ---------------------
+const hero = '<div data-poster-url="/video/hero-poster.jpg" data-video-urls="/video/hero.mp4,/video/hero.webm">' +
+  '<video poster="/video/hero-poster.jpg" style="background-image: url(&quot;/video/hero-poster.jpg&quot;)">' +
+  '<source src="/video/hero.mp4"></video></div>';
+const h1 = applyMedia(hero, [{ scope: "url:/video/hero-poster.jpg", to: POSTER }]);
+assert.equal((h1.match(/hero-poster\.jpg/g) || []).length, 0, "старый постер не остаётся ни в одном из трёх мест");
+assert.equal((h1.match(/poster\.jpg/g) || []).length, 3, "переписаны и атрибут, и фон, и data-poster-url");
+
 console.log("media-map: PASS");
+

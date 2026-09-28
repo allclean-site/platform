@@ -1468,16 +1468,35 @@ ${CORE_INLINE}
         // Every node holding the same photo on THIS page follows at once (instant feedback), and the
         // parent stores a rule so the other 37 pages and the other language follow at render time.
         var oldSrc0 = mel.getAttribute("src") || "";
-        var cardA = mel.closest ? mel.closest("a[href]") : null;
-        var slot0 = cardA ? linkSlot(cardA.getAttribute("href")) : "";
+        // Карточка — это наименьшая коробка вокруг фото, внутри которой РОВНО ОДНА ссылка. В зеркале
+        // две формы: у ленты ссылка оборачивает фото, а у каталога услуг лежит пустым оверлеем рядом
+        // с ним. Искать только предка-ссылку значило бы не увидеть вторую форму — и свалиться в
+        // правило «по файлу», которое меняет фото сразу у пяти услуг, делящих один файл.
+        function slotOf(el){
+          var node = el.parentElement, hops = 0;
+          while (node && hops++ < 8){
+            var links = node.querySelectorAll("a[href]"), uniq = {}, n = 0, i0;
+            for (i0 = 0; i0 < links.length; i0++){
+              var hv = links[i0].getAttribute("href") || "";
+              if (!/^(\/|https?:)/i.test(hv)) continue;
+              var sv = linkSlot(hv);
+              if (!uniq[sv]){ uniq[sv] = 1; n++; }
+            }
+            if (n === 1) return Object.keys(uniq)[0];
+            if (n > 1) return "";
+            node = node.parentElement;
+          }
+          return "";
+        }
+        var slot0 = slotOf(mel);
         var ident0 = mediaIdentity(oldSrc0);
         var imgs = document.querySelectorAll("img"), i2, hit, nd, ns2;
         for (i2 = 0; i2 < imgs.length; i2++){
           nd = imgs[i2]; ns2 = nd.getAttribute("src") || "";
           if (slot0){
             // the same card, wherever it is repeated: its link is what identifies it
-            var a3 = nd.closest ? nd.closest("a[href]") : null;
-            hit = !!a3 && linkSlot(a3.getAttribute("href")) === slot0 && PHOTO_EXT.test(ns2.split("?")[0] || "");
+            hit = PHOTO_EXT.test(ns2.split("?")[0] || "") && slotOf(nd) === slot0 &&
+              (mediaIdentity(ns2) === ident0 || nd === mel);
           } else {
             hit = mediaIdentity(ns2) === ident0;
             if (!hit){
@@ -1489,8 +1508,7 @@ ${CORE_INLINE}
           nd.setAttribute("src", d.src);
           nd.removeAttribute("srcset"); nd.removeAttribute("sizes"); nd.removeAttribute("loading");
         }
-        parent.postMessage({ type:"lg-media-swap", kind:"image", from: oldSrc0, to: d.src,
-          link: cardA ? (cardA.getAttribute("href") || "") : "" }, "*");
+        parent.postMessage({ type:"lg-media-swap", kind:"image", from: oldSrc0, to: d.src, link: slot0 }, "*");
         save(d.blockId); return;
       }
       // cross-type swap

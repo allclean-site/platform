@@ -624,7 +624,9 @@ export function SiteEditor() {
        * keyed by the file itself.
        */
       else if (d.type === "lg-media-swap" && d.to) {
-        const from = String(d.from || ""), to = String(d.to);
+        // Холст отдаёт адреса со своим префиксом /site-assets — он существует только внутри iframe.
+        // Записать его в правило значило бы разослать по всем 38 страницам путь, которого на сайте нет.
+        const from = String(d.from || ""), to = toCanonical(String(d.to));
         const fromId = mediaIdentity(from);
         const scope = d.link ? `link:${linkSlot(String(d.link))}` : `url:${fromId}`;
         // Правило разносит адрес по всему сайту. Если хранилище было недоступно и вместо ссылки
@@ -632,11 +634,11 @@ export function SiteEditor() {
         if (to.startsWith("data:")) {
           say("Фото сохранено только здесь: хранилище сейчас недоступно, поэтому на другие страницы оно не разошлось.");
         } else if (fromId && mediaIdentity(to) !== fromId) {
-          const next = mediaRules()
-            // Replacing the SAME slot again just moves that rule; and a rule that pointed at the photo
-            // being replaced now points at the new one, so repeated swaps never form a broken chain.
-            .filter((r) => r.scope !== scope)
-            .map((r) => (mediaIdentity(r.to) === fromId ? { ...r, to } : r));
+          // Заменяем правило ЭТОГО слота и ничего больше. Раньше здесь перенацеливались все правила,
+          // указывавшие на заменяемое фото, — и вторая замена стирала первую по всему сайту: правило
+          // «файл A → фото офиса» превращалось в «файл A → новое фото», и фото офиса исчезало со всех
+          // страниц. Цепочку «меняли дважды» разбирает рендер (applyMedia идёт по ссылкам до конца).
+          const next = mediaRules().filter((r) => r.scope !== scope);
           next.push({ scope, to, from: fromId });
           writeBlock(MEDIA_KEY, MEDIA_KEY, encodeMedia(next));
           say(d.link
