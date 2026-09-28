@@ -72,6 +72,55 @@ function audit(w, d, url, width) {
     if (w.getComputedStyle(el, "::before").content !== "none" || w.getComputedStyle(el, "::after").content !== "none") continue;
     push("пустая карточка", Math.round(r.width) + "×" + Math.round(r.height), sel(el));
   }
+  // Кнопку видно, но нажать нельзя — её накрыл сосед. Прошлая проверка наездов сравнивала только
+  // детей ОДНОГО родителя и пропускала элементы в ячейках сетки, поэтому не увидела главный баг
+  // русской главной: плитки контактов лежали на кнопках героя (ряд героя прибит к 88vh, колонка —
+  // к 784px, в невысоком окне содержимое выливалось вниз). Спрашиваем у браузера напрямую: кто
+  // окажется под пальцем в середине ссылки. Чужой элемент — значит, накрыли.
+  for (const el of d.querySelectorAll("a[href], button, input[type=submit], [role=button]")) {
+    if (!vis(w, el)) continue;
+    const r = box(el);
+    if (r.width < 8 || r.height < 8) continue;
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (x < 0 || y < 0 || x > width || y > w.innerHeight) continue;
+    const top = d.elementFromPoint(x, y);
+    if (!top || top === el || el.contains(top) || top.contains(el)) continue;
+    push("перекрыт", sel(top) + " «" + (top.textContent || "").trim().slice(0, 18) + "»",
+      sel(el) + " «" + (el.textContent || "").trim().slice(0, 18) + "»");
+  }
+  // Ссылка, которую нечего прочитать вслух: пустая ссылка поверх карточки, иконка без подписи.
+  // Смотрим уже в браузере — имена проставляет NAME_FIX на загрузке, в статике их ещё нет.
+  for (const el of d.querySelectorAll("a[href]")) {
+    if (!vis(w, el)) continue;
+    if ((el.textContent || "").trim()) continue;
+    if ((el.getAttribute("aria-label") || el.getAttribute("title") || "").trim()) continue;
+    const img = el.querySelector("img[alt]");
+    if (img && (img.getAttribute("alt") || "").trim()) continue;
+    push("ссылка без имени", el.getAttribute("href").slice(0, 40), sel(el));
+  }
+  // Пустое поле: провал между соседними блоками внутри секции. Так на русской главной после
+  // заголовка стояла синяя полоса в 452px — следствие высоты, снятой на десктопе.
+  // Содержимым считается и фон: половина фотографий на «О нас» — это background-image на обёртке,
+  // а не <img>, и проверка «между двумя подписями ничего нет» ловила их как пустоту. Прозрачность
+  // тут тоже не считается: блоки ниже первого экрана проявляются по прокрутке, а замер идёт от
+  // начала страницы — иначе каждая такая секция выглядела бы пустой.
+  const есть = (k) => { const c = w.getComputedStyle(k); return c.display !== "none" && c.visibility !== "hidden"; };
+  for (const s of d.querySelectorAll("section")) {
+    if (!есть(s)) continue;
+    const kids = [...s.querySelectorAll("*")].filter((k) => есть(k) && !/absolute|fixed/.test(w.getComputedStyle(k).position) &&
+      (k.matches("img,svg,video,picture,iframe") || w.getComputedStyle(k).backgroundImage !== "none" ||
+        [...k.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())));
+    const rs = kids.map(box).filter((r) => r.height > 4).sort((a, b) => a.top - b.top);
+    const рост = box(s).height;
+    for (let i = 0; i < rs.length - 1; i++) {
+      const низ = Math.max(...rs.slice(0, i + 1).map((r) => r.bottom));
+      const разрыв = Math.round(rs[i + 1].top - низ);
+      // Не просто «много пикселей», а «много по меркам самой секции»: отбивка между статьёй и
+      // блоком вопросов — это 209px из 3599, то есть воздух, а 500px из 956 на странице услуги —
+      // это дыра на месте скрытого заголовка. Порог в треть высоты разделяет одно и другое.
+      if (разрыв > 200 && разрыв > рост * 0.35) { push("пустое поле", разрыв + "px из " + Math.round(рост), sel(s)); break; }
+    }
+  }
   const seen = new Set();
   for (const p of d.querySelectorAll("body *")) {
     const kids = [...p.children].filter((k) => vis(w, k) && box(k).height > 8 && (k.textContent || "").trim());

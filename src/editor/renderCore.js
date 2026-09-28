@@ -66,7 +66,9 @@ const REVEAL_FORCE = ['[data-w-id][style*="opacity: 0"]', ".expandable-single"]
  */
 const TAP_SEL = [
   "a.link_underline-animated", "a.link-socials", "a.link-banner", "a.link_footer-legal",
-  "a.cta_tertiary", ".card_testimonial-marquee a",
+  // `.marquee_testimonials a`, а не только `.card_testimonial-marquee a`: один отзыв на русской
+  // главной лежит в ленте без обёртки-карточки, и его «Отзыв в Google» (108×17) оставался мелким.
+  "a.cta_tertiary", ".card_testimonial-marquee a", ".marquee_testimonials a",
 ].map((s) => s + ":not(#lgcmsx)").join(",");
 
 export const SITE_FIXES =
@@ -143,6 +145,14 @@ export const SITE_FIXES =
   // экране 320px текст ложился на край карточки (её собственные отступы съедают 64px). Теперь тайл
   // не может стать шире колонки, и «100%» у заголовка наконец означает ширину колонки.
   ".left_hero-home>*:not(#lgcmsx),.hero-home_top-tile:not(#lgcmsx){max-width:100% !important;}" +
+  // Плитки контактов наезжали на кнопки героя на десктопе. Ряд героя шаблон держит ровно на
+  // `height:88vh` — это ТОЧНАЯ высота, а не нижняя граница, и она зависит от высоты ОКНА, а не от
+  // ширины. Колонка с заголовком и кнопками прибита правкой клиента к 784px, её отступы — ещё
+  // 136px. В окне ниже ~975px в ряд это не влезает, колонка выливается вниз, а кнопки (они прижаты
+  // к её низу) уходят под белые карточки, которые стоят сразу за рядом: при 1855×900 наезд 52px.
+  // Делаем высоту ряда нижней границей — ряд растёт под содержимое, карточки съезжают следом.
+  // Только с 992px: ниже у шаблона своя раскладка героя, одной колонкой и без фиксированной высоты.
+  "@media screen and (min-width:992px){.master_hero-home:not(#lgcmsx){height:auto;min-height:88vh;}}" +
   "@media screen and (max-width:767px){" +
     "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx)," +
     "p:not(#lgcmsx),li:not(#lgcmsx),[class*=heading-style]:not(#lgcmsx),[class*=text-size]:not(#lgcmsx)" +
@@ -184,7 +194,18 @@ export const SITE_FIXES =
   // portrait photos, so it never said so — and the first landscape photo the client uploaded
   // covered half the card, leaving the title fade painted over white ("непрозрачная подложка").
   // Same rule as the background-video heal: fill the box, crop with object-fit.
-  ".card_scroll-service .image-wrap_nav-service img:not(#lgcmsx){width:100%;height:100%;object-fit:cover;}" +
+  //
+  // То же самое — у всех фото-коробок шаблона, и по той же причине: коробке высота задана
+  // (320px у карточек «Клинеры в Кишинёве», 360px у «Чем мы отличаемся»), а картинке — нет, и
+  // `object-fit` без высоты не делает ничего. Под фото оставалась пустая полоса: 55 картинок на
+  // 38 страницах, до 210px на телефоне. Там, где у коробки своей высоты нет, `height:100%`
+  // разворачивается в `auto` и правило ничего не меняет. Классы `image-wrap_*` в этом шаблоне —
+  // всегда фотография (иконки лежат в `icon-wrap_*`), поэтому «заполнить и обрезать» здесь верно.
+  ".card_scroll-service .image-wrap_nav-service img:not(#lgcmsx)," +
+  "[class*=image-wrap]>img:not(#lgcmsx)," +
+  // …и карточки команды на «О нас»: там коробка 320px, а фотография вставала на свои 173px —
+  // под каждым человеком оставалась белая полоса в 147px. Класс `image_cover` так и называется.
+  "img.image_cover:not(#lgcmsx){width:100%;height:100%;object-fit:cover;}" +
   // A services card is 332px wide at EVERY screen size — it is a fixed marquee tile, not a
   // responsive column — yet the template titles it at 44px, which needs 325px of its 224px text
   // column. The card clips, so the longest names simply lost their ends ("РЕСТАВРАЦИ / Я ПОЛОВ",
@@ -200,6 +221,10 @@ export const SITE_FIXES =
     // The "how it works" headline keeps its 80px inside a 448px half-column on every service page,
     // where "FUNCȚIONEAZĂ?" alone is wider than the column. Same treatment, same narrow scope.
     ".headline_hiw h2:not(#lgcmsx){font-size:clamp(28px,5.6vw,56px);line-height:1.12;}" +
+    // То же и у заголовка страницы цен: 104px на планшете, а «КАЖДОГО» в такой кегль шире колонки
+    // в 689px и висит за краем на 50px. Раньше этого никто не видел — весь hero русской страницы
+    // цен был скрыт, вместе с единственным h1 страницы.
+    ".headline_pricing h1:not(#lgcmsx){font-size:clamp(30px,6.4vw,64px);line-height:1.12;}" +
   "}" +
   // Подписи «Адрес / Телефон / E-mail» в подвале и надзаголовки вроде «услуги» и «4,7 в Google»
   // шаблон набирает токенами label-1/label-2, а они УМЕНЬШАЮТСЯ на узких экранах: 12/10px на
@@ -646,6 +671,10 @@ export const FORM_FIX = [
   "if(ov>sr.width*sr.height*0.5){covers=subs[k];break;}}",
   "if(!covers)continue;",
   "a.setAttribute('data-lgcms-submit','1');",
+  // Это кнопка отправки, а ссылка она только по разметке шаблона: читалка объявляла «ссылка», а
+  // пробел — привычный для кнопки способ нажатия — не срабатывал.
+  "a.setAttribute('role','button');",
+  "a.addEventListener('keydown',function(e){if(e.key===' '||e.key==='Spacebar'){e.preventDefault();this.click();}});",
   "a.addEventListener('click',function(e){e.preventDefault();",
   // In the editing canvas the same click means "select this button" — sending the form from under
   // the client would be absurd. The canvas is recognisable by its block markers and by nothing else.
@@ -686,13 +715,46 @@ export const FORM_FIX = [
   "})();",
 ].join("");
 
+/**
+ * IMPORT REPAIR · ссылки, которым нечего прочитать вслух.
+ *
+ * Шаблон делает карточку услуги нажимаемой целиком: поверх карточки лежит ПУСТАЯ ссылка. Глазами
+ * это работает, а читалка с экрана объявляет «ссылка» — и всё; таких 22 на двух страницах услуг.
+ * Иконки соцсетей — то же самое: 301 ссылка из одной картинки без подписи. Имя берём оттуда, где
+ * оно уже есть: у карточки — её заголовок, у соцсети — её адрес. Ничего не выдумываем: если имени
+ * взять неоткуда, ссылку не трогаем. Скриптом, а не в разметке: часть этих ссылок лежит в
+ * опубликованных правках клиента, а они сильнее зеркала.
+ */
+export const NAME_FIX = [
+  "(function(){",
+  "var SOC=[['facebook','Facebook'],['instagram','Instagram'],['linkedin','LinkedIn'],['youtube','YouTube'],",
+  "['tiktok','TikTok'],['t.me','Telegram'],['whatsapp','WhatsApp'],['viber','Viber']];",
+  "function named(a){if((a.textContent||'').replace(/\\s+/g,'').length)return true;",
+  "if(((a.getAttribute('aria-label')||'')+(a.getAttribute('title')||'')).trim())return true;",
+  "var i=a.querySelector('img[alt]');return !!(i&&(i.getAttribute('alt')||'').trim());}",
+  "function fix(){var as=document.querySelectorAll('a[href]'),i,j;",
+  "for(i=0;i<as.length;i++){var a=as[i];if(named(a))continue;",
+  "var h=a.getAttribute('href')||'',lbl='';",
+  "for(j=0;j<SOC.length;j++)if(h.indexOf(SOC[j][0])>=0){lbl=SOC[j][1];break;}",
+  // Подпись карточки — её заголовок. Выше четвёртого предка не поднимаемся: дальше начинается
+  // секция, и все ссылки в ней получили бы одно имя.
+  "if(!lbl){var p=a,k=0;while(p&&k++<4){p=p.parentElement;if(!p)break;",
+  "var t=p.querySelector('h1,h2,h3,h4,h5,h6,[class*=heading-style]');",
+  "if(t&&(t.textContent||'').trim()){lbl=(t.textContent||'').replace(/\\s+/g,' ').trim().slice(0,80);break;}}}",
+  "if(lbl)a.setAttribute('aria-label',lbl);}}",
+  "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();",
+  "window.addEventListener('load',fix);",
+  "})();",
+].join("");
+
 /** The repairs every rendered page gets: site CSS fixes + the video, marquee and slider guarantees. */
 export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
     '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>" +
     '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>" +
     '<script id="lgcms-sliderfill">' + SLIDER_FILL + "</scr" + "ipt>" +
-    '<script id="lgcms-formfix">' + FORM_FIX + "</scr" + "ipt>";
+    '<script id="lgcms-formfix">' + FORM_FIX + "</scr" + "ipt>" +
+    '<script id="lgcms-names">' + NAME_FIX + "</scr" + "ipt>";
 }
 
 /**
@@ -711,6 +773,44 @@ export function withMobileVideo(html) {
     if (/hero-mobile/.test(whole)) return whole;
     return '<source src="/video/hero-mobile.mp4" type="video/mp4" media="(max-width:767px)">' + whole;
   });
+}
+
+/**
+ * Румынская версия уводила посетителя в русскую. Зеркало снято с сайта, где русский стоял в корне;
+ * румынский перенесли в корень, а внутренние ссылки НА румынских страницах так и остались с `/ru/…`:
+ * «Programați curățenia», «Prețuri», «Despre noi» и все карточки услуг — на 15 из 19 страниц.
+ * Правим на рендере, а не в зеркале: часть этих ссылок лежит в опубликованных правках клиента,
+ * и они сильнее зеркала — правка зеркала вылечила бы только неотредактированные страницы.
+ * Переключатель языка (`lang-toggle`) на то и переключатель: его и ссылки с hreflang не трогаем.
+ */
+export function withLocaleLinks(html, lang) {
+  if (!html || lang === "ru") return html;
+  return html.replace(/<a\b[^>]*>/gi, (tag) => {
+    if (/\blang-toggle\b|hreflang\s*=/i.test(tag)) return tag;
+    return tag.replace(/href="\/ru(\/[^"]*)?"/i, (_, rest) => `href="${rest || "/"}"`);
+  });
+}
+
+/**
+ * Остатки английского текста из шаблона, которые лежат в ОПУБЛИКОВАННЫХ правках клиента.
+ *
+ * Весь такой текст вычищен в зеркале, но два куска клиент когда-то сохранил вместе со своей
+ * правкой блока, а сохранённый блок сильнее зеркала — на сайте они так и оставались английскими.
+ * Поэтому правим на рендере, по точному совпадению: как только клиент напишет там что-то своё,
+ * правило само перестанет срабатывать. Проверка — `node scripts/text.mjs`.
+ */
+const ОСТАТКИ = [
+  ["These are our most popular cleaning options. If your home",
+    "Aici sunt cele mai populare servicii. Lista completă o&nbsp;găsiți"],
+  ["needs something extra, we’ve got you covered.", "la linkul de mai jos."],
+  // Подпись под фотографией на странице записи. В сохранённой правке от подписи осталось два
+  // слова, поэтому и якорь такой короткий — держим его вместе с закрывающим тегом.
+  ["\nLead Cleaner</div>", "\nСтарший клинер и владелец All Clean</div>"],
+];
+export function withTemplateText(html) {
+  let out = html;
+  for (const [было, стало] of ОСТАТКИ) out = out.split(было).join(стало);
+  return out;
 }
 
 /** Put those repairs in the page head — same position for the publisher and the editing canvas. */
@@ -1319,7 +1419,9 @@ export function exportPageHtml(page, overrides, pageBp, opts) {
   const withOv = overrides ? applyOverrides(page.blocks, overrides) : page.blocks;
   const blocks = withOv.map((b) => ({ ...b, content: { ...b.content, html: cleanHtml(b.content.html, keep) } }));
   // Repairs first, so a client's own edit can still override them.
-  let doc = applyMedia(withMobileVideo(withSiteRuntime(reassemble({ ...page, blocks }))), media);
+  let doc = applyMedia(
+    withTemplateText(withLocaleLinks(withMobileVideo(withSiteRuntime(reassemble({ ...page, blocks }))), page.lang)),
+    media);
   const css = overridesCss(pageBp);
   if (css) {
     // id "lgcms-overrides" avoids colliding with allclean's own <style id="lg-overrides">.
