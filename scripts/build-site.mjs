@@ -217,6 +217,58 @@ async function injectCards(indexRel, cards, locale) {
   console.log(`[build] blog: ${cards.length} card(s) added to ${indexRel}`);
 }
 
+/**
+ * Страница «не найдено».
+ *
+ * Без неё опечатка в адресе или старая ссылка из поиска приводили на служебный текст хостинга
+ * («The page could not be found», 79 байт) — без шапки, без подвала, без единой ссылки обратно.
+ * Собираем её из оболочки главной: та же шапка, тот же подвал, те же стили и шрифты, меняется
+ * только содержимое <main>. Текст на двух языках, потому что одна страница отвечает и на
+ * румынские, и на русские адреса.
+ *
+ * Оболочка берётся из уже собранной главной, поэтому страница автоматически наследует и правки
+ * клиента, и правила замены фото — отдельно поддерживать её не нужно.
+ */
+async function write404() {
+  const shellFile = join(OUT, "index.html");
+  if (!existsSync(shellFile)) return;
+  const shell = await readFile(shellFile, "utf8");
+  const open = shell.indexOf("<main");
+  const close = shell.indexOf("</main>");
+  if (open < 0 || close < 0) { console.log("[build] 404: в главной нет <main> — пропускаю"); return; }
+
+  const cta = (href, text, extra) =>
+    `<a href="${href}" class="cta_primary${extra || ""} w-inline-block">` +
+      `<div class="button_text-mask"><div class="text-button">${text}</div></div>` +
+      `<div class="btn-bg"></div></a>`;
+
+  const body =
+    '<section class="section_hero-article"><div class="padding-global">' +
+    '<div class="w-layout-blockcontainer container-large w-container">' +
+    '<div style="padding:3.5rem 0 4rem;display:flex;flex-direction:column;gap:1rem;align-items:flex-start;max-width:42rem">' +
+      '<div class="label-large">404</div>' +
+      '<h1 class="heading-style-h3 margin-0">Pagina nu&nbsp;a&nbsp;fost găsită</h1>' +
+      '<div class="heading-style-h5 tone-medium">Страница не&nbsp;найдена</div>' +
+      '<p class="text-size-large">Adresa nu&nbsp;există sau pagina a&nbsp;fost mutată. ' +
+        'Reveniți la&nbsp;pagina principală sau alegeți un&nbsp;serviciu.<br>' +
+        'Такой страницы нет или она переехала. Вернитесь на&nbsp;главную или выберите услугу.</p>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.5rem">' +
+        cta("/", "Prima pagină") + cta("/ru", "На главную", " secondary") +
+        cta("/services", "Servicii") + cta("/ru/services", "Услуги", " secondary") +
+      "</div>" +
+    "</div></div></div></section>";
+
+  let html = shell.slice(0, shell.indexOf(">", open) + 1) + body + shell.slice(close);
+  html = html
+    .replace(/<title>[\s\S]*?<\/title>/, "<title>404 — AllClean</title>")
+    // страница не должна попасть в поиск и не должна объявлять себя копией главной
+    .replace(/<link\b[^>]*rel="canonical"[^>]*>/gi, '<meta name="robots" content="noindex">')
+    .replace(/<link\b[^>]*rel="alternate"[^>]*>/gi, "")
+    .replace(/<meta\b[^>]*property="og:(url|title)"[^>]*>/gi, "");
+  await writeFile(join(OUT, "404.html"), html);
+  console.log("[build] 404.html из оболочки главной");
+}
+
 async function main() {
   const editsPath = process.argv[2];
   let edits = { overrides: {}, breakpoints: {} };
@@ -257,6 +309,8 @@ async function main() {
   const { urls: articleUrls, newByLocale } = await generateArticles(written, media);
   await injectCards("blog/index.html", newByLocale.ro || [], "ro");
   await injectCards("ru/blog/index.html", newByLocale.ru || [], "ru");
+
+  await write404();
 
   // assets: site-assets/* → out/ root (mirror references /images, /video, /fonts, /js, /logo.svg)
   for (const name of await readdir(ASSETS)) {
