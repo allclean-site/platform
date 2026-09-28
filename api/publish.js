@@ -184,6 +184,9 @@ export default async function handler(req, res) {
 /** page_id ("ru/pricing/index.html") → the URL it is served at ("/ru/pricing"). */
 function slugOf(pageId) {
   if (!pageId || typeof pageId !== "string") return "";
+  // Зарезервированные ключи (правила фото, общие блоки) — не страницы: греть /__media бессмысленно,
+  // а слот в списке прогрева он занимал у настоящей страницы.
+  if (pageId.startsWith("__")) return "";
   const path = pageId.replace(/index\.html$/, "").replace(/\.html$/, "").replace(/\/+$/, "");
   return "/" + path.replace(/^\/+/, "");
 }

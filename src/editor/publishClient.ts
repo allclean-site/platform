@@ -88,7 +88,15 @@ editKey: пусто (сессия без ключа). Если после пов
       if (breakpoints[id]) bp[id] = breakpoints[id];
     }
     const r = await postSiteApi<{ rebuild?: boolean; pages?: number; instant?: boolean }>(
-      "publish", { project: "allclean", overrides: ov, breakpoints: bp, by, clearPages, first: i === 0, finish: last }
+      "publish",
+      {
+        project: "allclean", overrides: ov, breakpoints: bp, by, clearPages,
+        // Снимок ДО публикации нужен там, где она не атомарна: несколько частей, и сорваться можно
+        // на середине. Одночастной публикации хватает снимка ПОСЛЕ — иначе история отката забивалась
+        // бы двумя почти одинаковыми точками на каждое нажатие кнопки.
+        first: i === 0 && chunks.length > 1,
+        finish: last,
+      }
     );
     if (r.offline) {
       // One page too heavy for a single request — name it, because the fix is on that page.

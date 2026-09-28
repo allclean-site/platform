@@ -278,14 +278,15 @@ export function SiteEditor() {
   // Without this the client's in-progress work stayed in their browser and the agency saw something
   // else. Pull on open and on window focus (so switching back to the tab shows the other side's work).
   const pullDraft = useCallback(async () => {
-    if (!draftConfigured()) { setDraftState("off"); return; }
+    if (!draftConfigured()) { setDraftState("off"); return false; }
     const d = await fetchDraft("allclean");
-    if (!d) { setDraftState("error"); return; }
+    if (!d) { setDraftState("error"); return false; }
     draftOv.current = canonicalizeOverrides(d.overrides);
     draftBp.current = d.breakpoints;
     draftMeta.current = d.meta;
     setDraftState("synced");
     setSyncTick((t) => t + 1);
+    return true;
   }, []);
 
   useEffect(() => { void pullDraft(); }, [pullDraft, SITE]);
@@ -307,6 +308,7 @@ export function SiteEditor() {
     // shared draft and the other side never saw them.
     window.clearTimeout(draftTimers.current[pageId]);
     draftTimers.current[pageId] = window.setTimeout(async () => {
+      delete draftTimers.current[pageId];   // сработавший таймер не должен висеть в очереди «на отправку»
       // Merge (not spread) so a tombstone REMOVES the block from what we push: undoing an edit that
       // already reached the draft has to delete it there too, or the next sync brings it back and
       // publishing ships it anyway.
@@ -338,7 +340,8 @@ export function SiteEditor() {
         // replacing their work.
         setDraftState("conflict");
         setConflictBy(res.conflictBy || "");
-        await pullDraft();
+        const pulled = await pullDraft();
+        if (!pulled) return;   // не перечитали — повтор ушёл бы с той же устаревшей меткой
         // ...and push again, ON TOP of what we just pulled. Without this second attempt the edit sat
         // in this browser until the client happened to type again — and a conflict is now the NORMAL
         // first save after the page is opened (the server requires a fresh timestamp), so leaving it
@@ -346,7 +349,9 @@ export function SiteEditor() {
         const ov2 = mergeOverrideLayers(draftOv.current[pageId], overrides.current[pageId]);
         const again = await saveDraftPage("allclean", pageId, ov2, mergedBp(pageId), session?.name || "",
           draftMeta.current[pageId]?.updatedAt);
-        if (again?.updatedAt) {
+        // 409 тоже возвращает updatedAt (текущая метка сервера) — считать это успехом значило бы
+        // показать «синхронизировано» для того, что сервер не принял.
+        if (again && !again.conflict && again.updatedAt) {
           draftOv.current[pageId] = ov2;
           draftMeta.current[pageId] = { updatedAt: again.updatedAt, updatedBy: session?.name || "" };
           setDraftState("synced");
@@ -890,7 +895,14 @@ export function SiteEditor() {
       const [ovKey, blockId] = unck(key);
       const html = snap.blocks[key];
       const store = (overrides.current[ovKey] ??= {});
-      if (html === undefined) delete store[blockId];    // there was no entry here before
+      if (html === undefined) {
+        // «Здесь раньше ничего не было» — но если правка уже уехала в общий черновик или на сайт,
+        // простое удаление локальной записи ничего не отменяет: следующая синхронизация возьмёт её
+        // из черновика и вернёт обратно, а публикация выложит. Надгробие (null) говорит «нет правки»
+        // всем слоям сразу — это и делает отмену настоящей.
+        const elsewhere = draftOv.current[ovKey]?.[blockId] != null || pubOverrides.current[ovKey]?.[blockId] != null;
+        if (elsewhere) store[blockId] = null; else delete store[blockId];
+      }
       else store[blockId] = html;                       // an override, or a tombstone
       if (!Object.keys(store).length) delete overrides.current[ovKey];
       touched.add(ovKey); blocks.add(blockId);
