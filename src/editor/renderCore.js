@@ -35,6 +35,9 @@ export const MQ = { tablet: "(max-width: 991px)", mobile: "(max-width: 479px)" }
 export const SITE_FIXES =
   "@media screen and (max-width:991px){.right_home-features{min-width:0}}" +
   ".page-wrapper{overflow-x:clip;}" +
+  // Переходы по ссылкам-якорям и возвраты к началу формы — прокруткой, а не прыжком. Того, кто
+  // просил систему убрать анимации, это не касается.
+  "@media (prefers-reduced-motion:no-preference){html:not(#lgcmsx){scroll-behavior:smooth;}}" +
   ".w-background-video video:not(#lgcmsx),.w-background-video-atom video:not(#lgcmsx){width:100% !important;height:100% !important;}" +
   // The testimonials marquee, finished. The import lost the template's animation wiring, so the
   // "3 scrolling columns" block rendered as a static 3600-4400px wall of reviews at EVERY width.
@@ -571,6 +574,24 @@ export function siteRuntimeTags() {
     '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>" +
     '<script id="lgcms-sliderfill">' + SLIDER_FILL + "</scr" + "ipt>" +
     '<script id="lgcms-formfix">' + FORM_FIX + "</scr" + "ipt>";
+}
+
+/**
+ * IMPORT REPAIR · фоновое видео героя на телефоне — отдельным, лёгким файлом.
+ *
+ * Один и тот же ролик на 19 секунд весит 2.2 МБ в 720p; на телефоне это почти весь вес страницы и
+ * главная причина «сайт подтормаживает». Телефону отдаём 854×480 (1.1 МБ) — на экране шириной 390px
+ * разницы не видно, а трафика вдвое меньше. Источник с `media` браузер выбирает ОДИН раз при
+ * загрузке, поэтому он должен стоять первым и попасть в разметку на сборке, а не дописываться
+ * скриптом: к моменту работы скрипта загрузка уже началась бы.
+ */
+export function withMobileVideo(html) {
+  if (!html || html.indexOf("/video/hero.mp4") < 0) return html;
+  if (html.indexOf("/video/hero-mobile.mp4") >= 0) return html;   // уже добавлено — второй раз не нужно
+  return html.replace(/<source\b([^>]*src="[^"]*\/video\/hero\.mp4"[^>]*)>/gi, (whole) => {
+    if (/hero-mobile/.test(whole)) return whole;
+    return '<source src="/video/hero-mobile.mp4" type="video/mp4" media="(max-width:767px)">' + whole;
+  });
 }
 
 /** Put those repairs in the page head — same position for the publisher and the editing canvas. */
@@ -1179,7 +1200,7 @@ export function exportPageHtml(page, overrides, pageBp, opts) {
   const withOv = overrides ? applyOverrides(page.blocks, overrides) : page.blocks;
   const blocks = withOv.map((b) => ({ ...b, content: { ...b.content, html: cleanHtml(b.content.html, keep) } }));
   // Repairs first, so a client's own edit can still override them.
-  let doc = applyMedia(withSiteRuntime(reassemble({ ...page, blocks })), media);
+  let doc = applyMedia(withMobileVideo(withSiteRuntime(reassemble({ ...page, blocks }))), media);
   const css = overridesCss(pageBp);
   if (css) {
     // id "lgcms-overrides" avoids colliding with allclean's own <style id="lg-overrides">.
