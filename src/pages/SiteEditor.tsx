@@ -337,6 +337,18 @@ export function SiteEditor() {
         setDraftState("conflict");
         setConflictBy(res.conflictBy || "");
         await pullDraft();
+        // ...and push again, ON TOP of what we just pulled. Without this second attempt the edit sat
+        // in this browser until the client happened to type again — and a conflict is now the NORMAL
+        // first save after the page is opened (the server requires a fresh timestamp), so leaving it
+        // unsynced would mean the shared draft misses exactly the first edit of every session.
+        const ov2 = mergeOverrideLayers(draftOv.current[pageId], overrides.current[pageId]);
+        const again = await saveDraftPage("allclean", pageId, ov2, mergedBp(pageId), session?.name || "",
+          draftMeta.current[pageId]?.updatedAt);
+        if (again?.updatedAt) {
+          draftOv.current[pageId] = ov2;
+          draftMeta.current[pageId] = { updatedAt: again.updatedAt, updatedBy: session?.name || "" };
+          setDraftState("synced");
+        }
         return;
       }
       const at = res.updatedAt;
