@@ -19,7 +19,7 @@ import { toCanonical, toPreview, canonicalizeOverrides } from "../editor/assetPa
 import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
 import { loadHistory, saveHistory, type Snap, type Step } from "../editor/historyStore";
-import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared } from "../editor/sharedBlocks";
+import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared, isPatchValue } from "../editor/sharedBlocks";
 import { META_KEY, readMeta, decodeMeta, encodeMeta, type PageMeta,
   MEDIA_KEY, encodeMedia, decodeMedia, applyMedia, mediaIdentity, linkSlot, type MediaRule } from "../editor/renderCore.js";
 import { indexMediaFromDoc, syncSiteMedia } from "../editor/media";
@@ -218,6 +218,12 @@ export function SiteEditor() {
       if (val == null) continue;
       const base = p.blocks.find((b) => b.id === blockId)?.content.html;
       if (base == null) continue;
+      // Общий слой несёт ПАТЧ (список точечных изменений) — его можно честно наложить на копию блока
+      // этой страницы. Если там лежит готовый HTML (так писали раньше), наложить его «на все
+      // страницы» — значит разослать по сайту копию чужой страницы: ровно так 18 из 19 румынских
+      // страниц получили шапку главной и потеряли ссылку на свою русскую версию. Такие значения
+      // пропускаем. Пустая строка — это осознанное «блок удалён», её оставляем.
+      if (val !== "" && !isPatchValue(val)) continue;
       // ⚠️ ОБЩАЯ ПРАВКА СИЛЬНЕЕ СЛЕДА ПРОШЛОЙ ПУБЛИКАЦИИ. Здесь стояла проверка «если у страницы
       // есть своя версия блока — она главнее». Звучит разумно, но своя версия у шапки и подвала
       // появляется ровно одним способом: предыдущая публикация РАЗВЕРНУЛА общую правку в каждую
@@ -498,10 +504,14 @@ export function SiteEditor() {
     openTxn(loadedPageId.current || ovKey); recordBlock(ovKey, blockId);
     setSaveState("saving");
     const store = (overrides.current[ovKey] ??= {});
+    const had = Object.prototype.hasOwnProperty.call(store, blockId), was = store[blockId];
     // A tombstone, not a deletion: "this block has no override" has to be stated so it survives the
     // merge with the shared draft and the published layer (that is what makes undo stick for others).
     store[blockId] = html;
     if (!saveOverrides(TENANT, SITE, overrides.current)) {
+      // Память тоже откатываем: иначе правка «есть» в кабинете, но её нет ни в браузере, ни на
+      // сервере — и она молча уедет в общий черновик как будто сохранилась.
+      if (had) store[blockId] = was; else delete store[blockId];
       setSaveState("idle");
       say("Не удалось сохранить правку в этом браузере: закончилось место. Опубликуйте изменения или очистите данные сайта.");
       return false;

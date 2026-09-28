@@ -16,7 +16,7 @@ import { reportForPage, type PageReport } from "../editor/publish";
 import { publishConfigured, publishToSite } from "../editor/publishClient";
 import { Dialog } from "../components/Dialog";
 import { listVersions, restoreVersion, type SiteVersion } from "../editor/versionsClient";
-import { isSharedKey, langOfSharedKey, resolveShared } from "../editor/sharedBlocks";
+import { isSharedKey, langOfSharedKey, resolveShared, isPatchValue } from "../editor/sharedBlocks";
 import { MEDIA_KEY, decodeMedia } from "../editor/renderCore.js";
 import type { PageOverrides } from "../editor/realStore";
 
@@ -94,6 +94,12 @@ export function PublishDialog({
         if (val == null) continue;
         const base = p.blocks.find((b) => b.id === blockId)?.content.html;
         if (base == null) continue;
+        // Общий слой несёт ПАТЧ (список точечных изменений) — его можно честно наложить на копию блока
+        // этой страницы. Если там лежит готовый HTML (так писали раньше), наложить его «на все
+        // страницы» — значит разослать по сайту копию чужой страницы: ровно так 18 из 19 румынских
+        // страниц получили шапку главной и потеряли ссылку на свою русскую версию. Такие значения
+        // пропускаем. Пустая строка — это осознанное «блок удалён», её оставляем.
+        if (val !== "" && !isPatchValue(val)) continue;
       // ⚠️ ОБЩАЯ ПРАВКА СИЛЬНЕЕ СЛЕДА ПРОШЛОЙ ПУБЛИКАЦИИ. Здесь стояла проверка «если у страницы
       // есть своя версия блока — она главнее». Звучит разумно, но своя версия у шапки и подвала
       // появляется ровно одним способом: предыдущая публикация РАЗВЕРНУЛА общую правку в каждую
@@ -122,6 +128,7 @@ export function PublishDialog({
       try {
         const p: ImportedPage = await fetch(`${dataBase}/${entry.file}.json`).then((r) => r.json());
         noteScanned(p);
+        unreadable.current.delete(entry.slug || entry.id);   // прочиталась со второй попытки — блокировать нечего
       } catch {
         // Молчать здесь нельзя: общая правка шапки или подвала просто не доедет до этой страницы, и
         // никто об этом не узнает. Страница попадает в список непрочитанных — публикация общих
