@@ -226,6 +226,14 @@ export const SITE_FIXES =
   // переключает display, и панель появляется мгновенно. Webflow переносит меню внутрь оверлея на
   // открытии и уносит обратно на закрытии — поэтому одного правила на потомка оверлея хватает,
   // чтобы появление проигрывалось ровно один раз и ровно тогда, когда нужно.
+  // Куда я сейчас нажму с клавиатуры — не видно нигде: шаблон снимает обводку со всех ссылок,
+  // кнопок и полей (Webflow делает это в своей нормализации). Тому, кто ходит по сайту табом —
+  // а это и человек с ограничением, и просто тот, кто заполняет форму без мыши, — остаётся гадать.
+  // :focus-visible показывает рамку ТОЛЬКО при клавиатуре: мышью ничего не меняется, вид сайта
+  // прежний. Синий контур читается на светлом, белое кольцо под ним — на тёмно-синих секциях,
+  // так что одно правило работает на любом фоне.
+  ":focus-visible:not(#lgcmsx){outline:2px solid #2b6cf6 !important;outline-offset:2px;" +
+    "box-shadow:0 0 0 4px rgba(255,255,255,.75) !important;border-radius:3px;}" +
   "@keyframes lgcms-menu-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}" +
   "@media (prefers-reduced-motion:no-preference){" +
     ".w-nav-overlay .w-nav-menu:not(#lgcmsx){animation:lgcms-menu-in .26s cubic-bezier(.22,.61,.36,1) both;}" +
@@ -652,6 +660,15 @@ export const FORM_FIX = [
   "var labs=f.querySelectorAll('.text-input-label');",
   "for(j=0;j<labs.length;j++){var lt=(labs[j].textContent||'').trim();",
   "if(/^Phone( \\(required\\))?$/i.test(lt))labs[j].textContent=t.label.Phone;}",
+  // (4) автозаполнение. Заявку почти всегда оставляют с телефона, и там имя и номер подставляются
+  // одним касанием — но только если поле сказало браузеру, что в нём лежит. Шаблон этого не
+  // говорит, поэтому подсказку подставляем сами: по типу поля, а не по названию, чтобы правило
+  // пережило переименование полей в кабинете. Уже проставленное не трогаем.
+  "for(j=0;j<ins.length;j++){var e4=ins[j];if(e4.getAttribute('autocomplete'))continue;",
+  "var n4=(e4.getAttribute('name')||e4.id||'').toLowerCase();",
+  "var ac=e4.type==='tel'?'tel':e4.type==='email'?'email':",
+  "(/(^|[-_])(name|nume|imya|fio)($|[-_])/.test(n4)?'name':/(addr|adres|street|strad)/.test(n4)?'street-address':'');",
+  "if(ac)e4.setAttribute('autocomplete',ac);}",
   "}}",
   "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();",
   "window.addEventListener('load',fix);",
