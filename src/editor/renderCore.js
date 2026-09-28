@@ -803,13 +803,15 @@ const ОСТАТКИ = [
   ["These are our most popular cleaning options. If your home",
     "Aici sunt cele mai populare servicii. Lista completă o&nbsp;găsiți"],
   ["needs something extra, we’ve got you covered.", "la linkul de mai jos."],
-  // Подпись под фотографией на странице записи. В сохранённой правке от подписи осталось два
-  // слова, поэтому и якорь такой короткий — держим его вместе с закрывающим тегом.
-  ["\nLead Cleaner</div>", "\nСтарший клинер и владелец All Clean</div>"],
 ];
-export function withTemplateText(html) {
+export function withTemplateText(html, lang) {
   let out = html;
   for (const [было, стало] of ОСТАТКИ) out = out.split(было).join(стало);
+  // Подпись под фотографией на странице записи. В сохранённой правке от неё осталось два слова
+  // (на румынской странице — ещё и с <br> на конце), поэтому якорь короткий и держится за тег.
+  out = out.replace(/\nLead Cleaner(<br>)?<\/div>/g, lang === "ru"
+    ? "\nСтарший клинер и владелец All Clean</div>"
+    : "\nCurățător principal și proprietar All Clean</div>");
   return out;
 }
 
@@ -1420,7 +1422,7 @@ export function exportPageHtml(page, overrides, pageBp, opts) {
   const blocks = withOv.map((b) => ({ ...b, content: { ...b.content, html: cleanHtml(b.content.html, keep) } }));
   // Repairs first, so a client's own edit can still override them.
   let doc = applyMedia(
-    withTemplateText(withLocaleLinks(withMobileVideo(withSiteRuntime(reassemble({ ...page, blocks }))), page.lang)),
+    withTemplateText(withLocaleLinks(withMobileVideo(withSiteRuntime(reassemble({ ...page, blocks }))), page.lang), page.lang),
     media);
   const css = overridesCss(pageBp);
   if (css) {
