@@ -718,6 +718,25 @@ ${CORE_INLINE}
   // won't stretch" on some headings. NOTE: width itself is deliberately NOT important -- it must stay
   // overridable by the per-device media rules (inline important would break tablet/mobile). On
   // breakpoints these land in the media sheet (renderOverrides already forces important there).
+  /**
+   * Сколько места элементу реально даёт его окружение. Родитель, который сам растёт от ребёнка
+   * (inline-block, flex-элемент при align-items:center), ответа не даёт — поэтому ширину у элемента
+   * на миг обнуляем и смотрим, во что упирается коробка вокруг.
+   */
+  function roomFor(el){
+    var p = el.parentElement;
+    if (!p) return 0;
+    var saved = el.style.width, savedImp = el.style.getPropertyPriority("width");
+    el.style.setProperty("width", "0px", "important");
+    var room = 0, node = p, hops = 0;
+    while (node && hops++ < 4){
+      var w0 = node.getBoundingClientRect().width;
+      if (w0 > 0) room = room ? Math.min(room, w0) : w0;
+      node = node.parentElement;
+    }
+    if (saved) el.style.setProperty("width", saved, savedImp); else el.style.removeProperty("width");
+    return Math.round(room);
+  }
   function unclampWidth(el){
     setStyleProp(el, "flex-shrink", "0", "important");
     setStyleProp(el, "max-width", "none", "important");
@@ -946,7 +965,12 @@ ${CORE_INLINE}
             }
           }
         } else {
-          setStyleProp(el, "width", Math.round(w) + "px");
+          // ⚠️ ШИРЕ СВОЕЙ КОЛОНКИ — НЕ СВОБОДА, А ПЕРЕПОЛНЕНИЕ. Заголовок, перетянутый на 829px внутри
+          // колонки 680px, выезжает за её край и выталкивает соседей (так русский hero уронил кнопки
+          // на плитки контактов, а «ОТВЕТЫ НА ВАШИ ВОПРОСЫ» вылезло из своей коробки на 149px).
+          // Жест упирается в ближайшую коробку с ЗАДАННОЙ шириной: чтобы дать элементу больше места,
+          // тянут границу колонки — она двигает саму коробку.
+          setStyleProp(el, "width", Math.round(Math.min(w, roomFor(el) || w)) + "px");
           unclampWidth(el);
         }
       }

@@ -86,6 +86,30 @@ export const SITE_FIXES =
   "@media screen and (max-width:991px){" +
     "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx){max-width:100%;}" +
   "}" +
+  // На телефоне сайт ломает слова ПОСЕРЕДИНЕ и без дефиса («профессиональны|х»): это его собственный
+  // `word-break:break-word`, который режет слово, даже когда оно целиком встало бы на следующую
+  // строку. Здесь три правила вместо одного: обычные слова не режем, действительно не влезающее
+  // слово переносим ПО СЛОГАМ с дефисом (у браузера есть словарь для ru/ro — страница объявляет свой
+  // lang), и только если и это не помогло, слово разрывается, чтобы не выехать за экран.
+  // Внутренняя обёртка заголовка (шаблон заворачивает текст в <strong>/<div>) не может быть шире
+  // самого заголовка: на русской главной такой <strong> держал ширину 829px в коробке 680px, и
+  // «ОТВЕТЫ НА ВАШИ ВОПРОСЫ» выезжало за свою секцию на 149px на всех десктопных ширинах.
+  // !important — потому что ширину ему задаёт легаси-слой старого редактора, тоже с !important;
+  // собственная правка клиента всё равно сильнее: её лист идёт ниже по документу.
+  "h1>*:not(#lgcmsx),h2>*:not(#lgcmsx),h3>*:not(#lgcmsx),h4>*:not(#lgcmsx),h5>*:not(#lgcmsx),h6>*:not(#lgcmsx)," +
+  "[class*=heading-style]>*:not(#lgcmsx){max-width:100% !important;}" +
+  "@media screen and (max-width:767px){" +
+    "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx)," +
+    "p:not(#lgcmsx),li:not(#lgcmsx),[class*=heading-style]:not(#lgcmsx),[class*=text-size]:not(#lgcmsx)" +
+    "{word-break:normal;overflow-wrap:break-word;hyphens:auto;}" +
+    // Текст «О нас» набран заголовочным кеглем 37px, а в колонке телефона 343px: слово
+    // «профессиональных» требует 358px и не влезает НИКАК — тут уже никакие правила переноса не
+    // помогут, помогает только кегль. Сужаем ровно этот блок и ровно на телефоне. !important —
+    // потому что собственный размер шаблона тоже важный; правка клиента всё равно сильнее: её лист
+    // идёт ниже по документу, а при равной важности и специфичности побеждает последний.
+    ".text-wrap_about-description [class*=heading-style]:not(#lgcmsx)," +
+    ".text-wrap_about-description h2:not(#lgcmsx){font-size:clamp(22px,8.2vw,37px) !important;}" +
+  "}" +
   // Client's call (2026-08-02): the template's card overlay laid a heavy navy haze across the WHOLE
   // services photo — that was the ugly подложка. But the title is white and sits over the photo's
   // bottom edge, so removing the overlay outright left it unreadable (white-on-white where the photo
@@ -679,8 +703,12 @@ export function safeValue(v) {
  * narrower screen. Height is left alone (tall is not the overflow that breaks a page); min-width too
  * (that is the un-clamp, and capping it would re-clamp the box).
  */
-function fitValue(prop, sv) {
-  if (prop === "font-size") return fluidFont(sv);
+function fitValue(prop, sv, layer) {
+  // ⚠️ ТЕКУЧИЙ ШРИФТ — ТОЛЬКО ДЛЯ ДЕСКТОПНОГО СЛОЯ. Он интерполирует размер между 992 и 1728px и
+  // держит снизу 62% — а для правила, которое и так действует только на телефоне (≤479px) или
+  // планшете (≤991px), эта нижняя граница выигрывает ВСЕГДА: клиент ставит 34px, глядя на телефон,
+  // и видит 21px. В слое, привязанном к ширине, размер уже выбран для этой ширины.
+  if (prop === "font-size") return !layer || layer === "base" ? fluidFont(sv) : sv;
   // A width the client dragged is capped at the VIEWPORT, not at the container: it keeps their size,
   // and it does NOT stop them making a box wider than its column — capping at 100% did exactly that,
   // so a full-width heading could not be resized at all, which read as "текст не тянется".
@@ -688,6 +716,10 @@ function fitValue(prop, sv) {
   // a full viewport wide runs off the right edge by exactly the padding — measured on a phone: a
   // heading dragged to 487px sat at x=16 and ended at 406 on a 390px screen, slicing its last
   // letters. Still far wider than any column, so dragging stays free.
+  // Ограничение по ЭКРАНУ, а не по родителю: заголовок, который и так во всю колонку, иначе стало бы
+  // невозможно тянуть вообще (проверено воротами resize-heading — 19 страниц). Что ширина не должна
+  // превышать свою колонку, следит сам жест: перетаскивание упирается в ближайшую коробку с заданной
+  // шириной (editRuntime), поэтому такие значения больше не появляются.
   if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) return `min(${sv},calc(100vw - 2rem))`;
   // A column boundary the client dragged writes fixed px tracks — the same freeze, made proportional.
   if (prop === "grid-template-columns") return pxTracksToFr(sv) || sv;
@@ -716,7 +748,7 @@ export function overridesCss(pageBp) {
     for (const p of Object.keys(props)) {
       if (props[p] === "") continue;
       const sv = safeValue(props[p]); if (!sv) continue;
-      const decl = `${p}:${fitValue(p, sv)} !important;`;
+      const decl = `${p}:${fitValue(p, sv, "base")} !important;`;
       // The element ITSELF always gets the declaration: a desktop edit also writes a flat inline px
       // value, and a stylesheet `!important` beats that non-important inline, so a plain <h2> scales
       // fluidly too — not just split-text headings whose visible text sits in children.
@@ -743,8 +775,8 @@ export function overridesCss(pageBp) {
         // every child while the heading itself scaled fluidly — so on a phone the box shrank and
         // the letters did not, and a long word ran off both edges of the screen. The rule "a size
         // measured on one screen is not a layout" has to reach the children too.
-        decl += `${p}:${fitValue(p, sv)} !important;`;
-        if (CASCADE[p]) cdecl += `${p}:${fitValue(p, sv)} !important;`;
+        decl += `${p}:${fitValue(p, sv, dev)} !important;`;
+        if (CASCADE[p]) cdecl += `${p}:${fitValue(p, sv, dev)} !important;`;
       }
       if (decl) body += `[data-lg-id="${id}"]${B}{${decl}}`;
       if (cdecl) body += `[data-lg-id="${id}"] *${B}{${cdecl}}`;
