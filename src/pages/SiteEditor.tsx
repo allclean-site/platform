@@ -302,9 +302,18 @@ export function SiteEditor() {
       // publishing ships it anyway.
       // A photo inlined as base64 goes to storage first, and the LOCAL copy is rewritten too — else
       // the same three megabytes ride along on every future save and publish (see liftImages.ts).
-      const cleaned = await liftOverrides(overrides.current[pageId] || {}, TENANT);
+      const before = { ...(overrides.current[pageId] || {}) };
+      const cleaned = await liftOverrides(before, TENANT);
       if (cleaned) {
-        overrides.current[pageId] = cleaned;
+        // Uploading takes a moment, and the client keeps typing during it. Only the blocks that are
+        // still EXACTLY what we lifted are replaced — otherwise the newer edit would be overwritten
+        // by the snapshot this pass started from, which is a lost edit in ordinary use.
+        const cur = overrides.current[pageId] || {};
+        const merged: typeof cur = { ...cur };
+        for (const blockId of Object.keys(cleaned)) {
+          if (cur[blockId] === before[blockId]) merged[blockId] = cleaned[blockId];
+        }
+        overrides.current[pageId] = merged;
         saveOverrides(TENANT, SITE, overrides.current);
       }
       const pushedLocal = { ...overrides.current[pageId] };
@@ -457,7 +466,8 @@ export function SiteEditor() {
   }, [endGesture]);
 
   /** @param ovKey the store this block belongs to: the page id, or the shared header/footer layer. */
-  const writeBlock = (ovKey: string, blockId: string, html: string | null) => {
+  /** @returns false when the edit could NOT be stored — the caller must not record it as saved. */
+  const writeBlock = (ovKey: string, blockId: string, html: string | null): boolean => {
     openTxn(loadedPageId.current || ovKey); recordBlock(ovKey, blockId);
     setSaveState("saving");
     const store = (overrides.current[ovKey] ??= {});
@@ -467,11 +477,12 @@ export function SiteEditor() {
     if (!saveOverrides(TENANT, SITE, overrides.current)) {
       setSaveState("idle");
       say("Не удалось сохранить правку в этом браузере: закончилось место. Опубликуйте изменения или очистите данные сайта.");
-      return;
+      return false;
     }
     setSaveState("saved");
     scheduleDraft(ovKey);
     autoCommit();
+    return true;
   };
   const writeBp = (pageId: string, rules: PageBp) => {
     openTxn(pageId); recordBp(pageId);
@@ -621,7 +632,6 @@ export function SiteEditor() {
         // another prefix and the published page pointed at a path nothing serves (404 video/images).
         d.html = toCanonical(d.html);
         if (d.html === lastHtml.current[d.id]) return;   // nothing actually changed
-        lastHtml.current[d.id] = d.html;
         const region = page.blocks.find((b) => b.id === d.id)?.content.region;
         if (isSharedRegion(region)) {
           // The header and the footer live in all 38 pages. Store WHAT CHANGED once for the locale, so
@@ -637,6 +647,9 @@ export function SiteEditor() {
             say("Эта правка сохранена только для текущей страницы: на других страницах блок свёрстан иначе.");
           }
         } else writeBlock(page.id, d.id, d.html);
+        // Remembered only once it is actually stored: a save refused for lack of space must stay
+        // "not saved", so the next identical message tries again instead of being skipped.
+        if ((overrides.current[ovKeyFor(d.id, page, page.lang)] ?? {})[d.id] !== undefined) lastHtml.current[d.id] = d.html;
         setSaveState("saved");
       }
     }

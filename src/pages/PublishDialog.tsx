@@ -17,6 +17,7 @@ import { publishConfigured, publishToSite } from "../editor/publishClient";
 import { Dialog } from "../components/Dialog";
 import { listVersions, restoreVersion, type SiteVersion } from "../editor/versionsClient";
 import { isSharedKey, langOfSharedKey, resolveShared } from "../editor/sharedBlocks";
+import { MEDIA_KEY, decodeMedia } from "../editor/renderCore.js";
 import type { PageOverrides } from "../editor/realStore";
 
 export function PublishDialog({
@@ -217,7 +218,11 @@ export function PublishDialog({
   const total = index.pages.length;
   const errors = reports ? reports.reduce((n, r) => n + r.issues.filter((i) => i.level === "error").length, 0) : 0;
   const warns = reports ? reports.reduce((n, r) => n + r.issues.filter((i) => i.level === "warn").length, 0) : 0;
-  const edits = reports ? reports.reduce((n, r) => n + r.edits, 0) : 0;
+  // A replaced photo is a rule about the whole site, not an edit of one page, so no page report
+  // contains it. Without counting it here the summary says "0 правок" and the publish button stays
+  // disabled — the client replaces a photo and cannot publish it.
+  const mediaRules = decodeMedia((overrides as Record<string, Record<string, string>>)[MEDIA_KEY]?.[MEDIA_KEY]);
+  const edits = (reports ? reports.reduce((n, r) => n + r.edits, 0) : 0) + mediaRules.length;
   const clean = reports ? reports.filter((r) => r.issues.length === 0).length : 0;
 
   return (
@@ -258,6 +263,13 @@ export function PublishDialog({
               <div className={"pub__stat" + (errors ? " pub__stat--err" : "")}><b>{errors}</b><span>ошибок SEO</span></div>
               <div className={"pub__stat" + (warns ? " pub__stat--warn" : "")}><b>{warns}</b><span>предупреждений</span></div>
             </div>
+
+            {mediaRules.length > 0 && (
+              <p className="pub__note">
+                <CheckCircle2 size={16} /> Заменённых фото: {mediaRules.length} — каждое применится на всех страницах,
+                во всех копиях блока и в обеих языковых версиях.
+              </p>
+            )}
 
             {missed.length > 0 && (
               <div className="pub__gate">
@@ -407,7 +419,7 @@ export function PublishDialog({
                 </button>
                 {canPublish && (
                   <button className="pub__btn-primary" onClick={doPublish}
-                    disabled={pubState === "publishing" || (reports != null && reports.every((r) => r.edits === 0 || skip.has(r.id)))}>
+                    disabled={pubState === "publishing" || (reports != null && !mediaRules.length && reports.every((r) => r.edits === 0 || skip.has(r.id)))}>
                     {pubState === "publishing" ? <><Loader2 size={15} className="pub__spin" /> Публикую…</> : <><Rocket size={15} /> Опубликовать на сайт</>}
                   </button>
                 )}
