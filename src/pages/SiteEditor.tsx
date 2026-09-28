@@ -564,6 +564,7 @@ export function SiteEditor() {
         // Only a move to a DIFFERENT page starts a new history. This function also runs when the page
         // is merely re-rendered — after an undo, a section delete, or a draft sync when the window
         // regains focus — and wiping the stack there is what made undo/redo "stop working".
+        if (!samePage) { frameReady.current = false; pendingHtml.current = {}; }
         if (loadedPageId.current !== p.id) {
           loadedPageId.current = p.id;
           // Not an empty stack: this tab's steps for THIS page, so a reload (or coming back to a page
@@ -639,8 +640,14 @@ export function SiteEditor() {
       else if (d.type === "lg-paste-note") say("Текст вставлен без картинок — добавьте фото через «Заменить фото», чтобы оно открывалось у посетителей.");
       else if (d.type === "lg-ready") {
         // Iframe loaded → push this page's saved breakpoint rules + the active device into the runtime.
+        frameReady.current = true;
         const rules = (page && mergedBp(page.id)) || emptyPageBp();
         const win = frameRef.current?.contentWindow;
+        // …and everything that was updated while it was still loading.
+        for (const [blockId, html] of Object.entries(pendingHtml.current)) {
+          win?.postMessage({ type: "lg-set-html", blockId, html: toPreview(html) }, "*");
+        }
+        pendingHtml.current = {};
         win?.postMessage({ type: "lg-bp-init", rules }, "*");
         win?.postMessage({ type: "lg-device", breakpoint: device }, "*");
         win?.postMessage({ type: "lg-zoom", zoom }, "*");
@@ -850,8 +857,19 @@ export function SiteEditor() {
   };
 
   /** Push a block's HTML into the iframe (assets in preview form) — used by history and by edits. */
-  const pushHtmlToFrame = (blockId: string, html: string) =>
+  /**
+   * Blocks whose update arrived before the canvas was listening. The iframe is rebuilt whenever the
+   * page changes, and the shared draft usually lands a second later — a message sent in that window
+   * is simply lost, and the client sees the page as it was BEFORE their edits (this is how a photo
+   * replaced site-wide still looked unchanged until you switched pages and came back).
+   */
+  const frameReady = useRef(false);
+  const pendingHtml = useRef<Record<string, string>>({});
+
+  const pushHtmlToFrame = (blockId: string, html: string) => {
+    if (!frameReady.current) { pendingHtml.current[blockId] = html; return; }
     frameRef.current?.contentWindow?.postMessage({ type: "lg-set-html", blockId, html: toPreview(html) }, "*");
+  };
 
 
   /**
