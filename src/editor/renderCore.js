@@ -804,8 +804,29 @@ const ОСТАТКИ = [
     "Aici sunt cele mai populare servicii. Lista completă o&nbsp;găsiți"],
   ["needs something extra, we’ve got you covered.", "la linkul de mai jos."],
 ];
+/**
+ * Плашки рейтинга в героях. Верными они были только на русской главной: на остальных 37 страницах
+ * рядом с красным значком 999.md стояло «4,8 на Facebook» (профиля в Facebook у компании нет),
+ * оценка Google была то 4,7, то 4,9 (в блоке отзывов на тех же страницах — 4,7), а обе ссылки
+ * вели на google.com, то есть на главную страницу платформы. В зеркале это исправлено, но на трёх
+ * страницах плашки лежат в опубликованных правках клиента и зеркалом не чинятся — поэтому то же
+ * правило работает и на рендере.
+ */
+const RATING_GOOGLE = "https://share.google/0OpdO0hC8f08S2BZF";
+const RATING_999 = "https://999.md/ru/profile/ACCMD";
+function withRatingBadges(html) {
+  let out = html
+    .replace(/(\d,\d(?:&nbsp;|\s)*(?:на|pe|în|в)(?:&nbsp;|\s)*)Facebook/g, "$1999.md")
+    .replace(/4,9((?:&nbsp;|\s)*(?:в|pe|în|на)(?:&nbsp;|\s)*Google)/g, "4,7$1");
+  return out.replace(/<a\b[^>]*class="[^"]*link_book-social[^"]*"[^>]*>[\s\S]*?<\/a>/g, (тег) => {
+    const текст = тег.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+    const цель = /999\.md/.test(текст) ? RATING_999 : /Google/i.test(текст) ? RATING_GOOGLE : null;
+    return цель ? тег.replace(/href="https:\/\/(?:google\.com|facebook\.com)"/, `href="${цель}"`) : тег;
+  });
+}
+
 export function withTemplateText(html, lang) {
-  let out = html;
+  let out = withRatingBadges(html);
   for (const [было, стало] of ОСТАТКИ) out = out.split(было).join(стало);
   // Подпись под фотографией на странице записи. В сохранённой правке от неё осталось два слова
   // (на румынской странице — ещё и с <br> на конце), поэтому якорь короткий и держится за тег.
