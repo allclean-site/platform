@@ -975,7 +975,11 @@ ${CORE_INLINE}
         }
       }
       if ((dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0) && !isAutoText(el)){
-        setStyleProp(vTarget, "height", Math.round(h) + "px");
+        // Контейнеру задаём НИЖНЮЮ границу, а не точный рост: содержимое в другом языке длиннее, и
+        // жёсткая высота перестаёт его вмещать — так русский hero выдавил кнопки на плитки контактов.
+        // У картинки и видео высота — это кадрирование, там точное значение осмысленно.
+        var vProp = /^(IMG|VIDEO|SVG|CANVAS|IFRAME)$/.test(vTarget.tagName) ? "height" : "min-height";
+        setStyleProp(vTarget, vProp, Math.round(h) + "px");
         if (rg){
           // Let the columns fill the row instead of holding their own heights, so they move together.
           setStyleProp(vTarget, "align-items", "stretch");
@@ -985,11 +989,23 @@ ${CORE_INLINE}
           if (curBp === "desktop" && vId){
             setBpProp(vId, "tablet", "height", "auto");
             setBpProp(vId, "mobile", "height", "auto");
+            // …и нижнюю границу тоже: иначе десктопные 784px остаются на телефоне пустым полем
+            setBpProp(vId, "tablet", "min-height", "auto");
+            setBpProp(vId, "mobile", "min-height", "auto");
             touchedBp = true;
             renderOverrides();
           }
         } else {
           setStyleProp(el, "flex-shrink", "0", "important");
+          if (curBp === "desktop"){
+            var eId = el.getAttribute("data-lg-id");
+            if (eId){
+              setBpProp(eId, "tablet", "min-height", "auto");
+              setBpProp(eId, "mobile", "min-height", "auto");
+              touchedBp = true;
+              renderOverrides();
+            }
+          }
         }
       }
       positionSelBox(el);
