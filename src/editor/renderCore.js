@@ -32,6 +32,43 @@ export const MQ = { tablet: "(max-width: 991px)", mobile: "(max-width: 479px)" }
  * · background video fills its wrapper — it is position:absolute and meant to cover the box, never to
  *   be sized on its own. A stray resize once saved `width:20px` onto the hero video; this heals it.
  */
+/**
+ * Имена типографских токенов шаблона содержат эмодзи (Webflow называет так группы переменных).
+ * Пишем их экранированием, чтобы имя пережило любую перекодировку файла, а не только UTF-8.
+ */
+const LABEL_1 = "var(--_\u{1F520}-typography---size--label-1";
+const LABEL_2 = "var(--_\u{1F520}-typography---size--label-2";
+
+/**
+ * Что проявляем при прокрутке. Карточки команды — обязательно: без этого их не видно вообще.
+ * Остальные — сетки карточек, которые шаблон выкладывает рядами; полосы с горизонтальной
+ * прокруткой (card_nav-service, card_scroll-service) и бегущие отзывы сюда НЕ входят: у них своё
+ * движение, и появление по вертикальной позиции им только мешало бы.
+ */
+const REVEAL_SEL = [
+  '[data-w-id][style*="opacity: 0"]', ".expandable-single", ".card_feature", ".card_home-feature",
+  ".card_about-feature", ".card_book-review", ".card_book-about",
+].map((s) => s + ":not(#lgcmsx)").join(",");
+
+/**
+ * Что обязано быть видно ВСЕГДА, даже когда движения нет: это не украшение, а содержимое, которое
+ * интерактив шаблона оставил прозрачным навсегда. Карточка вопроса (.expandable-single) — именно
+ * такой случай; сам ответ (.expandable-bottom) сюда НЕ входит: его прозрачность — это рабочее
+ * сворачивание, и раскрыть его насильно значит сломать гармошку.
+ */
+const REVEAL_FORCE = ['[data-w-id][style*="opacity: 0"]', ".expandable-single"]
+  .map((s) => s + ":not(#lgcmsx)").join(",");
+
+/**
+ * Ссылки, стоящие отдельной строкой, — им расширяем область нажатия. Список именно перечислением:
+ * «все ссылки подряд» задели бы ссылки внутри абзацев, где невидимый слой поверх соседней строки
+ * перехватывал бы чужие нажатия.
+ */
+const TAP_SEL = [
+  "a.link_underline-animated", "a.link-socials", "a.link-banner", "a.link_footer-legal",
+  "a.cta_tertiary", ".card_testimonial-marquee a",
+].map((s) => s + ":not(#lgcmsx)").join(",");
+
 export const SITE_FIXES =
   "@media screen and (max-width:991px){.right_home-features{min-width:0}}" +
   ".page-wrapper{overflow-x:clip;}" +
@@ -130,15 +167,17 @@ export const SITE_FIXES =
   "@media screen and (max-width:420px){.calc-cards:not(#lgcmsx){grid-template-columns:1fr !important;}}" +
   // Пальцем в ссылку высотой 16px не попасть: в меню, в подвале, в карточках отзывов и в верхней
   // плашке ссылки ростом 16–20px. Увеличиваем НЕ саму ссылку, а её область нажатия — невидимым
-  // слоем поверх: вид и вёрстка не меняются ни на пиксель, а цель становится 24px, как просит
-  // WCAG 2.2. Только на узких экранах и только там, где ссылка стоит отдельно, а не внутри абзаца.
-  "@media screen and (max-width:767px){" +
-    "a.link_underline-animated:not(#lgcmsx),a.link-socials:not(#lgcmsx),a.link-banner:not(#lgcmsx)," +
-    "a.link_footer-legal:not(#lgcmsx),.card_testimonial-marquee a:not(#lgcmsx){position:relative;}" +
-    "a.link_underline-animated:not(#lgcmsx)::after,a.link-socials:not(#lgcmsx)::after," +
-    "a.link-banner:not(#lgcmsx)::after,a.link_footer-legal:not(#lgcmsx)::after," +
-    ".card_testimonial-marquee a:not(#lgcmsx)::after{content:\"\";position:absolute;left:0;right:0;" +
-      "top:50%;transform:translateY(-50%);height:24px;}" +
+  // слоем поверх: вид и вёрстка не меняются ни на пиксель, а цель становится 24×24, как просит
+  // WCAG 2.2. Только там, где ссылка стоит отдельно, а не внутри абзаца: ссылку в предложении
+  // («политике конфиденциальности») правило не трогает — её нельзя раздуть, не разорвав строку,
+  // и стандарт для таких делает исключение.
+  // До 991px, а не до 767: планшет — это тоже палец, а иконки соцсетей шириной 16px и «Все услуги»
+  // высотой 16px на нём оставались прежними. Ширина теперь тоже не меньше 24px — иконка соцсети
+  // была ровно 16px в ширину и проходила проверку только по высоте.
+  "@media screen and (max-width:991px){" +
+    TAP_SEL + "{position:relative;}" +
+    TAP_SEL.split(",").map((s) => s + "::after").join(",") + "{content:\"\";position:absolute;" +
+      "left:50%;top:50%;transform:translate(-50%,-50%);width:100%;min-width:24px;height:24px;}" +
   "}" +
   ".card_scroll-service .content_nav-service:not(#lgcmsx){background-image:linear-gradient(180deg,rgba(12,41,89,0) 55%,rgba(12,41,89,.82) 100%);}" +
   // A services-card photo FILLS its wrapper, whatever its shape. The template only ever shipped
@@ -161,6 +200,35 @@ export const SITE_FIXES =
     // The "how it works" headline keeps its 80px inside a 448px half-column on every service page,
     // where "FUNCȚIONEAZĂ?" alone is wider than the column. Same treatment, same narrow scope.
     ".headline_hiw h2:not(#lgcmsx){font-size:clamp(28px,5.6vw,56px);line-height:1.12;}" +
+  "}" +
+  // Подписи «Адрес / Телефон / E-mail» в подвале и надзаголовки вроде «услуги» и «4,7 в Google»
+  // шаблон набирает токенами label-1/label-2, а они УМЕНЬШАЮТСЯ на узких экранах: 12/10px на
+  // десктопе и 10/8px на телефоне. Восемь пикселей — это ровно тот текст, которым подписан телефон
+  // компании, и ровно там, где читать труднее всего. Ставим нижнюю границу, не трогая верхнюю:
+  // max() оставляет собственный размер шаблона, если он вдруг окажется больше.
+  "[class*=label-small]:not(#lgcmsx){font-size:max(.75rem," + LABEL_2 + ",0px));}" +
+  "[class*=label-large]:not(#lgcmsx){font-size:max(.8125rem," + LABEL_1 + ",0px));}" +
+  // Карточки команды на «О нас» остались прозрачными НАВСЕГДА: шаблон ставит им inline opacity:0 и
+  // проявляет интерактивом Webflow, а данных этих интерактивов в выгрузке нет ни на одной странице
+  // (ни одного блока ix2 на 38 страниц). Восемь человек команды не видел ни один посетитель.
+  // Возвращаем задуманное появление — тем же движком, что и задумано, только средствами браузера:
+  // анимация по позиции в окне, без скриптов и без подписки на скролл, поэтому не дёргается.
+  // Правило CSS-анимации перебивает inline-стиль по каскаду, так что opacity:0 снимается само.
+  // Где такой анимации нет (Firefox) или человек просил не двигать — просто показываем.
+  "@keyframes lgcms-reveal{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}" +
+  "@supports (animation-timeline:view()){@media (prefers-reduced-motion:no-preference){" +
+    REVEAL_SEL + "{animation:lgcms-reveal linear both;animation-timeline:view();" +
+      "animation-range:entry 6% cover 24%;}" +
+  "}}" +
+  "@supports not (animation-timeline:view()){" + REVEAL_FORCE + "{opacity:1 !important;}}" +
+  "@media (prefers-reduced-motion:reduce){" + REVEAL_FORCE + "{opacity:1 !important;}}" +
+  // Меню на телефоне открывалось рывком: у шаблона стоит анимация «default», то есть Webflow просто
+  // переключает display, и панель появляется мгновенно. Webflow переносит меню внутрь оверлея на
+  // открытии и уносит обратно на закрытии — поэтому одного правила на потомка оверлея хватает,
+  // чтобы появление проигрывалось ровно один раз и ровно тогда, когда нужно.
+  "@keyframes lgcms-menu-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}" +
+  "@media (prefers-reduced-motion:no-preference){" +
+    ".w-nav-overlay .w-nav-menu:not(#lgcmsx){animation:lgcms-menu-in .26s cubic-bezier(.22,.61,.36,1) both;}" +
   "}";
 
 /**
@@ -174,7 +242,13 @@ export const SITE_FIXES =
  * Lives in the render core so the regression harness can build a canvas-twin of a page with exactly
  * the CSS the canvas uses — if this rule and the runtime ever disagree, the harness fails visibly.
  */
-export const EDITOR_ONLY_CSS = "[class*=hero]:not(#lgcmsx){min-height:auto !important;}";
+export const EDITOR_ONLY_CSS = "[class*=hero]:not(#lgcmsx){min-height:auto !important;}" +
+  // В холсте нет прокрутки (рамка растянута на всю высоту страницы), поэтому появление «по позиции
+  // в окне» здесь бессмысленно и опасно: карточка может остаться прозрачной, и клиент не сможет её
+  // ни выбрать, ни отредактировать. В холсте всё видно сразу — на опубликованной странице движение
+  // остаётся.
+  REVEAL_FORCE + "{opacity:1 !important;}" +
+  "[data-w-id]:not(#lgcmsx),[class*=card_]:not(#lgcmsx){animation-name:none !important;}";
 
 /**
  * The canvas wraps each section block in a marker div: zero layout box (display:contents), but a
