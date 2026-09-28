@@ -98,6 +98,11 @@ export const SITE_FIXES =
   // собственная правка клиента всё равно сильнее: её лист идёт ниже по документу.
   "h1>*:not(#lgcmsx),h2>*:not(#lgcmsx),h3>*:not(#lgcmsx),h4>*:not(#lgcmsx),h5>*:not(#lgcmsx),h6>*:not(#lgcmsx)," +
   "[class*=heading-style]>*:not(#lgcmsx){max-width:100% !important;}" +
+  // …и то же самое для колонки героя. Её внутренние блоки — flex-элементы при align-items:center,
+  // то есть их ширину задаёт содержимое: заголовок шириной 311px растягивал тайл до 311px, и на
+  // экране 320px текст ложился на край карточки (её собственные отступы съедают 64px). Теперь тайл
+  // не может стать шире колонки, и «100%» у заголовка наконец означает ширину колонки.
+  ".left_hero-home>*:not(#lgcmsx),.hero-home_top-tile:not(#lgcmsx){max-width:100% !important;}" +
   "@media screen and (max-width:767px){" +
     "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx)," +
     "p:not(#lgcmsx),li:not(#lgcmsx),[class*=heading-style]:not(#lgcmsx),[class*=text-size]:not(#lgcmsx)" +
@@ -720,7 +725,16 @@ function fitValue(prop, sv, layer) {
   // невозможно тянуть вообще (проверено воротами resize-heading — 19 страниц). Что ширина не должна
   // превышать свою колонку, следит сам жест: перетаскивание упирается в ближайшую коробку с заданной
   // шириной (editRuntime), поэтому такие значения больше не появляются.
-  if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) return `min(${sv},calc(100vw - 2rem))`;
+  if (prop === "width" && /^\d/.test(sv) && /px$/.test(sv)) {
+    // На телефоне и планшете ширина ограничена ЕЩЁ И РОДИТЕЛЕМ. Размер там выбран для одной
+    // конкретной ширины экрана (311px при 390), и на 320px он вылезает за свою карточку — текст
+    // ложится на её край. Тянуть шире родителя на телефоне всё равно негде, поэтому ограничение
+    // ничего не отнимает. На десктопе его НЕТ сознательно: заголовок, и так занимающий всю колонку,
+    // иначе стало бы невозможно тянуть вообще (ворота resize-heading, 19 страниц).
+    return layer && layer !== "base"
+      ? `min(${sv},100%,calc(100vw - 2rem))`
+      : `min(${sv},calc(100vw - 2rem))`;
+  }
   // A column boundary the client dragged writes fixed px tracks — the same freeze, made proportional.
   if (prop === "grid-template-columns") return pxTracksToFr(sv) || sv;
   return sv;
