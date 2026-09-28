@@ -1,0 +1,115 @@
+/**
+ * Обход собранного сайта глазами студии — то, чего не видит scripts/regress.mjs.
+ *
+ * regress проверяет вёрстку и редактируемость: вылет за экран, разрыв слова, работает ли
+ * перетаскивание. Этот обход проверяет то, что видит ПОСЕТИТЕЛЬ и что regress пропускал:
+ *
+ *   не проявилось      — блок за всю прокрутку страницы ни разу не стал видимым. Так на живом
+ *                        сайте месяцами стояли прозрачными 19 из 23 вопросов в FAQ и все восемь
+ *                        карточек команды: интерактивы Webflow ставят opacity:0 и не снимают его.
+ *   мелкий текст       — кегль ниже 11,5px. Подписи в подвале доходили до 8px на телефоне.
+ *   мелкая цель        — ссылка или кнопка меньше 24×24 на узком экране (WCAG 2.2), с учётом
+ *                        невидимого слоя нажатия, если он есть.
+ *   вылет / наезд      — горизонтальный вылет и наложение соседних блоков.
+ *   картинка не загрузилась, пустая карточка.
+ *
+ * Запускать после сборки, стенд поднять на out/:
+ *   node scripts/build-site.mjs [edits.json] && node scripts/studio.mjs
+ * затем открыть /__studio.html — итог копится в window.__STUDIO.
+ * Сборка чистит out/, поэтому страницу надо пересоздавать после каждой сборки.
+ */
+import { readdirSync, statSync, writeFileSync } from "node:fs";
+import { join, relative, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "out");
+const u = [];
+(function walk(d) { for (const n of readdirSync(d)) { if (n === "__canvas") continue; const p = join(d, n);
+  if (statSync(p).isDirectory()) walk(p); else if (n === "index.html") {
+    const r = relative(OUT, dirname(p)).split("\\").join("/"); u.push(r ? "/" + r + "/" : "/"); } } })(OUT);
+u.sort();
+const PAGE = `<!doctype html><meta charset="utf-8"><title>studio sweep</title>
+<style>body{font:13px/1.4 ui-monospace,monospace;margin:0;background:#111;color:#ddd}
+iframe{border:0;display:block}#log{padding:8px;white-space:pre-wrap}</style>
+<div id="log">готовлю…</div><iframe id="f"></iframe>
+<script>window.__URLS=${JSON.stringify(u)};</script>
+<script>
+const URLS = window.__URLS, WIDTHS = [390, 768, 1440], out = [];
+const box = (el) => el.getBoundingClientRect();
+const vis = (w, el) => { const s = w.getComputedStyle(el); return s.display !== "none" && s.visibility !== "hidden" && +s.opacity > 0.05; };
+function audit(w, d, url, width) {
+  const R = [], push = (вид, что, где) => R.push({ url, width, вид, что, где: String(где || "").slice(0, 70) });
+  const sel = (el) => el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + (typeof el.className === "string" && el.className.trim() ? "." + el.className.trim().split(" ").filter(Boolean).slice(0, 2).join(".") : "");
+  const docW = d.documentElement.scrollWidth;
+  if (docW > width + 1) {
+    push("страница шире экрана", docW - width + "px", "");
+    for (const el of d.querySelectorAll("body *")) { if (!vis(w, el)) continue; const r = box(el);
+      if (r.width > 0 && r.right > width + 1 && r.width <= width * 1.6) { push("вылет элемента", Math.round(r.right - width) + "px", sel(el)); if (R.length > 14) break; } }
+  }
+  for (const img of d.images) if (img.complete && img.naturalWidth === 0) push("картинка не загрузилась", (img.currentSrc || img.src).split("/").pop(), sel(img));
+  for (const el of d.querySelectorAll("a[href], button, input[type=submit], [role=button]")) {
+    if (!vis(w, el)) continue; const r = box(el); if (!r.width || !r.height) continue;
+    const a2 = w.getComputedStyle(el, "::after"), слой = a2.content !== "none" && a2.position === "absolute";
+    const h = слой ? Math.max(r.height, parseFloat(a2.height) || 0) : r.height;
+    const wd = слой ? Math.max(r.width, parseFloat(a2.minWidth) || 0, parseFloat(a2.width) || 0) : r.width;
+    if (width <= 768 && (h < 24 || wd < 24)) push("мелкая цель", Math.round(wd) + "×" + Math.round(h), sel(el) + " «" + (el.textContent || "").trim().slice(0, 18) + "»");
+  }
+  for (const el of d.querySelectorAll("p,span,a,li,div,h1,h2,h3,h4,h5,h6,small,label,button")) {
+    if (!el.childNodes.length || !vis(w, el)) continue;
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 3)) continue;
+    const fs = parseFloat(w.getComputedStyle(el).fontSize);
+    if (fs && fs < 11.5) push("мелкий текст", fs.toFixed(1) + "px", sel(el) + " «" + el.textContent.trim().slice(0, 22) + "»");
+  }
+  for (const [el, max] of (w.__видимость || new Map())) {
+    const r = box(el), s = w.getComputedStyle(el);
+    if (max > 0.05 || r.width < 40 || r.height < 20 || s.display === "none" || s.visibility === "hidden") continue;
+    push("не проявилось", "макс. opacity " + max.toFixed(2) + " за всю прокрутку", sel(el) + " «" + (el.textContent || "").trim().slice(0, 22) + "»");
+  }
+  for (const el of d.querySelectorAll("[class*=card],[class*=tile],[class*=item]")) {
+    if (!vis(w, el)) continue; const r = box(el); if (r.width < 60 || r.height < 40) continue;
+    if ((el.textContent || "").trim()) continue;
+    if (el.querySelector("img,svg,video,picture,iframe")) continue;
+    if (w.getComputedStyle(el).backgroundImage !== "none") continue;
+    if (w.getComputedStyle(el, "::before").content !== "none" || w.getComputedStyle(el, "::after").content !== "none") continue;
+    push("пустая карточка", Math.round(r.width) + "×" + Math.round(r.height), sel(el));
+  }
+  const seen = new Set();
+  for (const p of d.querySelectorAll("body *")) {
+    const kids = [...p.children].filter((k) => vis(w, k) && box(k).height > 8 && (k.textContent || "").trim());
+    if (kids.length < 2 || kids.length > 24) continue;
+    for (let i = 0; i < kids.length - 1; i++) {
+      const a = box(kids[i]), b = box(kids[i + 1]), sa = w.getComputedStyle(kids[i]), sb = w.getComputedStyle(kids[i + 1]);
+      if (/absolute|fixed/.test(sa.position) || /absolute|fixed/.test(sb.position)) continue;
+      if (sa.gridArea !== "auto / auto / auto / auto" || sb.gridArea !== "auto / auto / auto / auto") continue;
+      const oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top), ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      if (oy > 6 && ox > 6) { const k = sel(kids[i]) + "|" + sel(kids[i + 1]); if (seen.has(k)) continue; seen.add(k); push("наезд", Math.round(oy) + "px", k); }
+    }
+  }
+  return R;
+}
+async function run() {
+  const f = document.getElementById("f"), log = document.getElementById("log");
+  for (const width of WIDTHS) { f.style.width = width + "px"; f.style.height = "900px";
+    for (const url of URLS) {
+      log.textContent = width + "px " + url + " … найдено " + out.length;
+      await new Promise((res) => { f.onload = res; f.src = url; });
+      const w = f.contentWindow, d = f.contentDocument;
+      await new Promise((r) => setTimeout(r, 420));
+      const H = d.documentElement.scrollHeight;
+      // Появление по прокрутке — это НЕ поломка: скрытая карточка ниже экрана обязана быть скрытой.
+      // Поломка — это «ни разу не появилась за всю страницу», поэтому копим максимум по пути.
+      const кандидаты = [...d.querySelectorAll("[data-w-id], [style*='opacity'], [class*=card_]")];
+      w.__видимость = new Map(кандидаты.map((e) => [e, 0]));
+      for (let y = 0; y < H; y += 500) { w.scrollTo(0, y); await new Promise((r) => setTimeout(r, 30));
+        for (const e of кандидаты) { const o = +w.getComputedStyle(e).opacity;
+          if (o > w.__видимость.get(e)) w.__видимость.set(e, o); } }
+      w.scrollTo(0, 0); await new Promise((r) => setTimeout(r, 320));
+      try { out.push(...audit(w, d, url, width)); } catch (e) { out.push({ url, width, вид: "ошибка замера", что: String(e).slice(0, 80) }); }
+    } }
+  window.__STUDIO = out;
+  const by = {}; for (const r of out) (by[r.вид] ||= []).push(r);
+  log.textContent = "ГОТОВО. " + (Object.keys(by).length ? Object.entries(by).map(([k, v]) => k + ": " + v.length).join(" | ") : "чисто");
+}
+run();
+</script>`;
+writeFileSync(join(OUT, "__studio.html"), PAGE);
+console.log("обход готов:", u.length, "страниц → out/__studio.html");
