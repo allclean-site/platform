@@ -46,8 +46,20 @@ function audit(w, d, url, width) {
       if (r.width > 0 && r.right > width + 1 && r.width <= width * 1.6) { push("вылет элемента", Math.round(r.right - width) + "px", sel(el)); if (R.length > 14) break; } }
   }
   for (const img of d.images) if (img.complete && img.naturalWidth === 0) push("картинка не загрузилась", (img.currentSrc || img.src).split("/").pop(), sel(img));
+  // Ссылка ВНУТРИ предложения под правило о размере цели не подпадает: WCAG 2.2 (2.5.8) делает
+  // для неё исключение, и раздуть её нельзя, не разорвав строку. Отличаем по родителю: если в его
+  // тексте есть что-то ещё кроме самой ссылки — значит, она стоит в тексте, а не отдельной кнопкой.
+  // Без этого юридические страницы, где таких ссылок десятки, засыпали обход шумом.
+  const вПредложении = (el) => {
+    const p = el.parentElement;
+    if (!p) return false;
+    const свой = (el.textContent || "").trim().length;
+    const весь = (p.textContent || "").trim().length;
+    return свой > 0 && весь > свой + 12;
+  };
   for (const el of d.querySelectorAll("a[href], button, input[type=submit], [role=button]")) {
     if (!vis(w, el)) continue; const r = box(el); if (!r.width || !r.height) continue;
+    if (el.tagName === "A" && вПредложении(el)) continue;
     const a2 = w.getComputedStyle(el, "::after"), слой = a2.content !== "none" && a2.position === "absolute";
     const h = слой ? Math.max(r.height, parseFloat(a2.height) || 0) : r.height;
     const wd = слой ? Math.max(r.width, parseFloat(a2.minWidth) || 0, parseFloat(a2.width) || 0) : r.width;

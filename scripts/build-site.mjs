@@ -26,6 +26,13 @@ import {
   decodeMedia,
 } from "../src/editor/renderCore.js";
 
+// Правки под Закон № 195/2024 (свой домен вместо чужого CDN, обязательное согласие и его
+// запись, закрытые фотографии, реквизиты в подвале). Применяются к готовому HTML, чтобы
+// зеркало осталось снимком; см. комментарий в самом модуле.
+import { applySitePrivacy, report as privacyReport, assertApplied as assertPrivacy } from "./site-privacy.mjs";
+import { localizeCdnFiles } from "./localize-cdn.mjs";
+import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
+
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");
 const PROJECT = "allclean";
@@ -208,9 +215,10 @@ async function generateArticles(written, media = []) {
       prefix: buildHead(tpl.prefix, a, pair.ro?.slug, pair.ru?.slug),
       blocks: tpl.blocks.map((b) => (b.content.region === "main" ? { ...b, content: { ...b.content, html: buildSec0(a, dateStr) } } : b)),
     };
-    // Страницы статей собираются здесь, мимо exportPageHtml — без этой строки заменённое фото
-    // меняется на 38 страницах зеркала и остаётся старым в шапке и подвале каждой статьи.
-    const doc = applyMedia(reassemble(page), media);
+    // Страницы статей собираются здесь, мимо exportPageHtml — без applyMedia заменённое фото
+    // меняется на 38 страницах зеркала и остаётся старым в шапке и подвале каждой статьи,
+    // без applySitePrivacy на них не доезжают правки по закону 195/2024.
+    const doc = applySitePrivacy(applyMedia(reassemble(page), media), a.locale);
     const dest = join(OUT, path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, doc);
@@ -285,13 +293,67 @@ async function write404() {
 
   let html = shell.slice(0, shell.indexOf(">", open) + 1) + body + shell.slice(close);
   html = html
-    .replace(/<title>[\s\S]*?<\/title>/, "<title>404 — AllClean</title>")
+    .replace(/<title>[\s\S]*?<\/title>/, "<title>404 — All Clean</title>")
     // страница не должна попасть в поиск и не должна объявлять себя копией главной
     .replace(/<link\b[^>]*rel="canonical"[^>]*>/gi, '<meta name="robots" content="noindex">')
     .replace(/<link\b[^>]*rel="alternate"[^>]*>/gi, "")
     .replace(/<meta\b[^>]*property="og:(url|title)"[^>]*>/gi, "");
   await writeFile(join(OUT, "404.html"), html);
   console.log("[build] 404.html из оболочки главной");
+}
+
+// ---- юридические страницы -----------------------------------------------------------------------
+// Политика конфиденциальности и страница про cookie собираются из scripts/legal-pages.mjs поверх
+// вёрстки страницы /privacy из зеркала: у них та же шапка, подвал и стили, меняется содержимое.
+// Текст политики обязан описывать реальные процессы (Закон № 195/2024), поэтому он живёт в коде
+// рядом с правками, которые описывает, а не в снимке сайта.
+function legalHead(prefix, pg) {
+  const url = SITE + pg.slug;
+  const ro = pg.lang === "ro" ? url : SITE + pg.pair;
+  const ru = pg.lang === "ru" ? url : SITE + pg.pair;
+  return prefix
+    .replace(/<title>[\s\S]*?<\/title>/, `<title>${escHtml(pg.metaTitle)}</title>`)
+    .replace(/(name="description"\s+content=")[^"]*(")/, `$1${escAttr(pg.metaDesc)}$2`)
+    .replace(/(content=")[^"]*("\s+name="description")/, `$1${escAttr(pg.metaDesc)}$2`)
+    .replace(/(rel="canonical"\s+href=")[^"]*(")/, `$1${url}$2`)
+    .replace(/(og:title"\s+content=")[^"]*(")/, `$1${escAttr(pg.metaTitle)}$2`)
+    .replace(/(og:description"\s+content=")[^"]*(")/, `$1${escAttr(pg.metaDesc)}$2`)
+    .replace(/(og:url"\s+content=")[^"]*(")/, `$1${url}$2`)
+    .replace(/(hreflang="ru-MD"\s+href=")[^"]*(")/, `$1${ru}$2`)
+    .replace(/(hreflang="ro-MD"\s+href=")[^"]*(")/, `$1${ro}$2`)
+    .replace(/(hreflang="x-default"\s+href=")[^"]*(")/, `$1${ro}$2`);
+}
+
+async function writeLegalPages(written, media) {
+  const tpl = {
+    ro: JSON.parse(await readFile(join(IMPORT, "privacy.json"), "utf8")),
+    ru: JSON.parse(await readFile(join(IMPORT, "ru__privacy.json"), "utf8")),
+  };
+  for (const pg of LEGAL_PAGES) {
+    const t = tpl[pg.lang];
+    const page = {
+      ...t,
+      slug: pg.slug,
+      prefix: legalHead(t.prefix, pg),
+      blocks: t.blocks.map((b) => (b.content.region === "main"
+        ? { ...b, content: { ...b.content, html: renderLegalMain(pg) } }
+        : b)),
+    };
+    const rel = slugToFile(pg.slug);
+    const dest = join(OUT, rel);
+    await mkdir(dirname(dest), { recursive: true });
+    // Через exportPageHtml, как и все остальные страницы: иначе юридические страницы остаются без
+    // общих починок сайта — без области нажатия у ссылок, без имён у иконок, с подписями в подвале
+    // по 8px. А так как они перезаписывают /privacy из зеркала, этих починок лишалась и политика.
+    // Переключатель языка достался им от политики, с которой они собраны: на странице про cookie
+    // он вёл на политику другого языка. Адрес пары известен здесь — правим его тем же движением.
+    const html = applySitePrivacy(exportPageHtml(page, undefined, undefined, { media }), pg.lang)
+      .replace(/(<a\b[^>]*class="[^"]*lang-toggle[^"]*"[^>]*href=")[^"]*(")/g, `$1${pg.pair}$2`)
+      .replace(/(<a\b[^>]*href=")[^"]*("[^>]*class="[^"]*lang-toggle[^"]*")/g, `$1${pg.pair}$2`);
+    await writeFile(dest, html);
+    written.add(rel);
+  }
+  return LEGAL_PAGES.length;
 }
 
 async function main() {
@@ -319,7 +381,10 @@ async function main() {
   const written = new Set();
   for (const entry of idx.pages) {
     const page = JSON.parse(await readFile(join(IMPORT, entry.file + ".json"), "utf8"));
-    const html = exportPageHtml(page, edits.overrides?.[page.id], edits.breakpoints?.[page.id], { media });
+    const html = applySitePrivacy(
+      exportPageHtml(page, edits.overrides?.[page.id], edits.breakpoints?.[page.id], { media }),
+      entry.lang
+    );
     const rel = slugToFile(entry.slug);
     const dest = join(OUT, rel);
     await mkdir(dirname(dest), { recursive: true });
@@ -328,6 +393,12 @@ async function main() {
     n++;
   }
   console.log(`[build] ${n} pages`);
+
+  // Политика и cookie — своим содержимым поверх вёрстки зеркала (перезаписывают /privacy).
+  console.log(`[build] юридические страницы: ${await writeLegalPages(written, media)}`);
+
+  console.log(`[build] правки 195/2024: ${privacyReport()}`);
+  assertPrivacy();
 
   // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept)
   // and add their cards to the /blog and /ru/blog index grids.
@@ -343,6 +414,10 @@ async function main() {
   }
   console.log("[build] assets copied");
 
+  // После копирования ассетов и генерации блога: всё, что ещё ссылается на чужой CDN
+  // (картинки из зеркала и из правок редактора), переносим на свой домен.
+  console.log("[build] localize-cdn: " + (await localizeCdnFiles()));
+
   // auto-SEO: sitemap.xml (all pages + hreflang alternates) + robots.txt
   const byGroup = new Map();
   for (const p of idx.pages) {
@@ -356,7 +431,17 @@ async function main() {
     return `<url><loc>${SITE}${p.slug}</loc>${links}${xdef}</url>`;
   }).join("");
   const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u}</loc></url>`).join("");
-  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls}${artUrlsXml}</urlset>\n`;
+  // Страницы cookie появились после снятия зеркала, в _pages.json их нет — вносим руками,
+  // иначе они не попадут в карту сайта и останутся невидимыми для поиска.
+  const cookieXml = LEGAL_PAGES.filter((p) => p.group === "cookies").map((p) => {
+    const ro = p.lang === "ro" ? p.slug : p.pair;
+    const ru = p.lang === "ru" ? p.slug : p.pair;
+    return `<url><loc>${SITE}${p.slug}</loc>` +
+      `<xhtml:link rel="alternate" hreflang="ro-MD" href="${SITE}${ro}"/>` +
+      `<xhtml:link rel="alternate" hreflang="ru-MD" href="${SITE}${ru}"/>` +
+      `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${ro}"/></url>`;
+  }).join("");
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls}${cookieXml}${artUrlsXml}</urlset>\n`;
   await writeFile(join(OUT, "sitemap.xml"), sitemap);
   await writeFile(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   console.log(`[build] sitemap.xml (${idx.pages.length} urls) + robots.txt`);

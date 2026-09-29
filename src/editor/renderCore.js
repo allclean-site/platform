@@ -153,6 +153,15 @@ export const SITE_FIXES =
   // Делаем высоту ряда нижней границей — ряд растёт под содержимое, карточки съезжают следом.
   // Только с 992px: ниже у шаблона своя раскладка героя, одной колонкой и без фиксированной высоты.
   "@media screen and (min-width:992px){.master_hero-home:not(#lgcmsx){height:auto;min-height:88vh;}}" +
+  // На телефоне высота в `vh` — это высота экрана БЕЗ адресной строки браузера. Она сворачивается
+  // при прокрутке, окно становится выше, и блок, заданный в vh, прыгает прямо под пальцем. `dvh`
+  // считает по текущему окну и прыжок убирает. Браузер, который `dvh` не знает, просто пропустит
+  // эти правила и останется на прежних `vh` — вид не меняется нигде.
+  "@media screen and (max-width:991px){.master_hero-home:not(#lgcmsx){height:88dvh;}}" +
+  ".master_hero-about:not(#lgcmsx){min-height:100dvh;}" +
+  ".nav-full-bg:not(#lgcmsx){height:100dvh;}" +
+  ".master_home-about:not(#lgcmsx){max-height:90dvh;}" +
+  ".ultra-pop_master:not(#lgcmsx){height:76dvh;}" +
   "@media screen and (max-width:767px){" +
     "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx)," +
     "p:not(#lgcmsx),li:not(#lgcmsx),[class*=heading-style]:not(#lgcmsx),[class*=text-size]:not(#lgcmsx)" +

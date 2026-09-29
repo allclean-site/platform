@@ -25,6 +25,9 @@ const БРЕНДЫ = new RegExp("^(" + [
   "LinkedIn", "YouTube", "TikTok", "Webflow", "Vercel", "Supabase", "Etalbond", "IBAN", "SRL",
   "IDNO", "MDL", "MD", "PDF", "HTML", "CSS", "FAQ", "SEO", "CRM", "GDPR", "www", "com", "md", "ru",
   "ro", "info", "mail", "tel", "http", "https", "svg", "png", "jpg", "webp", "avif",
+  // Юридические страницы: названия браузеров, служб и оператора пишутся латиницей и в русском тексте.
+  "cookie", "cookies", "Chrome", "Firefox", "Safari", "Edge", "Opera", "Analytics", "Application",
+  "LeadGenium", "IVAN", "LACHE", "centru", "datepersonale", "Telegram", "Supabase", "Vercel",
 ].join("|") + ")$", "i");
 
 // Служебные английские слова: в румынском тексте их быть не может.
