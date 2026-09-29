@@ -96,7 +96,13 @@ export const SITE_FIXES =
     ".marquee-thirds>.marquee-vertical:nth-child(3){animation-duration:55s;}" +
   "}" +
   "@keyframes lgcms-marq{from{transform:translateY(0)}to{transform:translateY(min(0px,calc(840px - 100%)))}}" +
-  "@media (prefers-reduced-motion:reduce){.marquee-thirds>.marquee-vertical{animation:none !important;}}" +
+  // Дрейф колонок отзывов тоже не гасим по системной настройке, и по той же причине: окно в
+  // 840px показывает лишь верх колонки, а встав, она прячет остальные отзывы насовсем.
+  // Останавливается под курсором и при заходе табом.
+  "@media screen and (min-width:768px){" +
+    ".marquee-thirds:hover>.marquee-vertical,.marquee-thirds:focus-within>.marquee-vertical" +
+      "{animation-play-state:paused;}" +
+  "}" +
   // Phones used to get NO reviews at all: the import hides the whole marquee below 768px and offers
   // only the "Все отзывы" Google link. The block now shows its first five review cards in one
   // column (MARQUEE_FIX ranks them; the ones beyond five carry data-lgcms-extra and stay hidden —
@@ -200,21 +206,21 @@ export const SITE_FIXES =
    *
    * Детям сбрасываем чужой сдвиг с !important: он inline, иначе копии разъедутся и шов станет
    * виден. Родителю !important не нужен — анимация в каскаде и так сильнее inline-стиля, который
-   * скрипт продолжает писать. Под правилом «не двигать» лента стоит.
+   * скрипт продолжает писать.
+   *
+   * Системное «не двигать» здесь НЕ слушаем, и это осознанно. В Windows галка «Эффекты анимации»
+   * выключена у многих, и браузер сообщает сайту reduce, хотя человек ничего про анимации не
+   * просил. Лента — единственный вход в восемь из одиннадцати услуг с главной, встав, она
+   * превращается в три карточки и тупик. Взамен даём то, чего требует WCAG 2.2.2 от движущегося
+   * дольше пяти секунд: остановку. Лента замирает под курсором и когда в неё заходят табом.
    */
   "@keyframes lgcms-marq-services{from{transform:translateX(0)}" +
     "to{transform:translateX(calc(-50% - var(--grid--column-gap,1rem)/2))}}" +
-  ".marquee_services:not(#lgcmsx){width:max-content;}" +
+  ".marquee_services:not(#lgcmsx){width:max-content;" +
+    "animation:lgcms-marq-services 44s linear infinite;will-change:transform;}" +
+  ".marquee_services:not(#lgcmsx):hover,.marquee_services:not(#lgcmsx):focus-within" +
+    "{animation-play-state:paused;}" +
   ".marquee_services>.marquee-wrap_services:not(#lgcmsx){transform:none !important;}" +
-  "@media (prefers-reduced-motion:no-preference){" +
-    ".marquee_services:not(#lgcmsx){animation:lgcms-marq-services 44s linear infinite;will-change:transform;}" +
-  "}" +
-  // Под правилом «не двигать» лента стоит, и тогда до восьми дальних услуг иначе не добраться —
-  // отдаём их прокруткой. Обрезка на секции внутренней прокрутке не мешает.
-  "@media (prefers-reduced-motion:reduce){" +
-    ".marquee_services:not(#lgcmsx){transform:none !important;}" +
-    ".marquee.home-marquee:not(#lgcmsx){overflow-x:auto;}" +
-  "}" +
   // Тот же приём и там, где высоту текстовой колонке задаёт СОСЕД, а не её содержимое.
   // Карточка услуги в каталоге ростом с фотографию рядом: заголовок с описанием занимают 168px
   // из 420, и `space-between` оставлял между описанием и ссылкой «Подробнее» дыру в 252px —
@@ -373,7 +379,10 @@ export const EDITOR_ONLY_CSS = "[class*=hero]:not(#lgcmsx){min-height:auto !impo
   // ни выбрать, ни отредактировать. В холсте всё видно сразу — на опубликованной странице движение
   // остаётся.
   REVEAL_FORCE + "{opacity:1 !important;}" +
-  "[data-w-id]:not(#lgcmsx),[class*=card_]:not(#lgcmsx){animation-name:none !important;}";
+  "[data-w-id]:not(#lgcmsx),[class*=card_]:not(#lgcmsx){animation-name:none !important;}" +
+  // Обе ленты в холсте замирают: по уезжающей карточке не попасть курсором, а текст под
+  // набором уползал бы из-под каретки. На опубликованной странице они идут.
+  ".marquee_services:not(#lgcmsx),.marquee-vertical:not(#lgcmsx){animation-name:none !important;}";
 
 /**
  * The canvas wraps each section block in a marker div: zero layout box (display:contents), but a
