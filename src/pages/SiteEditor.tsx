@@ -37,14 +37,6 @@ import "./site-editor.css";
 
 const DATA = "/import/allclean";
 const DEVICE_W = { desktop: 1440, tablet: 834, mobile: 390 } as const;
-/**
- * Высота ЭКРАНА, а не страницы. Холст обязан быть окном браузера: только тогда `vh`, `sticky`
- * и появление по прокрутке ведут себя внутри рамки ровно так же, как у посетителя. Раньше рамку
- * растягивали на всю высоту документа, чтобы страница показывалась целиком без прокрутки, — и
- * внутри неё «высота экрана» означала «высота всей страницы»: блок с `min-height:88vh` раздувался
- * на тысячи пикселей, и редактор показывал не тот сайт. Числа — рабочая область типовых устройств.
- */
-const DEVICE_H = { desktop: 900, tablet: 1112, mobile: 844 } as const;
 // Default canvas = a REAL laptop width (1440), not 1920 — so a size that looks balanced on the canvas
 // also fits the viewer's actual screen (WYSIWYG). Wider options stay available in the picker.
 const DESK_WIDTHS = [1440, 1366, 1280, 1600, 1920] as const;
@@ -109,7 +101,7 @@ export function SiteEditor() {
   const noticeSeq = useRef(0);
   const say = useCallback((text: string) => setNotice({ text, id: ++noticeSeq.current }), []);
   const [zoom, setZoom] = useState(1);
-  // Высота холста задаётся устройством и не зависит от длины страницы (см. DEVICE_H).
+  const [frameH, setFrameH] = useState(900);
   const overrides = useRef<StoredSiteOverrides>({});   // LOCAL edits (this browser, localStorage)
   const bpOverrides = useRef<SiteBp>({});
   const pubOverrides = useRef<StoredSiteOverrides>({}); // PUBLISHED edits from Supabase (shared, read-only base)
@@ -648,6 +640,7 @@ export function SiteEditor() {
             if (prev[b.id] === b.content.html) continue;
             pushHtmlToFrame(b.id, b.content.html);
           }
+          window.setTimeout(measure, 60);
         }
         // Only a move to a DIFFERENT page starts a new history. This function also runs when the page
         // is merely re-rendered — after an undo, a section delete, or a draft sync when the window
@@ -830,7 +823,6 @@ export function SiteEditor() {
   }
   const srcDoc = page && layersReady ? docRef.current.html : "";
   const frameW = device === "desktop" ? deskW : device === "tablet" ? tabW : phoneW;
-  const frameH = DEVICE_H[device];
   /**
    * The number on «Опубликовать» is what is WAITING to be published, not what has ever been edited.
    *
@@ -839,6 +831,38 @@ export function SiteEditor() {
    * said 24, which reads as "the publish did not work". Comparing against the published layer makes
    * it mean what the client thinks it means, and it reaches zero the moment the publish lands.
    */
+  /**
+   * Правки, лежащие ТОЛЬКО в этом браузере. Их важно уметь посчитать и сбросить отдельно от общих:
+   * локальный слой сильнее опубликованного, и застрявшая в нём копия блока показывает в холсте не
+   * то, что стоит на сайте. Именно так на главной висел исходный заголовок шаблона поверх
+   * опубликованного «Curațenie profesională în Chișinău și în toată Moldova».
+   */
+  const localEdits = (() => {
+    let n = 0;
+    for (const pid of Object.keys(overrides.current)) n += Object.keys(overrides.current[pid] || {}).length;
+    for (const pid of Object.keys(bpOverrides.current)) {
+      const rec = bpOverrides.current[pid];
+      for (const layer of BP_LAYERS) n += Object.keys(rec?.[layer] ?? {}).length;
+    }
+    return n;
+  })();
+
+  /** Убрать локальный слой целиком: холст возвращается к тому, что опубликовано и лежит в общем черновике. */
+  const dropLocal = () => {
+    if (!window.confirm(
+      `Сбросить ${localEdits} правк(и), сохранённые только в этом браузере?
+
+` +
+      "Опубликованное на сайте и общий черновик не пострадают — холст просто вернётся к ним. " +
+      "Правки, которых нет больше нигде, будут потеряны."
+    )) return;
+    overrides.current = {};
+    bpOverrides.current = {};
+    saveOverrides(TENANT, SITE, {});
+    saveBp(TENANT, SITE, {});
+    setSyncTick((t) => t + 1);
+  };
+
   const pendingEdits = (() => {
     let n = 0;
     const pageIds = new Set([...Object.keys(pubOverrides.current), ...Object.keys(draftOv.current), ...Object.keys(overrides.current)]);
@@ -1082,21 +1106,29 @@ export function SiteEditor() {
   }, [frameW]);
   useEffect(() => { fit(); }, [fit, index]);
 
+  // Measure the real page height so the whole page sits on the stage (no inner iframe scroll).
+  // Re-measure after lazy images/webflow layout settle so the footer isn't clipped.
+  const measure = useCallback(() => {
+    const doc = frameRef.current?.contentDocument;
+    if (doc) setFrameH(Math.max(600, doc.documentElement.scrollHeight));
+  }, []);
   const onFrameLoad = () => {
     // Re-index media as the page settles: some media (esp. lazy Webflow background <video>) attach a
     // moment after load, so a single pass at load can miss them → the gallery would differ per browser.
     const doIndex = () => { const doc = frameRef.current?.contentDocument; if (doc) indexMediaFromDoc(TENANT, doc); };
-    doIndex();
+    measure(); doIndex();
     // Cancel the previous page's pending passes: clicking through pages otherwise piles up callbacks
-    // that rebuild the media library against whichever document happens to be loaded.
+    // that re-measure and rebuild the media library against whichever document happens to be loaded.
     settleTimers.current.forEach((t) => window.clearTimeout(t));
-    settleTimers.current = [400, 1200, 2500, 5000].map((t) => window.setTimeout(doIndex, t));
+    settleTimers.current = [400, 1200, 2500, 5000].map((t) => window.setTimeout(() => { measure(); doIndex(); }, t));
   };
-  // Switching device does NOT reload the iframe — tell the runtime the new breakpoint, so edits route
-  // correctly and the panel refreshes. Высоту пересчитывать не нужно: она задана устройством.
+  // Switching device does NOT reload the iframe — tell the runtime the new breakpoint (so edits route
+  // correctly + the panel refreshes) and re-measure height, since a narrower page reflows taller.
   useEffect(() => {
     frameRef.current?.contentWindow?.postMessage({ type: "lg-device", breakpoint: device }, "*");
-  }, [device, frameW]);
+    const ids = [0, 300, 900].map((t) => window.setTimeout(measure, t));
+    return () => ids.forEach(clearTimeout);
+  }, [device, frameW, measure]);
   // Tell the iframe the current zoom so it sizes selection/resize handles to stay grabbable on screen.
   useEffect(() => {
     frameRef.current?.contentWindow?.postMessage({ type: "lg-zoom", zoom }, "*");
@@ -1293,6 +1325,12 @@ export function SiteEditor() {
         {/* Сначала перечитываем то, что уже опубликовано, и только потом открываем диалог: вкладка,
             открытая несколько часов назад, иначе публикует свою старую картину поверх того, что за
             это время выложили с другого устройства. Диалог снимает состояние один раз при открытии. */}
+        {localEdits > 0 && (
+          <button className="se__ghost" onClick={dropLocal}
+            title="Эти правки сохранены только в этом браузере. Сбросить — вернуть холст к тому, что на сайте.">
+            Только здесь: {localEdits}
+          </button>
+        )}
         <button className="se__publish" onClick={async () => { await pullPublished(); setPublishing(true); }}>
           <Rocket size={15} /> Опубликовать{pendingEdits ? ` (${pendingEdits})` : ""}
         </button>
