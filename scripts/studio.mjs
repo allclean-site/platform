@@ -125,8 +125,13 @@ function audit(w, d, url, width) {
     // Незагруженная картинка схлопывается в ноль, выпадает из списка детей и превращается в
     // разрыв на своём месте. Коробку с такой картинкой не меряем вовсе.
     if ([...p.children].some((k) => [...k.querySelectorAll("img")].some((i) => !i.complete || !i.naturalWidth))) continue;
-    const kids = [...p.children].filter((k) => vis(w, k) && !/absolute|fixed/.test(w.getComputedStyle(k).position));
+    // Колонка героя — исключение: кнопки там прижаты к низу плашки НАМЕРЕННО, а плашка ростом
+    // с фотографию рядом. Это не дыра, а заказанная раскладка.
+    if (p.classList && p.classList.contains("left_hero-home")) continue;
+    const kids = [...p.children].filter((k) => vis(w, k) && !/absolute|fixed/.test(w.getComputedStyle(k).position)
+      && box(k).height > 1);   // схлопнувшийся в ноль сосед — не сосед, а его место читается как разрыв
     if (kids.length < 2 || kids.length > 12) continue;
+    if ([...p.children].some((k) => box(k).height <= 1)) continue;
     const свой = parseFloat(s.rowGap) || parseFloat(s.gap) || 0;
     const порог = Math.max(120, свой * 2.5);
     const пары = kids.map((k) => ({ k, r: box(k) })).sort((a, b) => a.r.top - b.r.top);
