@@ -119,7 +119,7 @@ function buildSec0(a, dateStr) {
 }
 
 /** Rebuild the template <head> for this article (title/desc/canonical/og/hreflang/JSON-LD). */
-function buildHead(prefix, a, roSlug, ruSlug) {
+export function buildHead(prefix, a, roSlug, ruSlug) {
   const url = artUrl(a.locale, a.slug);
   const title = a.seo_title || a.title;
   const desc = a.seo_description || a.excerpt || "";
@@ -135,9 +135,34 @@ function buildHead(prefix, a, roSlug, ruSlug) {
     .replace(/(og:url"\s+content=")[^"]*(")/, `$1${url}$2`)
     .replace(/(hreflang="ru-MD"\s+href=")[^"]*(")/, `$1${ruUrl}$2`)
     .replace(/(hreflang="ro-MD"\s+href=")[^"]*(")/, `$1${roUrl}$2`)
-    .replace(/(hreflang="x-default"\s+href=")[^"]*(")/, `$1${roUrl}$2`)
-    .replace(/(<script type="application\/ld\+json"[^>]*>)[\s\S]*?(<\/script>)/, `$1${JSON.stringify(a.jsonld || {})}$2`);
-  if (a.cover_url) h = h.replace(/(og:image"\s+content=")[^"]*(")/, `$1${escAttr(a.cover_url)}$2`);
+    .replace(/(hreflang="x-default"\s+href=")[^"]*(")/, `$1${roUrl}$2`);
+
+  // Разметка для поиска. В шапке статьи-образца ТРИ блока ld+json: карточка компании, сама статья
+  // (@graph с Article и FAQPage) и хлебные крошки. Замена без флага g попадала в первый — то есть
+  // затирала карточку компании и оставляла КАЖДОЙ новой статье Article и вопросы от образца.
+  // Идём по блокам и меняем каждый по его типу.
+  h = h.replace(/(<script type="application\/ld\+json"[^>]*>)([\s\S]*?)(<\/script>)/g, (whole, open, json, close) => {
+    let тип = "";
+    try { const o = JSON.parse(json); тип = o["@graph"] ? "article" : String(o["@type"] || ""); } catch { return whole; }
+    if (/LocalBusiness|Organization/i.test(тип)) return whole;                     // карточка компании — общая
+    if (/BreadcrumbList/i.test(тип)) {
+      try {
+        const o = JSON.parse(json);
+        const items = o.itemListElement || [];
+        const last = items[items.length - 1];
+        if (last) { last.name = title; last.item = url; }
+        return open + JSON.stringify(o) + close;
+      } catch { return whole; }
+    }
+    return open + JSON.stringify(a.jsonld || {}) + close;                          // Article/@graph — этой статьи
+  });
+
+  // og:image и twitter:image — обложка статьи; у образца они указывают на его собственную.
+  const img = a.cover_url ? escAttr(a.cover_url) : null;
+  if (img) h = h.replace(/(og:image"\s+content=")[^"]*(")/g, `$1${img}$2`)
+                .replace(/(twitter:image"\s+content=")[^"]*(")/g, `$1${img}$2`);
+  h = h.replace(/(twitter:title"\s+content=")[^"]*(")/, `$1${escAttr(title)}$2`)
+       .replace(/(twitter:description"\s+content=")[^"]*(")/, `$1${escAttr(desc)}$2`);
   return h;
 }
 
@@ -340,4 +365,6 @@ async function main() {
   console.log(`[build] done → ${OUT} (home ${size}b, default locale ${idx.defaultLocale})`);
 }
 
-main().catch((e) => { console.error("[build] FAILED", e); process.exit(1); });
+// Сборку запускает запуск файла. Флаг ставит только самопроверка, которой нужна одна функция
+// отсюда, а не весь прогон: scripts/check-article-head.mjs.
+if (!process.env.BUILD_SITE_NO_RUN) main().catch((e) => { console.error("[build] FAILED", e); process.exit(1); });
