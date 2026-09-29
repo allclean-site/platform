@@ -126,8 +126,9 @@ function footer(html, lang) {
 // чем на несколько минут остаться без отметки о согласии, поэтому одна отправка
 // повторяется без этих трёх полей. Когда миграция применена, код не срабатывает ни разу;
 // после неё его можно снять.
+const GUARD_MARK = "lg-consent-guard";
 const CONSENT_GUARD =
-  '<script>(function(){var f=window.fetch;window.fetch=function(u,o){' +
+  '<script>/*lg-consent-guard*/(function(){var f=window.fetch;window.fetch=function(u,o){' +
   'var r=f.apply(this,arguments);' +
   'if(!o||String(o.method).toUpperCase()!=="POST"||String(u).indexOf("/rest/v1/site_leads")<0)return r;' +
   'return r.then(function(res){if(res.status!==400)return res;' +
@@ -137,6 +138,10 @@ const CONSENT_GUARD =
   'return f(u,Object.assign({},o,{body:JSON.stringify(b)}));}catch(e){return res;}});});};})();</script>';
 
 function consentGuard(html) {
+  // Единственная из правок, чей якорь (`</body>`) переживает первое применение. Слой теперь
+  // накладывается не только на выходе сборки, но и в холсте кабинета, поэтому страховка от
+  // второго прохода нужна явная — иначе в документе оказалось бы две копии обёртки fetch.
+  if (html.includes(GUARD_MARK)) return html;
   return swap(html, "consent:guard", "</body>", CONSENT_GUARD + "</body>");
 }
 

@@ -27,6 +27,7 @@ import { readdirSync, statSync, writeFileSync, readFileSync, mkdirSync, existsSy
 import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applySitePrivacy } from "./site-privacy.mjs";
+import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import {
   applyOverrides, relaxLegacyChains, withSiteRuntime, wrapBlockForEdit, overridesCss, EDITOR_ONLY_CSS,
   applyMedia, decodeMedia, MEDIA_KEY,
@@ -74,7 +75,13 @@ function canvasTwin(p, pageOv, pageBp, media) {
   // загрузке страницы (SiteEditor), сборка — на готовый документ. Двойник должен делать то же,
   // иначе в сверке фото клиента числятся «другой картинкой» там, где расхождения нет.
   const сМедиа = (html) => (media && media.length ? applyMedia(html, media) : html);
+  // Юридические страницы собираются из кода (см. src/editor/preview.ts): в зеркале лежит
+  // старая редакция, и без этой подмены сверка показывала на политике 5645px против 1602px.
+  const юр = LEGAL_PAGES.find((x) => x.slug === p.slug);
+  const сЮр = (b) => (юр && b.content.region === "main"
+    ? { ...b, content: { ...b.content, html: renderLegalMain(юр) } } : b);
   const blocks = (pageOv ? applyOverrides(p.blocks, pageOv) : p.blocks)
+    .map(сЮр)
     .map((b) => ({ ...b, content: { ...b.content, html: сМедиа(b.content.html) } }));
   const wrap = (b) => wrapBlockForEdit(b.content.html, b.id);
   const prefix = withSiteRuntime(relaxLegacyChains(p.prefix));

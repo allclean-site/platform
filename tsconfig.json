@@ -19,6 +19,7 @@
   },
   "include": [
     "src",
-    "scripts/site-privacy.d.mts"
+    "scripts/site-privacy.d.mts",
+    "scripts/legal-pages.d.mts"
   ]
 }
