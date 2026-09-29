@@ -831,6 +831,38 @@ export function SiteEditor() {
    * said 24, which reads as "the publish did not work". Comparing against the published layer makes
    * it mean what the client thinks it means, and it reaches zero the moment the publish lands.
    */
+  /**
+   * Правки, лежащие ТОЛЬКО в этом браузере. Их важно уметь посчитать и сбросить отдельно от общих:
+   * локальный слой сильнее опубликованного, и застрявшая в нём копия блока показывает в холсте не
+   * то, что стоит на сайте. Именно так на главной висел исходный заголовок шаблона поверх
+   * опубликованного «Curațenie profesională în Chișinău și în toată Moldova».
+   */
+  const localEdits = (() => {
+    let n = 0;
+    for (const pid of Object.keys(overrides.current)) n += Object.keys(overrides.current[pid] || {}).length;
+    for (const pid of Object.keys(bpOverrides.current)) {
+      const rec = bpOverrides.current[pid];
+      for (const layer of BP_LAYERS) n += Object.keys(rec?.[layer] ?? {}).length;
+    }
+    return n;
+  })();
+
+  /** Убрать локальный слой целиком: холст возвращается к тому, что опубликовано и лежит в общем черновике. */
+  const dropLocal = () => {
+    if (!window.confirm(
+      `Сбросить ${localEdits} правк(и), сохранённые только в этом браузере?
+
+` +
+      "Опубликованное на сайте и общий черновик не пострадают — холст просто вернётся к ним. " +
+      "Правки, которых нет больше нигде, будут потеряны."
+    )) return;
+    overrides.current = {};
+    bpOverrides.current = {};
+    saveOverrides(TENANT, SITE, {});
+    saveBp(TENANT, SITE, {});
+    setSyncTick((t) => t + 1);
+  };
+
   const pendingEdits = (() => {
     let n = 0;
     const pageIds = new Set([...Object.keys(pubOverrides.current), ...Object.keys(draftOv.current), ...Object.keys(overrides.current)]);
@@ -1293,6 +1325,12 @@ export function SiteEditor() {
         {/* Сначала перечитываем то, что уже опубликовано, и только потом открываем диалог: вкладка,
             открытая несколько часов назад, иначе публикует свою старую картину поверх того, что за
             это время выложили с другого устройства. Диалог снимает состояние один раз при открытии. */}
+        {localEdits > 0 && (
+          <button className="se__ghost" onClick={dropLocal}
+            title="Эти правки сохранены только в этом браузере. Сбросить — вернуть холст к тому, что на сайте.">
+            Только здесь: {localEdits}
+          </button>
+        )}
         <button className="se__publish" onClick={async () => { await pullPublished(); setPublishing(true); }}>
           <Rocket size={15} /> Опубликовать{pendingEdits ? ` (${pendingEdits})` : ""}
         </button>
