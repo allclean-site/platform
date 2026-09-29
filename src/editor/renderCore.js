@@ -710,6 +710,28 @@ export const FORM_FIX = [
   "(/(^|[-_])(name|nume|imya|fio)($|[-_])/.test(n4)?'name':/(addr|adres|street|strad)/.test(n4)?'street-address':'');",
   "if(ac)e4.setAttribute('autocomplete',ac);}",
   "}}",
+  // (5) Двойное нажатие = две заявки. У формы записи нет признака «уже отправляю»: два клика
+  // подряд клали в базу две строки и слали два сообщения в Telegram (у калькулятора такой
+  // признак есть, у формы — нет). Заодно чинится и то, что нажатие не видно: шаблон пишет
+  // «Отправляем…» в НАСТОЯЩУЮ кнопку, а она спрятана под нарисованной ссылкой, и то, что
+  // красная плашка «не удалось отправить» оставалась на экране рядом с зелёной «спасибо».
+  // Слушаем на документе в фазе перехвата: собственный обработчик страницы висит на самой
+  // форме и гасит всё остальное через stopImmediatePropagation, до нас бы не дошло.
+  "document.addEventListener('submit',function(e){",
+  "var f=e.target;if(!f||f.tagName!=='FORM')return;",
+  "var L=(document.documentElement.lang||'ru').indexOf('ro')===0?'ro':'ru',t=T[L];",
+  "if(f.getAttribute('data-lgcms-busy')){e.preventDefault();e.stopImmediatePropagation();return;}",
+  "var box=f.closest?f.closest('.w-form'):null;",
+  "var fail=box?box.querySelector('.w-form-fail'):null;if(fail)fail.style.display='none';",
+  "f.setAttribute('data-lgcms-busy','1');",
+  "var btn=f.querySelector('[data-lgcms-submit]'),slot=btn?btn.querySelector('[button-text]'):null;",
+  "var was=slot?slot.textContent:null;",
+  "if(btn){btn.setAttribute('aria-busy','true');btn.style.pointerEvents='none';btn.style.opacity='.6';}",
+  "if(slot)slot.textContent=t.wait;",
+  "setTimeout(function(){f.removeAttribute('data-lgcms-busy');",
+  "if(btn){btn.removeAttribute('aria-busy');btn.style.pointerEvents='';btn.style.opacity='';}",
+  "if(slot&&was!==null)slot.textContent=was;},6000);",
+  "},true);",
   "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();",
   "window.addEventListener('load',fix);",
   "})();",

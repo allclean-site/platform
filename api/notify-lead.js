@@ -30,6 +30,63 @@ const field = (v, max = 200) => {
   return s.length > max ? s.slice(0, max) + "…" : s;
 };
 
+/** Сборка сообщения — отдельно от отправки, чтобы её можно было проверить: scripts/check-notify-lead.mjs */
+export function buildMessage(body, phone) {
+  const ro = String(body.locale || "").indexOf("ro") === 0;
+  const L = ro
+    ? { head: "Cerere nouă de pe site", name: "Nume", phone: "Telefon", service: "Serviciu", rooms: "Camere", notes: "Comentariu", page: "Pagina", estimate: "Estimare", photos: "Fotografii", calc: "Calculator" }
+    : { head: "Новая заявка с сайта", name: "Имя", phone: "Телефон", service: "Услуга", rooms: "Комнат", notes: "Комментарий", page: "Страница", estimate: "Предварительно", photos: "Фотографии", calc: "Калькулятор" };
+
+  // Заявка из калькулятора приходит подписанной «Калькулятор: carpet» — по-русски и с английским
+  // слагом, одинаково на обоих языках. Разворачиваем в название услуги на языке страницы.
+  const УСЛУГИ = {
+    "home-cleaning": ["Уборка квартир и домов", "Curățenie apartamente și case"],
+    "office": ["Уборка офисов", "Curățenie birouri"],
+    "windows": ["Мойка окон и фасадов", "Spălarea geamurilor și fațadelor"],
+    "post-construction": ["Уборка после ремонта", "Curățenie după renovare"],
+    "carpet": ["Чистка ковров и ковролина", "Curățare covoare și mochetă"],
+    "upholstery": ["Чистка мягкой мебели", "Curățare mobilă tapițată"],
+    "warehouse": ["Уборка складов", "Curățenie depozite"],
+    "retail": ["Уборка магазинов", "Curățenie magazine"],
+    "floor-restoration": ["Реставрация полов", "Restaurare pardoseli"],
+    "disinfection": ["Дезинфекция производств", "Dezinfecție producție"],
+  };
+  const услуга = (raw) => {
+    const s = field(raw, 80);
+    const m = /^(?:Калькулятор|Calculator)\s*:\s*(.+)$/i.exec(s);
+    if (!m) return s;
+    const слаг = m[1].trim();
+    const пара = УСЛУГИ[слаг];
+    return `${L.calc}: ${пара ? пара[ro ? 1 : 0] : слаг}`;
+  };
+
+  const lines = [`🧹 <b>${esc(L.head)}</b>`, ""];
+  const add = (label, value, max) => { const v = field(value, max); if (v) lines.push(`<b>${esc(label)}:</b> ${esc(v)}`); };
+  add(L.name, body.name, 80);
+  lines.push(`<b>${esc(L.phone)}:</b> ${esc(phone)}`);
+  add(L.service, услуга(body.service), 120);
+  add(L.rooms, body.bedrooms, 40);
+  // Калькулятор присылает смету, ответы по шагам, комментарий и фотографии — и всё это до сих пор
+  // никуда не выводилось: менеджер получал имя, телефон и слаг услуги, а за остальным шёл в CRM.
+  add(L.estimate, body.estimate, 60);
+  const выбор = body.selections;
+  if (выбор && typeof выбор === "object") {
+    for (const [ключ, знач] of Object.entries(выбор).slice(0, 20)) {
+      add(ключ, Array.isArray(знач) ? знач.join(", ") : знач, 200);
+    }
+  }
+  add(L.notes, body.comment || body.notes, 700);
+  const фото = Array.isArray(body.photos) ? body.photos.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)).slice(0, 10) : [];
+  if (фото.length) {
+    lines.push(`<b>${esc(L.photos)}:</b> ${фото.length}`);
+    for (const u of фото) lines.push(esc(field(u, 300)));
+  }
+  const url = field(body.source_url, 200);
+  if (url) { lines.push("", `<b>${esc(L.page)}:</b> ${esc(url)}`); }
+
+  return lines.join("\n");
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -55,20 +112,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, notified: false, reason: "notifications not configured" });
   }
 
-  const ro = String(body.locale || "").indexOf("ro") === 0;
-  const L = ro
-    ? { head: "Cerere nouă de pe site", name: "Nume", phone: "Telefon", service: "Serviciu", rooms: "Camere", notes: "Comentariu", page: "Pagina" }
-    : { head: "Новая заявка с сайта", name: "Имя", phone: "Телефон", service: "Услуга", rooms: "Комнат", notes: "Комментарий", page: "Страница" };
-
-  const lines = [`🧹 <b>${esc(L.head)}</b>`, ""];
-  const add = (label, value, max) => { const v = field(value, max); if (v) lines.push(`<b>${esc(label)}:</b> ${esc(v)}`); };
-  add(L.name, body.name, 80);
-  lines.push(`<b>${esc(L.phone)}:</b> ${esc(phone)}`);
-  add(L.service, body.service, 80);
-  add(L.rooms, body.bedrooms, 40);
-  add(L.notes, body.notes, 700);
-  const url = field(body.source_url, 200);
-  if (url) { lines.push("", `<b>${esc(L.page)}:</b> ${esc(url)}`); }
+  const text = buildMessage(body, phone);
 
   try {
     const r = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {

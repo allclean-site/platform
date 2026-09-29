@@ -23,7 +23,11 @@ export default async function handler(req, res) {
   try { body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {}); }
   catch { return res.status(400).json({ error: "invalid JSON" }); }
 
-  if (EDIT_KEY && String(body.editKey || "").trim() !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
+  // Незаданный EDIT_KEY означал ОТКРЫТУЮ дверь: проверка стояла под условием «если ключ настроен»,
+  // и стоило переменной пропасть при переносе проекта, как этот обработчик начинал отдавать данные
+  // кому угодно — service_role-ключом. Теперь без ключа он не работает вовсе.
+  if (!EDIT_KEY) return res.status(500).json({ error: "server not configured (EDIT_KEY)" });
+  if (String(body.editKey || "").trim() !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
 
   const limit = Math.min(1000, Math.max(1, body.limit || 300));
   // No `order` in the query so we don't depend on a specific timestamp column existing; the CRM sorts
