@@ -216,10 +216,12 @@ async function generateArticles(written, media = []) {
       prefix: buildHead(tpl.prefix, a, pair.ro?.slug, pair.ru?.slug),
       blocks: tpl.blocks.map((b) => (b.content.region === "main" ? { ...b, content: { ...b.content, html: buildSec0(a, dateStr) } } : b)),
     };
-    // Страницы статей собираются здесь, мимо exportPageHtml — без applyMedia заменённое фото
-    // меняется на 38 страницах зеркала и остаётся старым в шапке и подвале каждой статьи,
-    // без applySitePrivacy на них не доезжают правки по закону 195/2024.
-    const doc = applySitePrivacy(applyMedia(reassemble(page), media), a.locale);
+    // Через exportPageHtml, как и все остальные страницы. Раньше статьи собирались мимо него —
+    // и оставались без ЕДИНОЙ починки сайта: без листа `lgcms-fixes`, без области нажатия у
+    // ссылок, без имён у иконок соцсетей, без запуска фонового видео и лент. Обход студии
+    // показывал на них ссылки без имени, мелкий текст и мелкие цели нажатия — и это было не
+    // «наследие шаблона», а просто пропущенный шаг сборки.
+    const doc = applySitePrivacy(exportPageHtml(page, undefined, undefined, { media }), a.locale);
     const dest = join(OUT, path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, doc);
