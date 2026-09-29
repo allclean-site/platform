@@ -420,7 +420,11 @@ export const EDITOR_ONLY_CSS =
   "[data-w-id]:not(#lgcmsx),[class*=card_]:not(#lgcmsx){animation-name:none !important;}" +
   // Обе ленты в холсте замирают: по уезжающей карточке не попасть курсором, а текст под
   // набором уползал бы из-под каретки. На опубликованной странице они идут.
-  ".marquee_services:not(#lgcmsx),.marquee-vertical:not(#lgcmsx){animation-name:none !important;}";
+  ".marquee_services:not(#lgcmsx),.marquee-vertical:not(#lgcmsx){animation-name:none !important;}" +
+  // Пустой редактируемый блок Chrome раздувает до строки — место под каретку. На сайте такой
+  // <p></p> (браузер оставляет его, разбивая абзац) нулевой высоты, а в холсте был лишней
+  // строкой в 24px. Строка возвращается, как только в блок встали курсором.
+  "[contenteditable=true]:empty:not(:focus):not(#lgcmsx){line-height:0 !important;}";
 
 /**
  * The canvas wraps each section block in a marker div: zero layout box (display:contents), but a

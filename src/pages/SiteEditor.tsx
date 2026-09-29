@@ -10,7 +10,8 @@ import { useParams, Link } from "react-router-dom";
 import { Monitor, Tablet, Smartphone, Pencil, Eye, ArrowLeft, Check, ZoomIn, ZoomOut, Scan, Bold, Italic, Underline, Link2, Eraser, Undo2, Redo2, Rocket, Trash2, RotateCcw, ChevronDown, Plus, ChevronUp, X, AlertTriangle, HelpCircle, Loader2 } from "lucide-react";
 import { type ImportedPage, type SiteIndex } from "../editor/reassemble";
 import { previewDoc } from "../editor/preview";
-import { applyOverrides, loadOverrides, saveOverrides, mergeOverrideLayers,
+import { pageOverrides, canvasBlocks } from "../editor/canvasPage";
+import { loadOverrides, saveOverrides, mergeOverrideLayers,
   type SiteOverrides, type PageOverrides, type StoredSiteOverrides } from "../editor/realStore";
 import { fetchPublishedOverrides } from "../editor/overridesClient";
 import { fetchDraft, saveDraftPage, beaconDraftPage, draftConfigured, type DraftMeta } from "../editor/draftClient";
@@ -19,13 +20,13 @@ import { toCanonical, toPreview, canonicalizeOverrides } from "../editor/assetPa
 import { useAuth } from "../auth/AuthContext";
 import { loadBp, saveBp, bpCount, emptyPageBp, BP_LAYERS, type SiteBp, type PageBp } from "../editor/bpStore";
 import { loadHistory, saveHistory, type Snap, type Step } from "../editor/historyStore";
-import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared, isPatchValue } from "../editor/sharedBlocks";
+import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared } from "../editor/sharedBlocks";
 import { META_KEY, readMeta, decodeMeta, encodeMeta, type PageMeta,
-  MEDIA_KEY, encodeMedia, decodeMedia, applyMedia, mediaIdentity, linkSlot, type MediaRule } from "../editor/renderCore.js";
+  MEDIA_KEY, encodeMedia, decodeMedia, mediaIdentity, linkSlot, type MediaRule } from "../editor/renderCore.js";
 import { indexMediaFromDoc, syncSiteMedia } from "../editor/media";
 import { postSiteApi } from "../editor/siteApi";
 // Карточка статьи в списке блога — та же функция, которой её рисует сборка.
-import { withBlogCards, artPathOf, type BlogCardArticle } from "../../scripts/blog-cards.mjs";
+import { artPathOf, type BlogCardArticle } from "../../scripts/blog-cards.mjs";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
 import { PublishDialog } from "./PublishDialog";
@@ -240,41 +241,11 @@ export function SiteEditor() {
     return isSharedRegion(region) ? sharedKey(lang) : (p?.id ?? "");
   }, []);
 
-  /**
-   * A page's overrides with the shared header/footer edits folded in — each resolved against THIS
-   * page's own copy of the block, so per-page details (the language-toggle href, image alts, the
-   * different footer on article pages) survive an edit made somewhere else.
-   */
-  const resolveForPage = useCallback((p: ImportedPage, lang: string): PageOverrides => {
-    const own = mergedOv(p.id);
-    const out: PageOverrides = { ...own };
-    const shared = mergedOv(sharedKey(lang));
-    for (const blockId of Object.keys(shared)) {
-      const val = shared[blockId];
-      if (val == null) continue;
-      const base = p.blocks.find((b) => b.id === blockId)?.content.html;
-      if (base == null) continue;
-      // Общий слой несёт ПАТЧ (список точечных изменений) — его можно честно наложить на копию блока
-      // этой страницы. Если там лежит готовый HTML (так писали раньше), наложить его «на все
-      // страницы» — значит разослать по сайту копию чужой страницы: ровно так 18 из 19 румынских
-      // страниц получили шапку главной и потеряли ссылку на свою русскую версию. Такие значения
-      // пропускаем. Пустая строка — это осознанное «блок удалён», её оставляем.
-      if (val !== "" && !isPatchValue(val)) continue;
-      // ⚠️ ОБЩАЯ ПРАВКА СИЛЬНЕЕ СЛЕДА ПРОШЛОЙ ПУБЛИКАЦИИ. Здесь стояла проверка «если у страницы
-      // есть своя версия блока — она главнее». Звучит разумно, но своя версия у шапки и подвала
-      // появляется ровно одним способом: предыдущая публикация РАЗВЕРНУЛА общую правку в каждую
-      // страницу и записала её как обычный оверрайд. После первой же публикации любая СЛЕДУЮЩАЯ
-      // правка шапки или подвала молча переставала доходить — и до холста, и до сайта.
-      // Теперь общий патч применяется всегда, когда его удаётся разместить на этой странице; если
-      // разместить нельзя (у страницы другая вёрстка блока) — остаётся то, что у неё есть.
-      const r = resolveShared(base, val);
-      // Патчи применяются по одному: если один не нашёл своего места, остальные всё равно на месте.
-      // Отбрасывать весь блок из-за одного промаха — значит терять и те правки, которые легли.
-      if (r.html) out[blockId] = r.html;
-    }
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  /** A page's overrides with the shared header/footer edits folded in — see canvasPage.pageOverrides. */
+  const resolveForPage = useCallback((p: ImportedPage, lang: string): PageOverrides =>
+    pageOverrides(p, mergedOv(p.id), mergedOv(sharedKey(lang))),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  []);
 
   // Full merged maps for publish/export so publishing preserves others' published + drafted edits.
   const allOverrides = (): SiteOverrides => {
@@ -622,12 +593,7 @@ export function SiteEditor() {
         const карточки = (p.slug === "/blog" || p.slug === "/ru/blog")
           ? publishedArts.current.filter((a) => a.locale === p.lang && !свои.has(artPathOf(a.locale, a.slug)))
           : [];
-        const blocks = applyOverrides(p.blocks, resolveForPage(p, p.lang)).map((b) => {
-          let html = b.content.html;
-          if (rules.length) html = applyMedia(html, rules);
-          if (карточки.length) html = withBlogCards(html, карточки, p.lang);
-          return html === b.content.html ? b : { ...b, content: { ...b.content, html } };
-        });
+        const blocks = canvasBlocks(p, resolveForPage(p, p.lang), rules, карточки);
         const samePage = loadedPageId.current === p.id;
         const prev = lastHtml.current;
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));

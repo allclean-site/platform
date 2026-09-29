@@ -24,7 +24,7 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "out");
 const u = [];
 (function walk(d) {
   for (const n of readdirSync(d)) {
-    if (n === "__canvas") continue;
+    if (n === "__canvas" || n === "__cabinet") continue;
     const p = join(d, n);
     if (statSync(p).isDirectory()) walk(p);
     else if (n === "index.html") { const r = relative(OUT, dirname(p)).split("\\").join("/"); u.push(r ? "/" + r + "/" : "/"); }

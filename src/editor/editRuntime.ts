@@ -1530,7 +1530,7 @@ ${CORE_INLINE}
             var links = node.querySelectorAll("a[href]"), uniq = {}, n = 0, i0;
             for (i0 = 0; i0 < links.length; i0++){
               var hv = links[i0].getAttribute("href") || "";
-              if (!/^(\/|https?:)/i.test(hv)) continue;
+              if (!/^(\\/|https?:)/i.test(hv)) continue;
               var sv = linkSlot(hv);
               if (!uniq[sv]){ uniq[sv] = 1; n++; }
             }
@@ -1553,7 +1553,7 @@ ${CORE_INLINE}
             hit = mediaIdentity(ns2) === ident0;
             if (!hit){
               var ss0 = nd.getAttribute("srcset") || "", pr, qi;
-              if (ss0){ pr = ss0.split(","); for (qi = 0; qi < pr.length; qi++){ if (mediaIdentity(pr[qi].replace(/^\s+|\s+$/g,"").split(/\s+/)[0]) === ident0){ hit = true; break; } } }
+              if (ss0){ pr = ss0.split(","); for (qi = 0; qi < pr.length; qi++){ if (mediaIdentity(pr[qi].replace(/^\\s+|\\s+$/g,"").split(/\\s+/)[0]) === ident0){ hit = true; break; } } }
             }
           }
           if (!hit) continue;
