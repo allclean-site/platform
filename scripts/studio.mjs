@@ -100,6 +100,43 @@ function audit(w, d, url, width) {
     push("перекрыт", sel(top) + " «" + (top.textContent || "").trim().slice(0, 18) + "»",
       sel(el) + " «" + (el.textContent || "").trim().slice(0, 18) + "»");
   }
+  // Разрядка разошлась с кеглем. Старый редактор писал заголовку абсолютные font-size и
+  // line-height парой; потом кегль ужимали, а пиксели межстрочного оставались. На русской
+  // главной это дало 64px текста при 88px строки — между строками воздуха больше, чем высота
+  // буквы, и герой перестал помещаться в экран.
+  for (const el of d.querySelectorAll("h1,h2,h3,h4,[class*=heading-style],[class*=heading_],p")) {
+    if (!vis(w, el)) continue;
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 2)) continue;
+    const s = w.getComputedStyle(el);
+    const fs = parseFloat(s.fontSize), lh = parseFloat(s.lineHeight);
+    if (!fs || !lh || fs < 28) continue;
+    if (lh / fs > 1.35) push("разрядка разошлась с кеглем", (lh / fs).toFixed(2) + " (кегль " + Math.round(fs) + "px, строка " + Math.round(lh) + "px)",
+      sel(el) + " «" + (el.textContent || "").trim().slice(0, 22) + "»");
+  }
+  // Великанский разрыв между соседями. justify-content:space-between в коробке, которую по
+  // высоте задаёт сосед (фотография), сваливает весь остаток в ОДИН разрыв: в карточке услуги
+  // между описанием и «Подробнее» стояло 252px при заданных 48px.
+  const грузится = (el) => [...el.querySelectorAll("img")].some((i) => !i.complete || !i.naturalWidth);
+  for (const p of d.querySelectorAll("section *")) {
+    // Внутренности SVG меряются по своей системе координат и дают разрывы в тысячи пикселей.
+    if (p.closest("svg")) continue;
+    const s = w.getComputedStyle(p);
+    if (!/flex|grid|block/.test(s.display)) continue;
+    // Незагруженная картинка схлопывается в ноль, выпадает из списка детей и превращается в
+    // разрыв на своём месте. Коробку с такой картинкой не меряем вовсе.
+    if ([...p.children].some((k) => [...k.querySelectorAll("img")].some((i) => !i.complete || !i.naturalWidth))) continue;
+    const kids = [...p.children].filter((k) => vis(w, k) && !/absolute|fixed/.test(w.getComputedStyle(k).position));
+    if (kids.length < 2 || kids.length > 12) continue;
+    const свой = parseFloat(s.rowGap) || parseFloat(s.gap) || 0;
+    const порог = Math.max(120, свой * 2.5);
+    const пары = kids.map((k) => ({ k, r: box(k) })).sort((a, b) => a.r.top - b.r.top);
+    for (let i = 0; i < пары.length - 1; i++) {
+      const щель = Math.round(пары[i + 1].r.top - пары[i].r.bottom);
+      // Незагруженная картинка схлопывается в ноль и притворяется разрывом — это не он.
+      if (щель <= порог || грузится(пары[i].k) || грузится(пары[i + 1].k)) continue;
+      push("великанский разрыв", щель + "px при заданных " + Math.round(свой) + "px", sel(p));
+    }
+  }
   // Ссылка, которую нечего прочитать вслух: пустая ссылка поверх карточки, иконка без подписи.
   // Смотрим уже в браузере — имена проставляет NAME_FIX на загрузке, в статике их ещё нет.
   for (const el of d.querySelectorAll("a[href]")) {
