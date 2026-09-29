@@ -10,10 +10,16 @@ import { reassembleForEdit } from "./editRuntime";
 import { exportPageHtml } from "./exportSite";
 import { toPreview } from "./assetPaths";
 import type { PageBp } from "./bpStore";
+// Тот же файл, которым сборка накладывает правки закона 195/2024 на выходе. Один источник:
+// разойдись они — холст снова показывал бы не ту страницу, что уедет к посетителю.
+import { applySitePrivacy } from "../../scripts/site-privacy.mjs";
 
 export function previewDoc(page: ImportedPage, edit: boolean, pageBp?: PageBp): string {
   // Edit mode = live runtime (breakpoint rules come in via lg-bp-init). Preview mode = the CLEAN
   // published output: editor attrs stripped + breakpoint @media inlined. page.blocks already carry
   // content overrides (applied on load), so we don't re-apply them here.
-  return toPreview(edit ? reassembleForEdit(page) : exportPageHtml(page, undefined, pageBp));
+  const html = edit ? reassembleForEdit(page) : exportPageHtml(page, undefined, pageBp);
+  // Реквизиты в подвале, галочки согласия и локальный CDN сборка добавляет ПОВЕРХ страницы.
+  // Без этого шага подвал в холсте был на 62px короче живого, а галочек клиент не видел вовсе.
+  return toPreview(applySitePrivacy(html, page.lang));
 }

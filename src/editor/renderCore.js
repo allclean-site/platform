@@ -158,7 +158,14 @@ export const SITE_FIXES =
   // к её низу) уходят под белые карточки, которые стоят сразу за рядом: при 1855×900 наезд 52px.
   // Делаем высоту ряда нижней границей — ряд растёт под содержимое, карточки съезжают следом.
   // Только с 992px: ниже у шаблона своя раскладка героя, одной колонкой и без фиксированной высоты.
-  "@media screen and (min-width:992px){.master_hero-home:not(#lgcmsx){height:auto;min-height:88vh;}}" +
+  // Высоты героя считаются от ОКНА. В холсте редактора рамка растянута на всю высоту страницы,
+  // и `vh` там означает «вся страница»: герой раздувался на десятки тысяч пикселей, поэтому холст
+  // глушил ему min-height целиком — и показывал клиенту не то, что увидит посетитель. Теперь
+  // единица вынесена в переменную: на сайте это настоящий `vh`, а холст подставляет высоту
+  // устройства в пикселях и получает ровно ту же картинку.
+  ":root:not(#lgcmsx){--lg-vh:1vh;--lg-dvh:1dvh;}" +
+  "@supports not (height:1dvh){:root:not(#lgcmsx){--lg-dvh:1vh;}}" +
+  "@media screen and (min-width:992px){.master_hero-home:not(#lgcmsx){height:auto;min-height:calc(88*var(--lg-vh));}}" +
   // Заголовок героя: кегль ужали, интерлиньяж остался прежним.
   //
   // Старый редактор записал строке `font-size:120px` и `line-height:88px` — плотная разрядка,
@@ -235,11 +242,11 @@ export const SITE_FIXES =
   // при прокрутке, окно становится выше, и блок, заданный в vh, прыгает прямо под пальцем. `dvh`
   // считает по текущему окну и прыжок убирает. Браузер, который `dvh` не знает, просто пропустит
   // эти правила и останется на прежних `vh` — вид не меняется нигде.
-  "@media screen and (max-width:991px){.master_hero-home:not(#lgcmsx){height:88dvh;}}" +
-  ".master_hero-about:not(#lgcmsx){min-height:100dvh;}" +
-  ".nav-full-bg:not(#lgcmsx){height:100dvh;}" +
-  ".master_home-about:not(#lgcmsx){max-height:90dvh;}" +
-  ".ultra-pop_master:not(#lgcmsx){height:76dvh;}" +
+  "@media screen and (max-width:991px){.master_hero-home:not(#lgcmsx){height:calc(88*var(--lg-dvh));}}" +
+  ".master_hero-about:not(#lgcmsx){min-height:calc(100*var(--lg-dvh));}" +
+  ".nav-full-bg:not(#lgcmsx){height:calc(100*var(--lg-dvh));}" +
+  ".master_home-about:not(#lgcmsx){max-height:calc(90*var(--lg-dvh));}" +
+  ".ultra-pop_master:not(#lgcmsx){height:calc(76*var(--lg-dvh));}" +
   "@media screen and (max-width:767px){" +
     "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx)," +
     "p:not(#lgcmsx),li:not(#lgcmsx),[class*=heading-style]:not(#lgcmsx),[class*=text-size]:not(#lgcmsx)" +
@@ -387,15 +394,24 @@ export const SITE_FIXES =
 /**
  * Repairs that exist ONLY inside the editing canvas — never published.
  *
- * The canvas stretches its iframe to the height of the whole page (so the page shows without an
- * inner scrollbar), which turns every `min-height:100vh` hero into "as tall as the whole page" and
- * spirals (/about once rendered a 48000px empty block). Neutralising min-height on hero boxes in the
- * canvas keeps them content-tall THERE; the published page keeps its real 100vh.
+ * Холст растягивает рамку на высоту всей страницы, чтобы страница показывалась без внутренней
+ * прокрутки. Из-за этого настоящий `vh` внутри рамки означает «вся страница»: герой раздувался
+ * на десятки тысяч пикселей (на «О нас» однажды вышел пустой блок в 48000px). Раньше холст просто
+ * глушил героям min-height — и показывал клиенту не ту страницу, которую увидит посетитель.
+ * Теперь холст подставляет высоту УСТРОЙСТВА в переменные `--lg-vh` / `--lg-dvh`, которыми и
+ * заданы высоты героя, и обе картинки совпадают.
  *
  * Lives in the render core so the regression harness can build a canvas-twin of a page with exactly
  * the CSS the canvas uses — if this rule and the runtime ever disagree, the harness fails visibly.
  */
-export const EDITOR_ONLY_CSS = "[class*=hero]:not(#lgcmsx){min-height:auto !important;}" +
+export const EDITOR_ONLY_CSS =
+  // Высота ОКНА для холста. Рамка растянута на всю страницу, поэтому настоящий `vh` здесь врёт;
+  // подставляем сотую долю той высоты, которую видит посетитель на этом устройстве. Числа —
+  // рабочая область типового экрана: 900 на десктопе, 1024 на планшете, 812 на телефоне.
+  // Глушить героям min-height больше не нужно: они считаются по этим же числам и совпадают с сайтом.
+  ":root:not(#lgcmsx){--lg-vh:9px;--lg-dvh:9px;}" +
+  "@media screen and (max-width:991px){:root:not(#lgcmsx){--lg-vh:10.24px;--lg-dvh:10.24px;}}" +
+  "@media screen and (max-width:767px){:root:not(#lgcmsx){--lg-vh:8.12px;--lg-dvh:8.12px;}}" +
   // В холсте нет прокрутки (рамка растянута на всю высоту страницы), поэтому появление «по позиции
   // в окне» здесь бессмысленно и опасно: карточка может остаться прозрачной, и клиент не сможет её
   // ни выбрать, ни отредактировать. В холсте всё видно сразу — на опубликованной странице движение

@@ -26,8 +26,10 @@
 import { readdirSync, statSync, writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { applySitePrivacy } from "./site-privacy.mjs";
 import {
   applyOverrides, relaxLegacyChains, withSiteRuntime, wrapBlockForEdit, overridesCss, EDITOR_ONLY_CSS,
+  applyMedia, decodeMedia, MEDIA_KEY,
 } from "../src/editor/renderCore.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -53,14 +55,27 @@ const urls = pages(OUT).sort();
 
 // ---- canvas twins --------------------------------------------------------------------------------
 // The same edits the build baked in (published layer), so twin vs published is apples to apples.
-const editsPath = process.argv[2];
+// По умолчанию берём слепок, который оставила сборка: это РОВНО те правки, из которых собран
+// сайт. Раньше без аргумента двойник холста строился из чистого зеркала, а страница рядом — с
+// правками клиента; сравнение было бессмысленным, и ни одно расхождение «холст врёт» не ловилось.
+const editsPath = process.argv[2] || join(OUT, "__edits.json");
 let edits = { overrides: {}, breakpoints: {} };
-if (editsPath && existsSync(editsPath)) edits = JSON.parse(readFileSync(editsPath, "utf8"));
+if (existsSync(editsPath)) {
+  edits = JSON.parse(readFileSync(editsPath, "utf8"));
+  console.log(`[regress] правки: ${editsPath} (${Object.keys(edits.overrides || {}).length} стр.)`);
+} else {
+  console.log("[regress] ⚠ правок нет — двойник строится из чистого зеркала, сверка с сайтом бессмысленна");
+}
 
 /** reassembleForEdit's structure, built from the shared core pieces (the runtime script is not
  *  included — the harness drives the probes itself, from the outer page). */
-function canvasTwin(p, pageOv, pageBp) {
-  const blocks = pageOv ? applyOverrides(p.blocks, pageOv) : p.blocks;
+function canvasTwin(p, pageOv, pageBp, media) {
+  // Правила замены фото — общие для всего сайта. Кабинет накладывает их на разметку блока при
+  // загрузке страницы (SiteEditor), сборка — на готовый документ. Двойник должен делать то же,
+  // иначе в сверке фото клиента числятся «другой картинкой» там, где расхождения нет.
+  const сМедиа = (html) => (media && media.length ? applyMedia(html, media) : html);
+  const blocks = (pageOv ? applyOverrides(p.blocks, pageOv) : p.blocks)
+    .map((b) => ({ ...b, content: { ...b.content, html: сМедиа(b.content.html) } }));
   const wrap = (b) => wrapBlockForEdit(b.content.html, b.id);
   const prefix = withSiteRuntime(relaxLegacyChains(p.prefix));
   let body;
@@ -82,11 +97,15 @@ function canvasTwin(p, pageOv, pageBp) {
 }
 
 const idx = JSON.parse(readFileSync(join(IMPORT, "_pages.json"), "utf8"));
+const media = decodeMedia(edits.overrides?.[MEDIA_KEY]?.[MEDIA_KEY]);
 mkdirSync(join(OUT, "__canvas"), { recursive: true });
 const twins = []; // { url: published path, twin: /__canvas/<file>.html }
 for (const entry of idx.pages) {
   const p = JSON.parse(readFileSync(join(IMPORT, entry.file + ".json"), "utf8"));
-  const html = canvasTwin(p, edits.overrides?.[p.id], edits.breakpoints?.[p.id]);
+  // Правки закона 195/2024 (реквизиты в подвале, галочки согласия, свой CDN) сборка накладывает
+  // ПОВЕРХ страницы. Холст их не накладывал — и подвал в редакторе был на 62px короче живого,
+  // а галочек согласия клиент не видел вовсе. Один и тот же слой на обеих сторонах.
+  const html = applySitePrivacy(canvasTwin(p, edits.overrides?.[p.id], edits.breakpoints?.[p.id], media), p.lang);
   const name = entry.file + ".html";
   writeFileSync(join(OUT, "__canvas", name), html, "utf8");
   const pub = entry.slug === "/" ? "/" : entry.slug.replace(/^\//, "") ? "/" + entry.slug.replace(/^\//, "") + "/" : "/";
