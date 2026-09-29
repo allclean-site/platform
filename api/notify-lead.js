@@ -30,6 +30,28 @@ const field = (v, max = 200) => {
   return s.length > max ? s.slice(0, max) + "…" : s;
 };
 
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
+const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Хранилище снимков чужих квартир закрыто, поэтому в заявке лежит ПУТЬ файла. Менеджеру нужна
+// ссылка, по которой снимок откроется, — подписываем на неделю: заявку разбирают не в ту же минуту,
+// но и вечной ссылке на чужое жильё взяться неоткуда. Не подписалось — отдаём хотя бы путь,
+// по нему снимок найдут в панели.
+const PHOTO_TTL = 7 * 24 * 60 * 60;
+async function подписать(путь) {
+  if (/^https?:\/\//.test(путь)) return путь;                      // старые заявки с полным адресом
+  if (!SUPABASE_URL || !SERVICE) return путь;
+  try {
+    const r = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/sign/calc-uploads/${путь}`, {
+      method: "POST",
+      headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "content-type": "application/json" },
+      body: JSON.stringify({ expiresIn: PHOTO_TTL }),
+    });
+    if (!r.ok) return путь;
+    const { signedURL } = await r.json();
+    return signedURL ? `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1${signedURL}` : путь;
+  } catch { return путь; }
+}
+
 /** Сборка сообщения — отдельно от отправки, чтобы её можно было проверить: scripts/check-notify-lead.mjs */
 export function buildMessage(body, phone) {
   const ro = String(body.locale || "").indexOf("ro") === 0;
@@ -76,7 +98,11 @@ export function buildMessage(body, phone) {
     }
   }
   add(L.notes, body.comment || body.notes, 700);
-  const фото = Array.isArray(body.photos) ? body.photos.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)).slice(0, 10) : [];
+  // Адрес http(s) или путь внутри хранилища («apartments/x.jpg»). Всё остальное — чужая схема
+  // вроде javascript:, и в сообщение она попасть не должна.
+  const фото = Array.isArray(body.photos)
+    ? body.photos.map(String).filter((u) => /^https?:\/\//.test(u) || /^[\w][\w./-]*$/.test(u)).slice(0, 10)
+    : [];
   if (фото.length) {
     lines.push(`<b>${esc(L.photos)}:</b> ${фото.length}`);
     for (const u of фото) lines.push(esc(field(u, 300)));
@@ -112,6 +138,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, notified: false, reason: "notifications not configured" });
   }
 
+  // Пути фотографий превращаем в ссылки ДО сборки сообщения: сама сборка остаётся чистой
+  // функцией, которую проверяет scripts/check-notify-lead.mjs.
+  if (Array.isArray(body.photos) && body.photos.length) {
+    body = { ...body, photos: await Promise.all(body.photos.slice(0, 10).map((p) => подписать(String(p)))) };
+  }
   const text = buildMessage(body, phone);
 
   try {

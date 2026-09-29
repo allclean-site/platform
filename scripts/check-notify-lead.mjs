@@ -15,7 +15,7 @@ const изКалькулятора = {
   estimate: "1 250 MDL",
   selections: { "Suprafața": "35", "Servicii suplimentare": ["Transport", "Murdărie"] },
   comment: "Etajul 3, fără lift",
-  photos: ["https://example.com/a.jpg", "javascript:alert(1)", "https://example.com/b.jpg"],
+  photos: ["https://example.com/a.jpg", "javascript:alert(1)", "apartments/foto-2.jpg"],
   source_url: "https://allclean.md/services/carpet",
 };
 const ro = buildMessage(изКалькулятора, "+373 79 955 044");
@@ -30,7 +30,7 @@ assert.match(ro, /Suprafața:<\/b> 35/, "нет ответа по шагу");
 assert.match(ro, /Servicii suplimentare:<\/b> Transport, Murdărie/, "список ответов не развёрнут");
 assert.match(ro, /Comentariu:<\/b> Etajul 3, fără lift/, "нет комментария");
 assert.match(ro, /Fotografii:<\/b> 2/, "не посчитаны фотографии");
-assert.match(ro, /https:\/\/example\.com\/b\.jpg/, "нет ссылки на фотографию");
+assert.match(ro, /apartments\/foto-2\.jpg/, "путь фотографии внутри хранилища потерян");
 assert.doesNotMatch(ro, /javascript:/, "в сообщение попал не-HTTP адрес");
 
 // Заявка из обычной формы записи: поля другие, ничего не потеряно и ничего не выдумано.
