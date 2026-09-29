@@ -23,6 +23,9 @@ import { isSharedRegion, sharedKey, diffPatches, encodePatches, resolveShared, i
 import { META_KEY, readMeta, decodeMeta, encodeMeta, type PageMeta,
   MEDIA_KEY, encodeMedia, decodeMedia, applyMedia, mediaIdentity, linkSlot, type MediaRule } from "../editor/renderCore.js";
 import { indexMediaFromDoc, syncSiteMedia } from "../editor/media";
+import { postSiteApi } from "../editor/siteApi";
+// Карточка статьи в списке блога — та же функция, которой её рисует сборка.
+import { withBlogCards, artPathOf, type BlogCardArticle } from "../../scripts/blog-cards.mjs";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
 import { PublishDialog } from "./PublishDialog";
@@ -558,6 +561,23 @@ export function SiteEditor() {
     return true;
   };
 
+  /**
+   * Статьи, опубликованные из кабинета, лежат в базе, и сборка добавляет их карточки в сетку
+   * списка блога. Холст этого не делал — клиент видел в редакторе на одну статью меньше, чем на
+   * сайте. Тянем список один раз за сессию и просим перечитать страницу, когда он приедет.
+   */
+  const publishedArts = useRef<BlogCardArticle[]>([]);
+  const [artsTick, setArtsTick] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    void postSiteApi<{ articles?: BlogCardArticle[] }>("publish-article", { op: "list" }).then((r) => {
+      if (!alive || !r.ok || !r.data?.articles) return;
+      publishedArts.current = r.data.articles;
+      setArtsTick((n) => n + 1);
+    });
+    return () => { alive = false; };
+  }, []);
+
   useEffect(() => {
     fetch(`${DATA}/_pages.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`index ${r.status}`))))
@@ -583,8 +603,19 @@ export function SiteEditor() {
         baseHtml.current = Object.fromEntries(p.blocks.map((b) => [b.id, b.content.html]));
         // resolveForPage folds in the shared header/footer edits, rebuilt against THIS page's copy.
         const rules = mediaRules();
-        const blocks = applyOverrides(p.blocks, resolveForPage(p, p.lang)).map((b) =>
-          rules.length ? { ...b, content: { ...b.content, html: applyMedia(b.content.html, rules) } } : b);
+        // Карточки только тех статей, у которых СВОЕЙ страницы в зеркале нет: для остальных
+        // карточка уже нарисована в самом списке, и вторая была бы дублем. Ровно так же считает
+        // сборка (scripts/build-site.mjs, newByLocale).
+        const свои = new Set((index?.pages || []).map((x) => x.slug.replace(/\/$/, "")));
+        const карточки = (p.slug === "/blog" || p.slug === "/ru/blog")
+          ? publishedArts.current.filter((a) => a.locale === p.lang && !свои.has(artPathOf(a.locale, a.slug)))
+          : [];
+        const blocks = applyOverrides(p.blocks, resolveForPage(p, p.lang)).map((b) => {
+          let html = b.content.html;
+          if (rules.length) html = applyMedia(html, rules);
+          if (карточки.length) html = withBlogCards(html, карточки, p.lang);
+          return html === b.content.html ? b : { ...b, content: { ...b.content, html } };
+        });
         const samePage = loadedPageId.current === p.id;
         const prev = lastHtml.current;
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));
@@ -617,7 +648,9 @@ export function SiteEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [SITE]);
 
-  useEffect(() => { loadPage(activeFile); }, [activeFile, loadPage, syncTick]);
+  // artsTick — список опубликованных статей приезжает с сервера позже первой отрисовки;
+  // без него список блога в холсте был бы на карточку короче живого до перезагрузки вкладки.
+  useEffect(() => { loadPage(activeFile); }, [activeFile, loadPage, syncTick, artsTick]);
   // Who touched the current page's shared draft last (shown next to the sync status).
   useEffect(() => { setDraftWho(page ? (draftMeta.current[page.id]?.updatedBy || "") : ""); }, [page, syncTick]);
 

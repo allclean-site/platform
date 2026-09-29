@@ -56,6 +56,21 @@ export default async function handler(req, res) {
   if (!EDIT_KEY) return res.status(500).json({ error: "server not configured (EDIT_KEY)" });
   if (String(body.editKey || "").trim() !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
 
+  // Чтение опубликованных статей. Нужно кабинету: список блога на сайте содержит карточки
+  // статей из базы, и без этого списка холст редактора показывал на одну статью меньше живого.
+  // Отдаём только поля карточки — тело статьи здесь никому не нужно.
+  if (body.op === "list") {
+    const url = `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/articles` +
+      `?select=group_id,locale,slug,title,cover_url,created_at&project_id=eq.${PROJECT_ID}&status=eq.published`;
+    try {
+      const r = await fetch(url, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
+      if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()) });
+      return res.status(200).json({ ok: true, articles: await r.json() });
+    } catch (e) {
+      return res.status(502).json({ error: "read failed: " + String(e) });
+    }
+  }
+
   const arts = (body.articles || []).filter((a) => a && a.slug && a.title);
   if (!arts.length) return res.status(400).json({ error: "no articles with slug+title" });
 

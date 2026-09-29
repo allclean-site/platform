@@ -20,6 +20,7 @@
   "include": [
     "src",
     "scripts/site-privacy.d.mts",
-    "scripts/legal-pages.d.mts"
+    "scripts/legal-pages.d.mts",
+    "scripts/blog-cards.d.mts"
   ]
 }

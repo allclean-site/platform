@@ -32,6 +32,7 @@ import {
 import { applySitePrivacy, report as privacyReport, assertApplied as assertPrivacy } from "./site-privacy.mjs";
 import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
+import { withBlogCards } from "./blog-cards.mjs";
 
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");
@@ -230,23 +231,13 @@ async function generateArticles(written, media = []) {
   return { urls: newUrls, newByLocale };
 }
 
-/** A blog-index card matching the mirror's `.grid_blog` card markup. */
-function cardHtml(a, locale) {
-  const date = new Date(a.created_at || Date.now()).toLocaleDateString(locale === "ru" ? "ru-RU" : "ro-RO", { day: "numeric", month: "long", year: "numeric" });
-  const url = locale === "ro" ? `/blog/${a.slug}` : `/${locale}/blog/${a.slug}`;
-  const cta = locale === "ru" ? "Читать статью" : "Citește articolul";
-  const cover = a.cover_url ? `<div class="image-wrap_article"><img src="${escAttr(a.cover_url)}" loading="lazy" alt="${escAttr(a.cover_alt || a.title)}" class="image_cover"></div>` : "";
-  return `<div role="listitem" class="w-dyn-item"><a href="${url}" class="link_article w-inline-block">${cover}<div class="article-card_bottom-tile"><div class="text-wrap_article-card"><div class="text-size-small">${escHtml(date)}</div><div class="heading-style-h4">${escHtml(a.title)}</div></div><div button-tertiary="" class="cta_tertiary"><div>${escHtml(cta)}</div></div></div></a></div>`;
-}
-
-/** Inject new-article cards at the top of a blog index page's `.grid_blog` grid. */
+/** Карточки новых статей в начало сетки списка блога. Разметка — в scripts/blog-cards.mjs,
+ *  оттуда же её берёт холст редактора: иначе в кабинете статей на одну меньше, чем на сайте. */
 async function injectCards(indexRel, cards, locale) {
   const file = join(OUT, indexRel);
   if (!existsSync(file) || !cards.length) return;
-  let html = await readFile(file, "utf8");
-  const injected = cards.map((a) => cardHtml(a, locale)).join("");
-  html = html.replace(/(<div[^>]*class="[^"]*grid_blog[^"]*"[^>]*>)/, `$1${injected}`);
-  await writeFile(file, html);
+  const html = await readFile(file, "utf8");
+  await writeFile(file, withBlogCards(html, cards, locale));
   console.log(`[build] blog: ${cards.length} card(s) added to ${indexRel}`);
 }
 
@@ -409,6 +400,9 @@ async function main() {
   const { urls: articleUrls, newByLocale } = await generateArticles(written, media);
   await injectCards("blog/index.html", newByLocale.ro || [], "ro");
   await injectCards("ru/blog/index.html", newByLocale.ru || [], "ru");
+  // Слепок карточек рядом со сборкой: ворота строят двойник холста из него и сверяют список
+  // блога с живым, а не «с точностью до одной статьи».
+  await writeFile(join(OUT, "__blog-cards.json"), JSON.stringify(newByLocale));
 
   await write404();
 

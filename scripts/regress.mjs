@@ -28,6 +28,7 @@ import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applySitePrivacy } from "./site-privacy.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
+import { withBlogCards } from "./blog-cards.mjs";
 import {
   applyOverrides, relaxLegacyChains, withSiteRuntime, wrapBlockForEdit, overridesCss, EDITOR_ONLY_CSS,
   applyMedia, decodeMedia, MEDIA_KEY,
@@ -77,12 +78,16 @@ function canvasTwin(p, pageOv, pageBp, media) {
   const сМедиа = (html) => (media && media.length ? applyMedia(html, media) : html);
   // Юридические страницы собираются из кода (см. src/editor/preview.ts): в зеркале лежит
   // старая редакция, и без этой подмены сверка показывала на политике 5645px против 1602px.
+  // Список блога: сборка добавляет в сетку карточки статей, опубликованных из кабинета.
+  // Без этого сверка показывала на /blog и /ru/blog по девять расхождений — ровно одну карточку.
+  const карточки = (p.slug === "/blog" && blogCards.ro) || (p.slug === "/ru/blog" && blogCards.ru) || null;
+  const сБлогом = (html) => (карточки && карточки.length ? withBlogCards(html, карточки, p.lang) : html);
   const юр = LEGAL_PAGES.find((x) => x.slug === p.slug);
   const сЮр = (b) => (юр && b.content.region === "main"
     ? { ...b, content: { ...b.content, html: renderLegalMain(юр) } } : b);
   const blocks = (pageOv ? applyOverrides(p.blocks, pageOv) : p.blocks)
     .map(сЮр)
-    .map((b) => ({ ...b, content: { ...b.content, html: сМедиа(b.content.html) } }));
+    .map((b) => ({ ...b, content: { ...b.content, html: сБлогом(сМедиа(b.content.html)) } }));
   const wrap = (b) => wrapBlockForEdit(b.content.html, b.id);
   const prefix = withSiteRuntime(relaxLegacyChains(p.prefix));
   let body;
@@ -105,6 +110,10 @@ function canvasTwin(p, pageOv, pageBp, media) {
 
 const idx = JSON.parse(readFileSync(join(IMPORT, "_pages.json"), "utf8"));
 const media = decodeMedia(edits.overrides?.[MEDIA_KEY]?.[MEDIA_KEY]);
+// Тот же слепок карточек, что положила сборка. Нет файла — список блога сверять нечем,
+// и об этом лучше сказать вслух, чем молча показать «сходится».
+const cardsPath = join(OUT, "__blog-cards.json");
+const blogCards = existsSync(cardsPath) ? JSON.parse(readFileSync(cardsPath, "utf8")) : {};
 mkdirSync(join(OUT, "__canvas"), { recursive: true });
 const twins = []; // { url: published path, twin: /__canvas/<file>.html }
 for (const entry of idx.pages) {
