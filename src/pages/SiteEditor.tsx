@@ -128,6 +128,8 @@ export function SiteEditor() {
    * редактор не открылся бы вовсе. Отдельная страховка по времени — на случай запроса, который
    * не завершится никогда.
    */
+  // Причина, по которой не удалось прочитать опубликованные правки. Пока она есть — холста нет.
+  const [pubErr, setPubErr] = useState<string | null>(null);
   const [layersReady, setLayersReady] = useState(false);
   const layersLeft = useRef(2);
   const settleLayer = useCallback(() => { if (--layersLeft.current <= 0) setLayersReady(true); }, []);
@@ -178,9 +180,19 @@ export function SiteEditor() {
   // Pull the PUBLISHED edits (shared state) so the editor matches the live site and shows the client's
   // published edits — not just this browser's local ones. Published = base, local unpublished edits win
   // per block. Graceful no-op when publish isn't configured or offline (falls back to local-only).
+  /**
+   * Опубликованный слой — ОСНОВА холста. Без него редактор показывает зеркало: исходную вёрстку
+   * шаблона, которой нет ни на сайте, ни в правках. Клиент видел в редакторе «CURĂȚENIE PENTRU
+   * OAMENI OCUPAȚI ÎN CHIȘINĂU» там, где на сайте стоит его собственный заголовок, — и правка
+   * поверх такой страницы затёрла бы настоящий текст при публикации.
+   *
+   * Поэтому провал этого запроса — не «откат к localStorage», а стоп: показываем причину и не
+   * отдаём холст вовсе.
+   */
   const pullPublished = useCallback(async () => {
     const pub = await fetchPublishedOverrides("allclean");
-    if (!pub) return false;
+    if (!pub.ok) { setPubErr(pub.reason); return false; }
+    setPubErr(null);
     pubOverrides.current = canonicalizeOverrides(pub.overrides);
     pubBp.current = pub.breakpoints;
     setSyncTick((t) => t + 1); // re-render the current page with the merged (published + local) edits
@@ -1196,6 +1208,22 @@ export function SiteEditor() {
   };
 
   if (err) return <div className="se-error">Ошибка загрузки: {err}</div>;
+  if (pubErr) return (
+    <div className="se-error">
+      <b>Не удалось прочитать опубликованные правки сайта.</b>
+      <div style={{ marginTop: 8 }}>{pubErr}</div>
+      <div style={{ marginTop: 8, opacity: .75 }}>
+        Редактор не открывает страницу: без этих правок он показал бы исходную вёрстку шаблона,
+        а не ваш сайт, и публикация затёрла&nbsp;бы настоящие тексты.
+      </div>
+      <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "center" }}>
+        <button className="btn" onClick={() => { setPubErr(null); void pullPublished(); }}>Повторить</button>
+        {/* Ключ доступа выдаётся вместе с сессией при входе. Сессия, сохранённая до того, как ключ
+            появился, живёт дальше и молча ломает чтение правок — выход и повторный вход её чинят. */}
+        <button className="btn" onClick={signOut}>Войти заново</button>
+      </div>
+    </div>
+  );
   if (!index) return <div className="se-loading">Загрузка сайта…</div>;
 
   return (
