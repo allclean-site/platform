@@ -111,6 +111,27 @@ export function SiteEditor() {
   const [draftWho, setDraftWho] = useState<string>("");  // "кто правил последним" for the current page
   const draftTimers = useRef<Record<string, number>>({});   // one debounce per page
   const [syncTick, setSyncTick] = useState(0);         // bump when published/draft edits arrive → re-render
+  /**
+   * Холст нельзя показывать до того, как приедут опубликованные правки и общий черновик.
+   *
+   * Раньше страница рисовалась сразу из зеркала, а слои приезжали через несколько секунд: у
+   * allclean.md это 1,7 МБ опубликованного и 0,85 МБ черновика, то есть около трёх секунд на
+   * хорошей связи. Всё это время клиент смотрел на ЧУЖОЙ сайт — шаблон, с которого сняли копию:
+   * другой заголовок в герое, растянутые блоки без заданных им размеров. Выглядит как «редактор
+   * показывает не мой сайт», и первое, что хочется сделать, — начать это править.
+   *
+   * Теперь до прихода обоих слоёв на холсте стоит та же заставка, что и при загрузке страницы.
+   * Считаем слой «приехавшим» и когда он не приехал (нет сети, публикация не настроена): иначе
+   * редактор не открылся бы вовсе. Отдельная страховка по времени — на случай запроса, который
+   * не завершится никогда.
+   */
+  const [layersReady, setLayersReady] = useState(false);
+  const layersLeft = useRef(2);
+  const settleLayer = useCallback(() => { if (--layersLeft.current <= 0) setLayersReady(true); }, []);
+  useEffect(() => {
+    const t = window.setTimeout(() => setLayersReady(true), 10000);
+    return () => window.clearTimeout(t);
+  }, []);
   const [, setBpTick] = useState(0); // bump to re-render device-tab dots after a bp change
   const frameRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -163,7 +184,7 @@ export function SiteEditor() {
     return true;
   }, []);
 
-  useEffect(() => { void pullPublished(); }, [SITE, pullPublished]);
+  useEffect(() => { void pullPublished().finally(settleLayer); }, [SITE, pullPublished, settleLayer]);
 
   // Layers, weakest first: PUBLISHED (live site) → SHARED DRAFT (everyone's unpublished work) → LOCAL
   // (this browser, freshest). Local wins per block because it is what the user is typing right now.
@@ -295,7 +316,7 @@ export function SiteEditor() {
     return true;
   }, []);
 
-  useEffect(() => { void pullDraft(); }, [pullDraft, SITE]);
+  useEffect(() => { void pullDraft().finally(settleLayer); }, [pullDraft, SITE, settleLayer]);
   // The gallery holds the media of the WHOLE site, so it is useful before the client has visited the
   // page a photo happens to live on. One request; the per-page indexer keeps covering anything newer.
   useEffect(() => { void syncSiteMedia(TENANT, DATA); }, []);
@@ -752,10 +773,10 @@ export function SiteEditor() {
   // canvas still showed the home page.
   const docKey = page ? `${page.id}|${edit}` : "";
   const docRef = useRef<{ key: string; html: string }>({ key: "", html: "" });
-  if (page && docRef.current.key !== docKey) {
+  if (page && layersReady && docRef.current.key !== docKey) {
     docRef.current = { key: docKey, html: previewDoc(page, edit, edit ? undefined : mergedBp(page.id)) };
   }
-  const srcDoc = page ? docRef.current.html : "";
+  const srcDoc = page && layersReady ? docRef.current.html : "";
   const frameW = device === "desktop" ? deskW : device === "tablet" ? tabW : phoneW;
   /**
    * The number on «Опубликовать» is what is WAITING to be published, not what has ever been edited.
@@ -1353,7 +1374,7 @@ export function SiteEditor() {
             /* Not "nothing yet": the canvas is the whole screen, and a blank one reads as a broken editor. */
             <div className="se__canvas-empty" role="status" aria-live="polite">
               <Loader2 size={22} className="se__spin" />
-              <p>Открываю страницу…</p>
+              <p>{layersReady ? "Открываю страницу…" : "Загружаю правки сайта…"}</p>
             </div>
           )}
         </main>
