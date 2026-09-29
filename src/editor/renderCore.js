@@ -348,9 +348,13 @@ export const SITE_FIXES =
   // приехало `min(754px, 100%)`, и `100%` оказалось теми же 680 — заголовок в 36 знаков ломался
   // на четыре строки. Снимаем ограничение с обёртки РОВНО ТОГДА, когда клиент задал ширину её
   // заголовку: там, где он ничего не трогал, шесть колонок шаблона остаются.
+  //
+  // Потолок именно ПОДНИМАЕМ до края родителя, а не снимаем совсем. `none` пробовали — на статье
+  // блога обёртка CTA сама растёт от содержимого, и заголовок, упёршись в собственный `min(944px)`,
+  // вылез за экран на 84px при 768. `100%` даёт ту же свободу внутри страницы и не пускает наружу.
   '[class*=headline_]:not(#lgcmsx):has(>h1[style*=width],>h2[style*=width],>h3[style*=width]),' +
   '[class*=content_]:not(#lgcmsx):has(>h1[style*=width],>h2[style*=width],>h3[style*=width])' +
-    "{max-width:none;}" +
+    "{max-width:100%;}" +
   ".calc-stepno:not(#lgcmsx){color:#63718c;}" +
   // «Это предварительная оценка. Точную цену подтвердит менеджер» — 10,1px на русской главной.
   // Это не выбор клиента: правило `:nth-of-type(1)` приехало из выгрузки вместе со слоем старого
@@ -530,6 +534,7 @@ export function dropHeadingFontPins(html) {
 
 /** Apply the rule above to the page's legacy stylesheet — and to nothing else on the page. */
 export function relaxLegacyChains(html) {
+  html = жёсткиеШирины(html);
   const START = '<style id="lg-overrides">';
   const at = html ? html.indexOf(START) : -1;
   if (at < 0) return html;
@@ -537,6 +542,26 @@ export function relaxLegacyChains(html) {
   const to = html.indexOf("</style>", from);
   if (to < 0) return html;
   return html.slice(0, from) + rewriteLegacyCss(html.slice(from, to)) + html.slice(to);
+}
+
+/**
+ * Разжатие ширин во ВТОРОМ листе страницы.
+ *
+ * Разжималка выше работала только внутри `<style id="lg-overrides">`, а в голове каждой страницы
+ * лежит ещё один лист — сжатая выжимка правок с прежнего сайта, — и там те же ширины забиты
+ * намертво: `width:920px;max-width:920px`. На статье блога заголовок «SUNTEȚI GATA PENTRU
+ * CURĂȚENIE COMPLETĂ?» при 768px оказывался в коробке 920px внутри колонки в 680 и уезжал за
+ * правый край экрана на 84px. Таких пар по три на страницу, 114 на сайт.
+ *
+ * Правим только эту пару — одинаковое число в `width` и `max-width` подряд. Это подпись
+ * закрепления ширины редактором и ничего другого: одиночные ширины у иконок и разделителей
+ * шаблона (`width:1px`, `width:20px`) под неё не попадают.
+ */
+const ЖЁСТКАЯ_ПАРА = new RegExp("width:\\s*(\\d{3,4})px;\\s*max-width:\\s*(\\d{3,4})px", "g");
+function жёсткиеШирины(html) {
+  if (!html) return html;
+  return html.replace(ЖЁСТКАЯ_ПАРА, (всё, n, m) =>
+    (n === m ? `width:min(${n}px,100%);max-width:min(${n}px,100%)` : всё));
 }
 
 /**
