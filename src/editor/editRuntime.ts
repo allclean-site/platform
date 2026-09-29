@@ -16,7 +16,8 @@ import type { ImportedBlock, ImportedPage } from "./reassemble";
 // the editing canvas generates literally the same code the publisher runs — the drift this project
 // kept hitting is impossible by construction, not by remembering to patch three copies.
 import renderCoreSrc from "./renderCore.js?raw";
-import { relaxLegacyChains, withSiteRuntime, wrapBlockForEdit } from "./renderCore.js";
+import { relaxLegacyChains, withSiteRuntime, wrapBlockForEdit,
+  withMobileVideo, withLocaleLinks, withTemplateText } from "./renderCore.js";
 
 /** The core, ready to paste inside the runtime IIFE (module `export` keywords removed). */
 const CORE_INLINE = renderCoreSrc.replace(/^export\s+/gm, "");
@@ -186,6 +187,17 @@ ${CORE_INLINE}
       var b = blocks[i];
       if (b.closest("script,style")) continue;
       if (b.parentElement && b.parentElement.closest('[contenteditable="true"]')) continue; // nested (e.g. <li> in <li>)
+      // Поля, которые заполняет скрипт САМОЙ страницы, полями редактирования быть не должны:
+      // строку сообщения калькулятора и счётчик шагов он переписывает на каждом расчёте, и текст
+      // клиента там жил бы до первого клика. Заодно уходит расхождение с сайтом: пустое поле в
+      // contenteditable получает строку каретки в 24px, которой на сайте нет.
+      if (b.matches(".calc-msg,.calc-stepno")) {
+        // Атрибут мог приехать из сохранённой правки: редактор когда-то сделал это поле
+        // редактируемым, и оно так и лежит в опубликованном блоке. Снимаем явно, иначе
+        // «пропустить» ничего не меняет.
+        b.removeAttribute("contenteditable"); b.removeAttribute("spellcheck");
+        continue;
+      }
       makeCE(b);
     }
     // 2) standalone links / buttons that are NOT part of a block-text field
@@ -1868,5 +1880,11 @@ export function reassembleForEdit(p: ImportedPage): string {
       p.bodyPrefix + p.pwOpen + (header ? wrap(header) : "") + p.mainOpen + mains +
       p.mainClose + (footer ? wrap(footer) : "") + p.pwClose + p.tailScripts;
   }
-  return prefix + body + `<script>${EDIT_RUNTIME}</script>` + p.suffix;
+  const doc = prefix + body + `<script>${EDIT_RUNTIME}</script>` + p.suffix;
+  // Починки РАЗМЕТКИ публикатор применял, а холст — нет, и клиент правил не тот текст, который
+  // уедет к посетителю: плашка рейтинга показывала «4,8 на Facebook» вместо «4,8 на 999.md»,
+  // румынские ссылки вели в русскую версию, на телефоне не подставлялся лёгкий ролик героя.
+  // Порядок тот же, что в exportPageHtml. Все три идемпотентны, поэтому сохранение блока из
+  // холста не задваивает их.
+  return withTemplateText(withLocaleLinks(withMobileVideo(doc), p.lang), p.lang);
 }
