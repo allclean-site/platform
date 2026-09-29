@@ -113,6 +113,22 @@ function audit(w, d, url, width) {
     if (lh / fs > 1.35) push("разрядка разошлась с кеглем", (lh / fs).toFixed(2) + " (кегль " + Math.round(fs) + "px, строка " + Math.round(lh) + "px)",
       sel(el) + " «" + (el.textContent || "").trim().slice(0, 22) + "»");
   }
+  // Заголовок, зажатый в узкую колонку. Клиент тянет заголовок мышью, а обёртка у шаблона
+  // ограничена шестью колонками — ширина не применяется, и длинная строка разваливается на
+  // четыре. Так «РАССЧИТАЙТЕ СТОИМОСТЬ ПОД ВАШ СЛУЧАЙ» стояло в 680px из доступных 1297.
+  // Ловим по двум признакам сразу: строк три и больше И рядом есть незанятое место.
+  for (const el of d.querySelectorAll("h1,h2")) {
+    if (!vis(w, el)) continue;
+    const r = box(el), par = el.parentElement;
+    if (!par || r.width < 2) continue;
+    const s2 = w.getComputedStyle(el);
+    const lh = parseFloat(s2.lineHeight), fs = parseFloat(s2.fontSize);
+    if (!lh || !fs || fs < 28) continue;
+    const строк = Math.round(r.height / lh), место = box(par).width;
+    if (строк >= 3 && место > r.width * 1.25)
+      push("заголовок ужат", строк + " строк в " + Math.round(r.width) + "px, места " + Math.round(место) + "px",
+        sel(el) + " «" + (el.textContent || "").trim().slice(0, 22) + "»");
+  }
   // Великанский разрыв между соседями. justify-content:space-between в коробке, которую по
   // высоте задаёт сосед (фотография), сваливает весь остаток в ОДИН разрыв: в карточке услуги
   // между описанием и «Подробнее» стояло 252px при заданных 48px.
