@@ -731,35 +731,85 @@ ${CORE_INLINE}
   // overridable by the per-device media rules (inline important would break tablet/mobile). On
   // breakpoints these land in the media sheet (renderOverrides already forces important there).
   /**
-   * Сколько места элементу реально даёт его окружение: ширина содержимого ближайшего предка, чей
-   * размер от этого элемента НЕ зависит. Родитель, который растёт от ребёнка (inline-block,
-   * flex-элемент при align-items:center), ответа не даёт — его пропускаем.
+   * Сколько места тексту даёт его КОЛОНКА — и какая коробка ею служит.
    *
-   * Ширину элемента на миг обнуляем и смотрим на родителей. Кто при этом СЖАЛСЯ, тот держится за
-   * этот элемент и границы не задаёт: без ребёнка он сжимается до соседа. У заголовка героя на
-   * планшете это строка рейтингов, 336px, и раньше заголовок нельзя было растянуть ни на пиксель,
-   * хотя колонка шириной 691px. Кто не сдвинулся (колонка сетки, коробка с шириной), тот и
-   * держит границу — по ширине содержимого, без своих полей.
+   * Колонка — ближайший предок, у которого рядом, в той же строке, стоит сосед (фото, вторая
+   * колонка, карточка). Её ширину текст не отнимает у соседа: чтобы дать больше, тянут границу
+   * колонки. Всё, что между текстом и колонкой, — обёртки, и они растут вместе с текстом
+   * (widenWrappers). Раньше пределом считался ближайший родитель, а на планшете и телефоне
+   * ширина ещё и пишется как min(N, 100%) от родителя — и ручка упиралась в первую же обёртку:
+   * заголовок героя в строку рейтингов (336px при колонке 691px), абзац призыва в .subtext_cta
+   * (448px), и клиент тянул — ничего не происходило.
    */
-  function roomFor(el){
-    var chain = [], node = el.parentElement, hops = 0;
-    while (node && node !== document.body && hops++ < 6){ chain.push(node); node = node.parentElement; }
-    if (!chain.length) return 0;
-    var now = chain.map(function(n){ return n.getBoundingClientRect().width; });
-    var saved = el.style.width, savedImp = el.style.getPropertyPriority("width");
-    el.style.setProperty("width", "0px", "important");
-    var zero = chain.map(function(n){ return n.getBoundingClientRect().width; });
-    if (saved) el.style.setProperty("width", saved, savedImp); else el.style.removeProperty("width");
-    var room = 0;
-    for (var i = 0; i < chain.length; i++){
-      if (zero[i] <= 0 || zero[i] < now[i] - 1) continue;          // сжался — держится за элемент
-      var cs = getComputedStyle(chain[i]);
-      var inner = zero[i] - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0)
-        - (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0);
-      if (inner <= 0) inner = zero[i];
-      room = room ? Math.min(room, inner) : inner;
+  function sideBySide(n){
+    var p = n.parentElement; if (!p) return false;
+    var r = n.getBoundingClientRect(), k = p.children;
+    for (var i = 0; i < k.length; i++){
+      var c = k[i]; if (c === n) continue;
+      var cs = getComputedStyle(c);
+      if (cs.display === "none" || cs.position === "absolute" || cs.position === "fixed") continue;
+      var q = c.getBoundingClientRect();
+      if (q.width < 2 || q.height < 2) continue;
+      if (q.top < r.bottom - 1 && r.top < q.bottom - 1 && (q.right <= r.left + 1 || q.left >= r.right - 1)) return true;
     }
-    return Math.round(room);
+    return false;
+  }
+  function innerW(n){
+    var cs = getComputedStyle(n);
+    return n.getBoundingClientRect().width - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0)
+      - (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0);
+  }
+  function roomBox(el){
+    // Сам текст стоит в строке с соседом (значок рядом с подписью): место — то, что соседи оставили.
+    if (sideBySide(el)){
+      var p = el.parentElement, used = 0, k = p.children, r = el.getBoundingClientRect();
+      for (var i = 0; i < k.length; i++){
+        if (k[i] === el) continue;
+        var q = k[i].getBoundingClientRect();
+        if (q.width > 1 && q.top < r.bottom - 1 && r.top < q.bottom - 1) used += q.width;
+      }
+      var gap = parseFloat(getComputedStyle(p).columnGap) || 0;
+      return { box: null, room: Math.round(Math.max(r.width, innerW(p) - used - gap)) };
+    }
+    for (var n = el.parentElement, hops = 0; n && n !== document.body && hops < 12; n = n.parentElement, hops++){
+      if (isBoundary(n)) return { box: n, room: Math.round(innerW(n)) };
+    }
+    return { box: null, room: 0 };
+  }
+  /** Граница, дальше которой текст не расширяет обёртки: колонка рядом с соседом или контейнер
+   *  страницы. Без второго обёртки дорастали до самой секции, а на телефоне ширина пишется как
+   *  min(N, 100vw - 2rem) — и секция СЖИМАЛАСЬ до 358px из 390. */
+  var PAGE_BOX = /(^|\\s)(w-container|container-[a-z0-9-]+|padding-global)(\\s|$)/;
+  function isBoundary(n){
+    return sideBySide(n) || /^(SECTION|MAIN|HEADER|FOOTER|NAV|ARTICLE)$/.test(n.tagName) ||
+      PAGE_BOX.test(typeof n.className === "string" ? n.className : "");
+  }
+  /**
+   * Обёртки между текстом и колонкой — вместе с текстом. Своя ширина по размеру этого жеста
+   * (на этом устройстве), пока текст шире их содержимого; вернули текст уже — вернулись и они,
+   * но не уже, чем были.
+   */
+  function wrapChain(el, box){
+    var out = [];
+    for (var n = el.parentElement; n && n !== box && n !== document.body && out.length < 10; n = n.parentElement){
+      var cs = getComputedStyle(n);
+      out.push({ n: n, w: n.getBoundingClientRect().width,
+        pad: (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0)
+           + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0), set: false });
+    }
+    return out;
+  }
+  function widenWrappers(chain, tw){
+    var need = tw;
+    for (var i = 0; i < chain.length; i++){
+      var c = chain[i], want = need + c.pad;
+      if (want <= c.w + 1 && !c.set) break;                  // и так вмещает — выше тем более
+      if (!c.n.getAttribute("data-lg-id")) break;
+      setStyleProp(c.n, "width", Math.round(Math.max(want, c.w)) + "px");
+      setStyleProp(c.n, "max-width", "none", "important");
+      c.set = true;
+      need = Math.max(want, c.w);
+    }
   }
   function unclampWidth(el){
     setStyleProp(el, "flex-shrink", "0", "important");
@@ -933,6 +983,14 @@ ${CORE_INLINE}
         }
       }
     }
+    // Колонку и обёртки меряем ДО жеста: по ходу обёртки получают свою ширину и перестали бы
+    // отличаться от колонки.
+    var horiz = dir.indexOf("e") >= 0 || dir.indexOf("w") >= 0;
+    var room = horiz && !gridPair ? roomBox(el) : { box: null, room: 0 };
+    // Нет границы — не трогаем ничего выше самого текста (прежнее поведение).
+    var wraps = room.box ? wrapChain(el, room.box) : [];
+    // Поля обёрток съедают место колонки: текст в карточке с полями 32px шире колонки на 64px не станет.
+    for (var wp = 0; wp < wraps.length; wp++) room.room -= wraps[wp].pad;
     isDragging = true; hideHover(); txnBegin();   // whole drag = one undo step
     // A split-text field cannot re-wrap - dissolve it into one flow the moment the client takes a
     // horizontal handle, so the words actually follow the box being dragged. One undo step with the
@@ -994,8 +1052,10 @@ ${CORE_INLINE}
           // на плитки контактов, а «ОТВЕТЫ НА ВАШИ ВОПРОСЫ» вылезло из своей коробки на 149px).
           // Жест упирается в ближайшую коробку с ЗАДАННОЙ шириной: чтобы дать элементу больше места,
           // тянут границу колонки — она двигает саму коробку.
-          setStyleProp(el, "width", Math.round(Math.min(w, roomFor(el) || w)) + "px");
+          var tw = Math.round(room.room ? Math.min(w, room.room) : w);
+          setStyleProp(el, "width", tw + "px");
           unclampWidth(el);
+          widenWrappers(wraps, tw);
         }
       }
       if ((dir.indexOf("s") >= 0 || dir.indexOf("n") >= 0) && !isAutoText(el)){
