@@ -196,6 +196,8 @@ export const SITE_FIXES =
     "--_\u{1F520}-typography---size--h1:clamp(2.5rem,calc(1.125rem + 6.66vw),6.5rem);" +
     "--_\u{1F520}-typography---size--h2:clamp(2rem,calc(0.9rem + 5vw),5rem);" +
     "--_\u{1F520}-typography---size--h3:clamp(1.75rem,calc(1rem + 3vw),3.5rem);}}" +
+  // Потолок для «без потолка» с десктопа (см. withResponsiveCaps): ниже 992px — ширина родителя.
+  "@media screen and (max-width:991px){:root:not(#lgcmsx){--lg-mw:100%;}}" +
   // Карточки, чья ширина задана под десктоп: призыв внизу страниц (680px) и «Наши клинеры
   // проверены…» (564px, на десктопе она лежит поверх фото). Ниже 992px обе стоят в колонке одни, и
   // эти пределы только сужали заголовок: 5 строк вместо 3 при 755px свободной колонки.
@@ -263,7 +265,10 @@ export const SITE_FIXES =
   // считает по текущему окну и прыжок убирает. Браузер, который `dvh` не знает, просто пропустит
   // эти правила и останется на прежних `vh` — вид не меняется нигде.
   "@media screen and (max-width:991px){.master_hero-home:not(#lgcmsx){height:calc(88*var(--lg-dvh));}}" +
-  ".master_hero-about:not(#lgcmsx){min-height:calc(100*var(--lg-dvh));}" +
+  // Во весь экран — только от 992px. На телефоне карточка героя «О нас» ростом в экран держала
+  // фото и заголовок по центру, а сверху и снизу оставалось по ~200px пустоты.
+  "@media screen and (min-width:992px){.master_hero-about:not(#lgcmsx){min-height:calc(100*var(--lg-dvh));}}" +
+  "@media screen and (max-width:991px){.master_hero-about:not(#lgcmsx){min-height:0;}}" +
   ".nav-full-bg:not(#lgcmsx){height:calc(100*var(--lg-dvh));}" +
   ".master_home-about:not(#lgcmsx){max-height:calc(90*var(--lg-dvh));}" +
   ".ultra-pop_master:not(#lgcmsx){height:calc(76*var(--lg-dvh));}" +
@@ -271,13 +276,13 @@ export const SITE_FIXES =
     "h1:not(#lgcmsx),h2:not(#lgcmsx),h3:not(#lgcmsx),h4:not(#lgcmsx),h5:not(#lgcmsx),h6:not(#lgcmsx)," +
     "p:not(#lgcmsx),li:not(#lgcmsx),[class*=heading-style]:not(#lgcmsx),[class*=text-size]:not(#lgcmsx)" +
     "{word-break:normal;overflow-wrap:break-word;hyphens:auto;}" +
-    // Текст «О нас» набран заголовочным кеглем 37px, а в колонке телефона 343px: слово
+    // Текст «О нас» набран заголовочным кеглем 37px (две фразы — это абзац), а в колонке телефона 343px:
     // «профессиональных» требует 358px и не влезает НИКАК — тут уже никакие правила переноса не
     // помогут, помогает только кегль. Сужаем ровно этот блок и ровно на телефоне. !important —
     // потому что собственный размер шаблона тоже важный; правка клиента всё равно сильнее: её лист
     // идёт ниже по документу, а при равной важности и специфичности побеждает последний.
     ".text-wrap_about-description [class*=heading-style]:not(#lgcmsx)," +
-    ".text-wrap_about-description h2:not(#lgcmsx){font-size:clamp(22px,8.2vw,37px) !important;}" +
+    ".text-wrap_about-description h2:not(#lgcmsx){font-size:clamp(20px,6.2vw,30px) !important;}" +
   "}" +
   // Client's call (2026-08-02): the template's card overlay laid a heavy navy haze across the WHOLE
   // services photo — that was the ugly подложка. But the title is white and sits over the photo's
@@ -947,6 +952,22 @@ export const NAME_FIX = [
   "})();",
 ].join("");
 
+/**
+ * «Без потолка» только на десктопе.
+ *
+ * Жест растягивания на десктопе пишет элементу `max-width:none !important` — встроенным стилем
+ * или правилом базового слоя. Встроенный `!important` сильнее любого листа стилей, и на планшете
+ * такой заголовок оставался в своих десктопных 784px при колонке 596: строки резались по краям
+ * карточки. Значение становится переменной: на десктопе это по-прежнему `none`, ниже 992px —
+ * 100% (задаётся в SITE_FIXES). Скрипты страницы не трогаем.
+ */
+export function withResponsiveCaps(html) {
+  if (!html || html.indexOf("none") < 0) return html;
+  return html.split(/(<script\b[\s\S]*?<\/script>)/i).map((part, i) => (i % 2
+    ? part
+    : part.replace(/max-width\s*:\s*none\s*!\s*important/gi, "max-width:var(--lg-mw,none)!important"))).join("");
+}
+
 /** The repairs every rendered page gets: site CSS fixes + the video, marquee and slider guarantees. */
 export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
@@ -1129,11 +1150,15 @@ export function fluidFont(v) {
   if (!m) return v;
   const V = parseFloat(m[1]);
   if (V <= 28) return v;                             // small text: leave as-is
-  let F = Math.round(V * 0.62); if (F < 16) F = 16;  // floor ~62% (≈ the tablet size) at 992px
+  let F = Math.round(V * 0.62); if (F < 16) F = 16;  // ~62% at 992px (the line passes through it)
   const slope = (V - F) / 736;                       // interpolate 992px → 1728px
   const a = Math.round((F - slope * 992) * 100) / 100;
   const b = Math.round(slope * 100 * 100) / 100;
-  return `clamp(${F}px, calc(${a}px + ${b}vw), ${V}px)`;
+  // Ниже 992px прямая продолжает уменьшать кегль, а не упирается в 62%: базовый слой действует на
+  // всех ширинах, и десктопные 59px держались на телефоне как 37px — длинный заголовок «О нас»
+  // ложился в девять строк. От 992px и шире значения прежние (прямая там выше пола).
+  const lo = Math.max(16, Math.round(V * 0.36));
+  return `clamp(${lo}px, calc(${a}px + ${b}vw), ${V}px)`;
 }
 
 /** Кегль, заданный на одной ширине устройства: ровно он на ней и шире, пропорционально меньше уже
@@ -1332,6 +1357,15 @@ export function overridesCss(pageBp) {
     if (self) css += `[data-lg-id="${id}"]${B}{${self}}`;
     if (inherited) css += `[data-lg-id="${id}"] *${B}{${inherited}}`;
   }
+  // «По ширине», выбранное на десктопе, на узкой строке рвёт текст дырами между словами («Мы —
+  // команда» на 430px). Ниже 768px — по левому краю. Правила планшета и телефона идут ниже и,
+  // если клиент задал там своё выравнивание, побеждают.
+  let unjust = "";
+  for (const id of Object.keys(baseLayer)) {
+    if (String(baseLayer[id]["text-align"] || "").trim() === "justify")
+      unjust += `[data-lg-id="${id}"]${B},[data-lg-id="${id}"] *${B}{text-align:left !important;}`;
+  }
+  if (unjust) css += `@media (max-width: 767px){${unjust}}`;
   for (const dev of ["tablet", "mobile"]) {
     const elems = pageBp[dev] || {};
     let body = "";
@@ -1737,7 +1771,7 @@ export function exportPageHtml(page, overrides, pageBp, opts) {
   const blocks = withOv.map((b) => ({ ...b, content: { ...b.content, html: cleanHtml(b.content.html, keep) } }));
   // Repairs first, so a client's own edit can still override them.
   let doc = applyMedia(
-    withTemplateText(withLocaleLinks(withMobileVideo(withSiteRuntime(reassemble({ ...page, blocks }))), page.lang), page.lang),
+    withResponsiveCaps(withTemplateText(withLocaleLinks(withMobileVideo(withSiteRuntime(reassemble({ ...page, blocks }))), page.lang), page.lang)),
     media);
   const css = overridesCss(pageBp);
   if (css) {

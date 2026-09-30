@@ -17,7 +17,7 @@ import type { ImportedBlock, ImportedPage } from "./reassemble";
 // kept hitting is impossible by construction, not by remembering to patch three copies.
 import renderCoreSrc from "./renderCore.js?raw";
 import { relaxLegacyChains, withSiteRuntime, wrapBlockForEdit,
-  withMobileVideo, withLocaleLinks, withTemplateText } from "./renderCore.js";
+  withMobileVideo, withLocaleLinks, withTemplateText, withResponsiveCaps } from "./renderCore.js";
 
 /** The core, ready to paste inside the runtime IIFE (module `export` keywords removed). */
 const CORE_INLINE = renderCoreSrc.replace(/^export\s+/gm, "");
@@ -1974,5 +1974,5 @@ export function reassembleForEdit(p: ImportedPage): string {
   // румынские ссылки вели в русскую версию, на телефоне не подставлялся лёгкий ролик героя.
   // Порядок тот же, что в exportPageHtml. Все три идемпотентны, поэтому сохранение блока из
   // холста не задваивает их.
-  return withTemplateText(withLocaleLinks(withMobileVideo(doc), p.lang), p.lang);
+  return withResponsiveCaps(withTemplateText(withLocaleLinks(withMobileVideo(doc), p.lang), p.lang));
 }

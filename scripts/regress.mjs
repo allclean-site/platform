@@ -31,7 +31,7 @@ import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import { withBlogCards } from "./blog-cards.mjs";
 import {
   applyOverrides, relaxLegacyChains, withSiteRuntime, wrapBlockForEdit, overridesCss, EDITOR_ONLY_CSS,
-  applyMedia, decodeMedia, MEDIA_KEY, withMobileVideo, withLocaleLinks, withTemplateText,
+  applyMedia, decodeMedia, MEDIA_KEY, withMobileVideo, withLocaleLinks, withTemplateText, withResponsiveCaps,
 } from "../src/editor/renderCore.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -106,7 +106,7 @@ function canvasTwin(p, pageOv, pageBp, media) {
     '<style id="lgcms-overrides">' + overridesCss(pageBp) + "</style>";
   const withStyles = prefix.includes("</head>") ? prefix.replace("</head>", styles + "</head>") : styles + prefix;
   // Те же починки разметки, что применяет reassembleForEdit в кабинете и exportPageHtml на сайте.
-  const doc = withTemplateText(withLocaleLinks(withMobileVideo(withStyles + body + p.suffix), p.lang), p.lang);
+  const doc = withResponsiveCaps(withTemplateText(withLocaleLinks(withMobileVideo(withStyles + body + p.suffix), p.lang), p.lang));
   // Служебные атрибуты редактирования осели в сохранённых правках клиента (1099 штук на семи
   // страницах). На сайт они не попадают — экспорт их снимает, — а в двойнике оставались и делали
   // пустое поле на строку выше: в contenteditable у пустого блока появляется строка каретки.

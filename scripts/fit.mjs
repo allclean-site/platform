@@ -22,7 +22,7 @@ iframe{border:0;display:block;position:absolute;left:-10000px;top:0}#log{padding
 <div id="log">готовлю…</div><iframe id="f"></iframe>
 <script>
 const URLS = ${JSON.stringify(URLS)};
-const WIDTHS = [[390, 844], [600, 960], [700, 1000], [768, 1024], [834, 1112], [990, 1200]];
+const WIDTHS = [[360, 780], [390, 844], [430, 932], [520, 900], [600, 960], [660, 1080], [700, 1000], [768, 1024], [834, 1112], [990, 1200]];
 const SEL = "h1,h2,h3,[class*=heading-style-h1],[class*=heading-style-h2],[class*=heading-style-h3]";
 const out = []; window.__FIT = out;
 const log = document.getElementById("log"), f = document.getElementById("f");
@@ -102,6 +102,9 @@ function строки(doc, el) {
         const лишних = s.lines - нужно, узко = r.width < col * 0.85;
         const why = [];
         if (s.broken) why.push("перенос внутри слова ×" + s.broken);
+        const vw = doc.documentElement.clientWidth;
+        if (r.left < -1 || r.right > vw + 1) why.push("за краем экрана (" + Math.round(r.left) + "…" + Math.round(r.right) + " при " + vw + ")");
+        else if (r.width > col + 2) why.push("коробка шире колонки (" + Math.round(r.width) + " > " + Math.round(col) + ")");
         if (s.longest > col + 1) why.push("слово шире колонки (" + Math.round(s.longest) + " > " + Math.round(col) + ")");
         if (s.lines >= 3 && (лишних >= 2 || (s.lines >= 4 && лишних >= 1 && узко))) why.push(s.lines + " строк вместо " + нужно + (узко ? ", коробка " + Math.round(r.width) + " из " + Math.round(col) + "px" : ""));
         if (why.length) out.push({ url: URLS[i], W, tag: host.tagName, id: host.getAttribute("data-lg-id") || "",

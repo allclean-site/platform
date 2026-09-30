@@ -40,6 +40,7 @@ export declare function withSiteRuntime(html: string): string;
 export declare function withMobileVideo(html: string): string;
 export declare function withLocaleLinks(html: string, lang: string): string;
 export declare function withTemplateText(html: string, lang: string): string;
+export declare function withResponsiveCaps(html: string): string;
 /** Canvas-only CSS repairs (100vh-hero feedback spiral) — injected by the runtime AND the harness. */
 export declare const EDITOR_ONLY_CSS: string;
 /** The editor's block wrapper (marker div, display:contents) — shared with the harness. */
