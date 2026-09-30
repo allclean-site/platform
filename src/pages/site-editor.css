@@ -40,11 +40,6 @@
   border: 0; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: var(--e1); }
 .se__publish:hover:not(:disabled) { background: var(--accent-hover); }
 .se__publish:disabled { opacity: .5; cursor: default; }
-/* Правки, которые лежат только в этом браузере. Рядом с «Опубликовать», но тише её: это не
-   действие дня, а замок от ситуации «в холсте не то, что на сайте». */
-.se__ghost { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: var(--r-md);
-  border: 1px solid var(--stroke); background: transparent; color: var(--text-dim); font-size: 13px; cursor: pointer; }
-.se__ghost:hover { color: var(--text); border-color: var(--text-dim); }
 
 /* Transient notice (lost selection, storage full). Deliberately NOT the full-screen error state —
    a hiccup must never take the client out of the page they are editing. */

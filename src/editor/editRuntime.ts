@@ -731,22 +731,34 @@ ${CORE_INLINE}
   // overridable by the per-device media rules (inline important would break tablet/mobile). On
   // breakpoints these land in the media sheet (renderOverrides already forces important there).
   /**
-   * Сколько места элементу реально даёт его окружение. Родитель, который сам растёт от ребёнка
-   * (inline-block, flex-элемент при align-items:center), ответа не даёт — поэтому ширину у элемента
-   * на миг обнуляем и смотрим, во что упирается коробка вокруг.
+   * Сколько места элементу реально даёт его окружение: ширина содержимого ближайшего предка, чей
+   * размер от этого элемента НЕ зависит. Родитель, который растёт от ребёнка (inline-block,
+   * flex-элемент при align-items:center), ответа не даёт — его пропускаем.
+   *
+   * Ширину элемента на миг обнуляем и смотрим на родителей. Кто при этом СЖАЛСЯ, тот держится за
+   * этот элемент и границы не задаёт: без ребёнка он сжимается до соседа. У заголовка героя на
+   * планшете это строка рейтингов, 336px, и раньше заголовок нельзя было растянуть ни на пиксель,
+   * хотя колонка шириной 691px. Кто не сдвинулся (колонка сетки, коробка с шириной), тот и
+   * держит границу — по ширине содержимого, без своих полей.
    */
   function roomFor(el){
-    var p = el.parentElement;
-    if (!p) return 0;
+    var chain = [], node = el.parentElement, hops = 0;
+    while (node && node !== document.body && hops++ < 6){ chain.push(node); node = node.parentElement; }
+    if (!chain.length) return 0;
+    var now = chain.map(function(n){ return n.getBoundingClientRect().width; });
     var saved = el.style.width, savedImp = el.style.getPropertyPriority("width");
     el.style.setProperty("width", "0px", "important");
-    var room = 0, node = p, hops = 0;
-    while (node && hops++ < 4){
-      var w0 = node.getBoundingClientRect().width;
-      if (w0 > 0) room = room ? Math.min(room, w0) : w0;
-      node = node.parentElement;
-    }
+    var zero = chain.map(function(n){ return n.getBoundingClientRect().width; });
     if (saved) el.style.setProperty("width", saved, savedImp); else el.style.removeProperty("width");
+    var room = 0;
+    for (var i = 0; i < chain.length; i++){
+      if (zero[i] <= 0 || zero[i] < now[i] - 1) continue;          // сжался — держится за элемент
+      var cs = getComputedStyle(chain[i]);
+      var inner = zero[i] - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0)
+        - (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0);
+      if (inner <= 0) inner = zero[i];
+      room = room ? Math.min(room, inner) : inner;
+    }
     return Math.round(room);
   }
   function unclampWidth(el){
@@ -1087,8 +1099,24 @@ ${CORE_INLINE}
     return el;
   }
 
+  /** Inside an endless animation (a running strip)? Asked of the animations themselves: at click time
+   *  the strip is usually already standing still under the cursor (the site pauses it on hover), so
+   *  measuring two frames saw nothing — and it drove off with the card the moment the mouse went to
+   *  the panel. */
+  function inLoop(el){
+    for (var n = el; n && n.nodeType === 1; n = n.parentElement){
+      var an = n.getAnimations ? n.getAnimations() : [];
+      for (var i = 0; i < an.length; i++){
+        var t = an[i].effect && an[i].effect.getTiming ? an[i].effect.getTiming() : null;
+        if (t && t.iterations === Infinity && an[i].playState !== "idle") return true;
+      }
+    }
+    return false;
+  }
+
   function watchMotion(el){
     if (!el || !el.getBoundingClientRect) return;
+    if (inLoop(el)){ freezeMotion(true); return; }
     var a = el.getBoundingClientRect();
     requestAnimationFrame(function(){
       requestAnimationFrame(function(){

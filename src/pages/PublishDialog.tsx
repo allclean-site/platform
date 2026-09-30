@@ -22,8 +22,12 @@ import type { PageOverrides } from "../editor/realStore";
 
 export function PublishDialog({
   index, dataBase, overrides, bp, onDownload, onClose, publishedBy = "", othersPages = [], onRelogin, onPublished,
-  clearPages = [],
+  clearPages = [], pending, newPhotos,
 }: {
+  /** Сколько правок ЖДЁТ публикации — то же число, что на кнопке «Опубликовать». */
+  pending?: number;
+  /** Сколько правил замены фото появилось с прошлой публикации. */
+  newPhotos?: number;
   index: SiteIndex;
   dataBase: string;
   overrides: SiteOverrides;
@@ -251,7 +255,10 @@ export function PublishDialog({
   // contains it. Without counting it here the summary says "0 правок" and the publish button stays
   // disabled — the client replaces a photo and cannot publish it.
   const mediaRules = decodeMedia((overrides as Record<string, Record<string, string>>)[MEDIA_KEY]?.[MEDIA_KEY]);
-  const edits = (reports ? reports.reduce((n, r) => n + r.edits, 0) : 0) + mediaRules.length;
+  // Не «всё, что когда-либо правили»: сумма по страницам включает давно опубликованное, и клиент
+  // видел «116 правок», нажав «Опубликовать (3)». Показываем то же, что на кнопке.
+  const edits = pending ?? (reports ? reports.reduce((n, r) => n + r.edits, 0) : 0) + mediaRules.length;
+  const photos = newPhotos ?? mediaRules.length;
   const clean = reports ? reports.filter((r) => r.issues.length === 0).length : 0;
 
   return (
@@ -293,9 +300,9 @@ export function PublishDialog({
               <div className={"pub__stat" + (warns ? " pub__stat--warn" : "")}><b>{warns}</b><span>предупреждений</span></div>
             </div>
 
-            {mediaRules.length > 0 && (
+            {photos > 0 && (
               <p className="pub__note">
-                <CheckCircle2 size={16} /> Заменённых фото: {mediaRules.length} — каждое применится на всех страницах,
+                <CheckCircle2 size={16} /> Заменённых фото: {photos} — каждое применится на всех страницах,
                 во всех копиях блока и в обеих языковых версиях.
               </p>
             )}

@@ -797,42 +797,16 @@ export function SiteEditor() {
    * said 24, which reads as "the publish did not work". Comparing against the published layer makes
    * it mean what the client thinks it means, and it reaches zero the moment the publish lands.
    */
-  /**
-   * Правки, лежащие ТОЛЬКО в этом браузере. Их важно уметь посчитать и сбросить отдельно от общих:
-   * локальный слой сильнее опубликованного, и застрявшая в нём копия блока показывает в холсте не
-   * то, что стоит на сайте. Именно так на главной висел исходный заголовок шаблона поверх
-   * опубликованного «Curațenie profesională în Chișinău și în toată Moldova».
-   */
-  const localEdits = (() => {
-    let n = 0;
-    for (const pid of Object.keys(overrides.current)) n += Object.keys(overrides.current[pid] || {}).length;
-    for (const pid of Object.keys(bpOverrides.current)) {
-      const rec = bpOverrides.current[pid];
-      for (const layer of BP_LAYERS) n += Object.keys(rec?.[layer] ?? {}).length;
-    }
-    return n;
+  /** Правила замены фото, которых ещё нет на сайте. Каждое — одна правка, сколько бы копий оно ни меняло. */
+  const newPhotos = (() => {
+    const live = decodeMedia(pubOverrides.current[MEDIA_KEY]?.[MEDIA_KEY]);
+    return mediaRules().filter((r) => !live.some((l) => l.scope === r.scope && l.to === r.to && l.from === r.from)).length;
   })();
-
-  /** Убрать локальный слой целиком: холст возвращается к тому, что опубликовано и лежит в общем черновике. */
-  const dropLocal = () => {
-    if (!window.confirm(
-      `Сбросить ${localEdits} правк(и), сохранённые только в этом браузере?
-
-` +
-      "Опубликованное на сайте и общий черновик не пострадают — холст просто вернётся к ним. " +
-      "Правки, которых нет больше нигде, будут потеряны."
-    )) return;
-    overrides.current = {};
-    bpOverrides.current = {};
-    saveOverrides(TENANT, SITE, {});
-    saveBp(TENANT, SITE, {});
-    setSyncTick((t) => t + 1);
-  };
-
   const pendingEdits = (() => {
     let n = 0;
     const pageIds = new Set([...Object.keys(pubOverrides.current), ...Object.keys(draftOv.current), ...Object.keys(overrides.current)]);
     for (const pid of pageIds) {
+      if (pid === MEDIA_KEY) continue;                 // фото считаются по правилам, ниже
       const now = mergedOv(pid);
       const live = mergeOverrideLayers(pubOverrides.current[pid]);
       for (const blockId of new Set([...Object.keys(now), ...Object.keys(live)])) {
@@ -850,7 +824,7 @@ export function SiteEditor() {
         }
       }
     }
-    return n;
+    return n + newPhotos;
   })();
 
   // Apply a property change to the selected element (updates the panel + the iframe → saved).
@@ -1291,12 +1265,6 @@ export function SiteEditor() {
         {/* Сначала перечитываем то, что уже опубликовано, и только потом открываем диалог: вкладка,
             открытая несколько часов назад, иначе публикует свою старую картину поверх того, что за
             это время выложили с другого устройства. Диалог снимает состояние один раз при открытии. */}
-        {localEdits > 0 && (
-          <button className="se__ghost" onClick={dropLocal}
-            title="Эти правки сохранены только в этом браузере. Сбросить — вернуть холст к тому, что на сайте.">
-            Только здесь: {localEdits}
-          </button>
-        )}
         <button className="se__publish" onClick={async () => { await pullPublished(); setPublishing(true); }}>
           <Rocket size={15} /> Опубликовать{pendingEdits ? ` (${pendingEdits})` : ""}
         </button>
@@ -1554,6 +1522,8 @@ export function SiteEditor() {
           overrides={allOverrides()}
           bp={allBp()}
           clearPages={clearedPages()}
+          pending={pendingEdits}
+          newPhotos={newPhotos}
           othersPages={othersPages()}
           /**
            * What just went live becomes the new baseline, here and now. Without this the editor keeps
