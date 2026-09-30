@@ -183,13 +183,33 @@ export const SITE_FIXES =
   // занимает 660: `justify-content:space-between` разносит остаток в один разрыв, и между
   // заголовком и кнопками появлялась дыра в 188px (у румынской версии, где высота своя, — 64px).
   // Фиксированная высота у текстовой колонки не переживает смены языка: она уже дважды ломала
-  // эту страницу — сначала наездом плиток на кнопки, теперь пустотой. На десктопе не применяем;
-  // на планшете и телефоне колонка и так распускается.
-  "@media screen and (min-width:992px){.left_hero-home:not(#lgcmsx){height:auto !important;min-height:0 !important;" +
-    // …и содержимое прижимаем к верху. Колонка растягивается на высоту ряда героя (88vh), а на
-    // страницах услуг заголовок короткий — `space-between` сваливал весь остаток в ОДИН разрыв
-    // между заголовком и кнопками: 273px на румынских и 330px на русских при заданных 64px.
-    "}}" +
+  // эту страницу — сначала наездом плиток на кнопки, теперь пустотой. На ВСЕХ ширинах: раньше
+  // правило стояло только от 992px, а растянутые мышью 784px — встроенный стиль, он действует
+  // везде. На планшете при 700px кнопки уезжали на 293px ниже заголовка.
+  ".left_hero-home:not(#lgcmsx){height:auto !important;min-height:0 !important;}" +
+  // Шкала заголовков шаблона ниже 992px. У шаблона планшет (768–991px) получает ДЕСКТОПНЫЕ размеры
+  // — h1 104px, h2 80px, h3 56px, — а телефон 64/48/40 при любой ширине. Русские и румынские
+  // слова длинные: «ВЫ ГОТОВЫ К ПОЛНОЙ ЧИСТОТЕ?» ложилось по одному-два слова в строку на трёх
+  // строках, «ПОЛЕЗНЫЕ СОВЕТЫ…» — пять слов на четыре строки. Размер теперь идёт от ширины экрана:
+  // h1 44→84px, h2 34→64px, h3 28→46px на отрезке 390→991px. Кегль, заданный правкой, сильнее.
+  "@media screen and (max-width:991px){body:not(#lgcmsx){" +
+    "--_\u{1F520}-typography---size--h1:clamp(2.5rem,calc(1.125rem + 6.66vw),6.5rem);" +
+    "--_\u{1F520}-typography---size--h2:clamp(2rem,calc(0.9rem + 5vw),5rem);" +
+    "--_\u{1F520}-typography---size--h3:clamp(1.75rem,calc(1rem + 3vw),3.5rem);}}" +
+  // Карточки, чья ширина задана под десктоп: призыв внизу страниц (680px) и «Наши клинеры
+  // проверены…» (564px, на десктопе она лежит поверх фото). Ниже 992px обе стоят в колонке одни, и
+  // эти пределы только сужали заголовок: 5 строк вместо 3 при 755px свободной колонки.
+  "@media screen and (max-width:991px){.content_cta:not(#lgcmsx),.content_home-about:not(#lgcmsx){max-width:100%;}}" +
+  // Старая таблица стилей прежней сборки сайта (лежит в шапке каждой страницы) прибивает под
+  // `min-width:768px` ДЕСКТОПНЫЕ размеры — и они достаются планшету: «Наши клинеры…» 468px,
+  // «Мы специализируемся…» 64px с межстрочным 60px, заголовки призыва и отзывов с межстрочным
+  // 92px при кегле 53px (разрыв между строками больше самих букв), FAQ шириной 829px !important —
+  // шире экрана в 768px. На 768–991px ширина — по колонке, кегль — из шкалы выше, строка — долей.
+  "@media screen and (min-width:768px) and (max-width:991px){" +
+    ".content_home-about h2.heading-style-h3:not(#lgcmsx){width:auto;max-width:100%;}" +
+    "#features-heading:not(#lgcmsx){width:auto;max-width:100%;font-size:var(--_\u{1F520}-typography---size--h2);line-height:1.05;}" +
+    ".content_cta h2:not(#lgcmsx),.headline_testimonials h2.margin-0:not(#lgcmsx){line-height:1.05;}" +
+    "#faq-heading:not(#lgcmsx){width:auto !important;max-width:100% !important;line-height:1.05 !important;}}" +
   // Подзаголовок героя: на страницах услуг название короткое, и без него плашка пустовала.
   // Держим его в одном ритме с заголовком — тот же отступ сверху, что и между строками.
   ".hero-home_sub:not(#lgcmsx){margin-top:20px;max-width:34ch;opacity:.92;}" +
@@ -486,6 +506,11 @@ function rewriteLegacyCss(css) {
     .split("main.main-wrapper:nth-of-type(1) > ").join("main.main-wrapper:nth-of-type(1) ");
 
   return relaxed
+    // Прежний редактор знал два экрана: телефон и «от 768px». Всё, что в нём правили на десктопе
+    // (кегли 84–120px, межстрочные 80–92px, ширины под 1440), записано под min-width:768px с
+    // !important и достаётся планшету — на 768–991px заголовки ложились по слову в строку. Эти
+    // правки десктопные, и действовать им положено с десктопа.
+    .replace(/@media\s*\(\s*min-width\s*:\s*768px\s*\)/gi, "@media (min-width: 992px)")
     .replace(/grid-template-columns\s*:\s*([^;}!]+)/gi, (whole, value) => {
       const fr = pxTracksToFr(value);
       return fr ? "grid-template-columns:" + fr : whole;
@@ -1111,6 +1136,17 @@ export function fluidFont(v) {
   return `clamp(${F}px, calc(${a}px + ${b}vw), ${V}px)`;
 }
 
+/** Кегль, заданный на одной ширине устройства: ровно он на ней и шире, пропорционально меньше уже
+ *  (не ниже доли floor). Мелкий текст не трогаем — там важнее читаемость, чем строка. */
+export function deviceFont(v, at, floor) {
+  const m = /^(\d+(?:\.\d+)?)px$/.exec(v);
+  if (!m) return v;
+  const V = parseFloat(m[1]);
+  if (V <= 24) return v;
+  const lo = Math.round(V * floor);
+  return `clamp(${lo}px, ${Math.round((V * 100 / at) * 1000) / 1000}vw, ${V}px)`;
+}
+
 /**
  * A link the client typed, made safe to publish.
  *
@@ -1222,7 +1258,15 @@ function fitValue(prop, sv, layer) {
   // держит снизу 62% — а для правила, которое и так действует только на телефоне (≤479px) или
   // планшете (≤991px), эта нижняя граница выигрывает ВСЕГДА: клиент ставит 34px, глядя на телефон,
   // и видит 21px. В слое, привязанном к ширине, размер уже выбран для этой ширины.
-  if (prop === "font-size") return !layer || layer === "base" ? fluidFont(sv) : sv;
+  if (prop === "font-size") {
+    if (!layer || layer === "base") return fluidFont(sv);
+    // Слой планшета действует от 480 до 991px, телефона — до 479px, а кегль в нём ОДИН, выбранный
+    // на ширине холста (834 и 390). Румынский герой в 74px хорош на 900px и ложится в пять строк на
+    // 700px. Теперь на ширине холста — ровно заданный размер, уже — пропорционально меньше.
+    if (layer === "tablet") return deviceFont(sv, 834, 0.7);
+    if (layer === "mobile") return deviceFont(sv, 390, 0.75);
+    return sv;
+  }
   // A width the client dragged is capped at the VIEWPORT, not at the container: it keeps their size,
   // and it does NOT stop them making a box wider than its column — capping at 100% did exactly that,
   // so a full-width heading could not be resized at all, which read as "текст не тянется".
