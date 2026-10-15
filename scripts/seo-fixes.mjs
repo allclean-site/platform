@@ -68,7 +68,9 @@ function favicon(html) {
 const POSTER = "/video/hero-poster.jpg";
 function posterPreload(html) {
   if (!html.includes(`data-poster-url="${POSTER}"`) || html.includes(`rel="preload" as="image" href="${POSTER}"`)) return html;
-  return swapRe(html, "poster:preload", /<\/head>/, `<link rel="preload" as="image" href="${POSTER}" fetchpriority="high"></head>`);
+  // В самое начало <head>: после него идут 220 КБ встроенных стилей, и ссылка в конце шапки
+  // доходила до браузера слишком поздно (замер: LCP не изменился).
+  return swapRe(html, "poster:preload", /(<meta name="viewport"[^>]*>)/, `$1<link rel="preload" as="image" href="${POSTER}" fetchpriority="high">`);
 }
 
 // ── 5. Карточка организации ───────────────────────────────────────────────────────────
