@@ -14,7 +14,7 @@ import { applySeoFixes } from "./seo-fixes.mjs";
 
 // Редакция политики конфиденциальности. Уходит в базу вместе с каждой заявкой: по ней
 // видно, на какой текст соглашался человек. Меняете политику — меняете и её.
-export const POLICY_VERSION = "2026-08-31";
+export const POLICY_VERSION = "2026-10-15";
 
 const counts = new Map();
 const bump = (key, n) => counts.set(key, (counts.get(key) || 0) + n);
