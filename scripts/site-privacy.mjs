@@ -10,6 +10,8 @@
 // пропал, сборка не молчит: `report()` печатает нули, а `assertApplied()` роняет сборку.
 // Молча выкатить сайт без обязательной галочки согласия — ровно то, чего допускать нельзя.
 
+import { applySeoFixes } from "./seo-fixes.mjs";
+
 // Редакция политики конфиденциальности. Уходит в базу вместе с каждой заявкой: по ней
 // видно, на какой текст соглашался человек. Меняете политику — меняете и её.
 export const POLICY_VERSION = "2026-08-31";
@@ -153,6 +155,8 @@ export function applySitePrivacy(html, lang) {
   out = photos(out);
   out = footer(out, lang);
   out = consentGuard(out);
+  // SEO и кнопки связи — тем же слоем, чтобы холст кабинета совпадал с сайтом.
+  out = applySeoFixes(out, lang);
   return out;
 }
 

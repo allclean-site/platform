@@ -30,6 +30,7 @@ import {
 // запись, закрытые фотографии, реквизиты в подвале). Применяются к готовому HTML, чтобы
 // зеркало осталось снимком; см. комментарий в самом модуле.
 import { applySitePrivacy, report as privacyReport, assertApplied as assertPrivacy } from "./site-privacy.mjs";
+import { seoReport, assertSeoApplied } from "./seo-fixes.mjs";
 import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import { withBlogCards } from "./blog-cards.mjs";
@@ -396,6 +397,8 @@ async function main() {
 
   console.log(`[build] правки 195/2024: ${privacyReport()}`);
   assertPrivacy();
+  console.log(`[build] seo-fixes: ${seoReport()}`);
+  assertSeoApplied();
 
   // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept)
   // and add their cards to the /blog and /ru/blog index grids.
