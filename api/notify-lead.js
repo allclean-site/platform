@@ -72,6 +72,12 @@ export function buildMessage(body, phone) {
     "retail": ["Уборка магазинов", "Curățenie magazine"],
     "floor-restoration": ["Реставрация полов", "Restaurare pardoseli"],
     "disinfection": ["Дезинфекция производств", "Dezinfecție producție"],
+    "deep-cleaning": ["Генеральная уборка", "Curățenie generală"],
+    "parquet": ["Реставрация паркета", "Restaurare parchet"],
+    "marble": ["Полировка мрамора", "Polizare marmură"],
+    "linoleum": ["Чистка линолеума и резины", "Curățare linoleum și cauciuc"],
+    "facades": ["Мойка фасадов", "Spălare fațade"],
+    "flood-cleanup": ["Уборка после затопления", "Curățenie după inundație"],
   };
   const услуга = (raw) => {
     const s = field(raw, 80);

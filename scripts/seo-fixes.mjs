@@ -61,6 +61,16 @@ function favicon(html) {
   return swapRe(html, "favicon", /<\/head>/, ICONS + "</head>");
 }
 
+// ── 4б. Постер видео первого экрана ───────────────────────────────────────────────────
+// Самый крупный элемент первого экрана — фоновое видео; пока оно не пошло, виден постер.
+// Браузер узнавал о постере только после 230 КБ встроенных стилей и скриптов Webflow, и на
+// телефоне первый экран дорисовывался за 6,9 с (Lighthouse, /ru/services/home-cleaning).
+const POSTER = "/video/hero-poster.jpg";
+function posterPreload(html) {
+  if (!html.includes(`data-poster-url="${POSTER}"`) || html.includes(`rel="preload" as="image" href="${POSTER}"`)) return html;
+  return swapRe(html, "poster:preload", /<\/head>/, `<link rel="preload" as="image" href="${POSTER}" fetchpriority="high"></head>`);
+}
+
 // ── 5. Карточка организации ───────────────────────────────────────────────────────────
 // Координаты — из кода места профиля в Google Картах (2RV3+W3, Кишинёв).
 const ORG_EXTRA = {
@@ -92,6 +102,7 @@ export function applySeoFixes(html, lang) {
   out = contacts(out);
   out = socials(out);
   out = favicon(out);
+  out = posterPreload(out);
   out = org(out, lang);
   return out;
 }

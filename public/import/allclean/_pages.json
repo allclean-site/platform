@@ -2047,6 +2047,786 @@
           "region": "footer"
         }
       ]
+    },
+    {
+      "id": "services/deep-cleaning/index.html",
+      "file": "services__deep-cleaning",
+      "slug": "/services/deep-cleaning",
+      "lang": "ro",
+      "group": "/ru/services/deep-cleaning",
+      "title": "Curățenie generală în Chișinău — de la 45 lei/m² | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "ru/services/deep-cleaning/index.html",
+      "file": "ru__services__deep-cleaning",
+      "slug": "/ru/services/deep-cleaning",
+      "lang": "ru",
+      "group": "/ru/services/deep-cleaning",
+      "title": "Генеральная уборка в Кишинёве — от 45 лей/м² | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "services/parquet/index.html",
+      "file": "services__parquet",
+      "slug": "/services/parquet",
+      "lang": "ro",
+      "group": "/ru/services/parquet",
+      "title": "Restaurare parchet Chișinău — de la 250 lei/m² | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "ru/services/parquet/index.html",
+      "file": "ru__services__parquet",
+      "slug": "/ru/services/parquet",
+      "lang": "ru",
+      "group": "/ru/services/parquet",
+      "title": "Циклевка паркета в Кишинёве — от 250 лей/м² | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "services/marble/index.html",
+      "file": "services__marble",
+      "slug": "/services/marble",
+      "lang": "ro",
+      "group": "/ru/services/marble",
+      "title": "Polizare marmură în Chișinău — de la 180 lei/m² | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "ru/services/marble/index.html",
+      "file": "ru__services__marble",
+      "slug": "/ru/services/marble",
+      "lang": "ru",
+      "group": "/ru/services/marble",
+      "title": "Полировка мрамора в Кишинёве — от 180 лей/м² | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "services/linoleum/index.html",
+      "file": "services__linoleum",
+      "slug": "/services/linoleum",
+      "lang": "ro",
+      "group": "/ru/services/linoleum",
+      "title": "Curățare linoleum și pardoseli din cauciuc | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "ru/services/linoleum/index.html",
+      "file": "ru__services__linoleum",
+      "slug": "/ru/services/linoleum",
+      "lang": "ru",
+      "group": "/ru/services/linoleum",
+      "title": "Чистка линолеума и резиновых покрытий в Кишинёве | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "services/facades/index.html",
+      "file": "services__facades",
+      "slug": "/services/facades",
+      "lang": "ro",
+      "group": "/ru/services/facades",
+      "title": "Spălare fațade și vitrine în Chișinău — preț | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "ru/services/facades/index.html",
+      "file": "ru__services__facades",
+      "slug": "/ru/services/facades",
+      "lang": "ru",
+      "group": "/ru/services/facades",
+      "title": "Мойка фасадов и витрин в Кишинёве — цена | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "services/flood-cleanup/index.html",
+      "file": "services__flood-cleanup",
+      "slug": "/services/flood-cleanup",
+      "lang": "ro",
+      "group": "/ru/services/flood-cleanup",
+      "title": "Curățenie după inundație și avarie la canalizare | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
+    },
+    {
+      "id": "ru/services/flood-cleanup/index.html",
+      "file": "ru__services__flood-cleanup",
+      "slug": "/ru/services/flood-cleanup",
+      "lang": "ru",
+      "group": "/ru/services/flood-cleanup",
+      "title": "Уборка после затопления и прорыва канализации | All Clean",
+      "blocks": [
+        {
+          "id": "sec-header",
+          "label": "Шапка",
+          "region": "header"
+        },
+        {
+          "id": "sec-0",
+          "label": "Hero",
+          "region": "main"
+        },
+        {
+          "id": "sec-1",
+          "label": "Преимущества",
+          "region": "main"
+        },
+        {
+          "id": "sec-2",
+          "label": "Отзывы",
+          "region": "main"
+        },
+        {
+          "id": "sec-3",
+          "label": "Калькулятор",
+          "region": "main"
+        },
+        {
+          "id": "sec-4",
+          "label": "Как это работает",
+          "region": "main"
+        },
+        {
+          "id": "sec-5",
+          "label": "О нас",
+          "region": "main"
+        },
+        {
+          "id": "sec-6",
+          "label": "FAQ",
+          "region": "main"
+        },
+        {
+          "id": "sec-7",
+          "label": "CTA",
+          "region": "main"
+        },
+        {
+          "id": "sec-8",
+          "label": "Преимущества (низ)",
+          "region": "main"
+        },
+        {
+          "id": "sec-footer",
+          "label": "Footer",
+          "region": "footer"
+        }
+      ]
     }
   ]
 }
