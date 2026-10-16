@@ -456,6 +456,7 @@ function links(idx) {
         if (!h.includes(from)) throw new Error(`перелинковка: нет якоря в ${entry.file} ${block}`);
         h = h.replace(from, to);
       }
+      if (TRUST_PAGES.test(entry.file) && h.includes('class="faq-block')) h = appendFaq(h, TRUST[entry.lang]);
       if (h !== b.content.html) { b.content = { ...b.content, html: h }; changed = true; }
     }
     if (changed) { writeFileSync(file, JSON.stringify(page)); n++; }
@@ -463,4 +464,37 @@ function links(idx) {
   console.log(`[service-pages] перелинковка: ${n} страниц`);
 }
 
-build();
+// ── Гарантия и часы работы на посадочных ──────────────────────────────────────────────
+// Реклама обещает переуборку за 24 часа, работу с 8 до 21 и бесплатный перенос. По правилам
+// Google обещание должно быть видно на странице, куда ведёт объявление, а было только на /faq.
+// Формулировки — клиента, со страницы вопросов. Главная тоже посадочная (общие группы).
+const TRUST_PAGES = /^(ru__)?services__|^(index|ru)$/;
+export const TRUST = {
+  ru: [
+    ["Что если меня не устроит качество уборки?", "Свяжитесь с нами в течение 24 часов — бесплатно отправим клинера повторно, без лишних вопросов."],
+    ["Когда вы работаете и можно ли перенести визит?", "Работаем ежедневно с 8:00 до 21:00. Перенести или отменить запись можно бесплатно не позднее чем за 24 часа до визита."],
+  ],
+  ro: [
+    ["Ce fac dacă nu sunt mulțumit de calitatea curățeniei?", "Contactați-ne în 24 de ore — trimitem gratuit un curățător din nou, fără întrebări."],
+    ["Când lucrați și pot reprograma vizita?", "Lucrăm zilnic între 8:00 și 21:00. Puteți reprograma sau anula gratuit cu cel puțin 24 de ore înainte de vizită."],
+  ],
+};
+
+/** Дописать вопросы в конец списка FAQ по образцу первого вопроса; уже имеющиеся пропустить. */
+export function appendFaq(html, items) {
+  const at = html.indexOf('class="faq-block');
+  const open = html.lastIndexOf("<div", at), close = end(html, open);
+  const first = html.indexOf('<div class="expandable-single', open);
+  if (first < 0 || first > close) return html;
+  // Образец без служебных атрибутов редактора: холст расставит свои.
+  const tpl = html.slice(first, end(html, first)).replace(/\s(?:data-lg-[a-z0-9-]+|contenteditable|spellcheck)="[^"]*"/g, "");
+  const text = html.slice(open, close).replace(/<[^>]+>|&nbsp;/g, " ").replace(/\s+/g, " ");
+  const add = items.filter(([q]) => !text.includes(q)).map(([q, a]) => tpl
+    .replace(/(<div class="text-size-large text_body-bold"[^>]*>)[\s\S]*?(<\/div>)/, `$1${esc(q)}$2`)
+    .replace(/(<p class="faq-paragraph"[^>]*>)[\s\S]*?(<\/p>)/, `$1${esc(a)}$2`)).join("");
+  if (!add) return html;
+  const inner = close - "</div>".length;
+  return html.slice(0, inner) + add + html.slice(inner);
+}
+
+if (process.argv[1] && process.argv[1].endsWith("service-pages.mjs")) build();
