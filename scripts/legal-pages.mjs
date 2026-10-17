@@ -100,6 +100,7 @@ const privacyRu = {
         ["Оказать заказанную услугу и вести расчёты по ней", "исполнение договора (п. b)"],
         ["Хранить первичные документы по оказанным услугам", "исполнение обязанности, предусмотренной законом (п. c) — бухгалтерское и налоговое законодательство"],
         ["Работоспособность и защита сайта: журналы, защита от перебора и спама", "законный интерес оператора (п. f) — сайт должен работать и не быть каналом для злоупотреблений"],
+        ["Понять, какие объявления Google Ads приводят заявки (тег Google Ads и его cookie)", "ваше согласие (п. a) — кнопка «Принять» в окне cookie; без него тег не загружается"],
       ] },
       p2: [
         `Согласие даётся отметкой в поле рядом со ссылкой на эту политику. Оно добровольно: без него мы не примем заявку через сайт, но вы всегда можете просто позвонить. Согласие можно отозвать в любой момент письмом на ${O.email} — это не влияет на законность обработки, которая шла до отзыва.`,
@@ -112,11 +113,12 @@ const privacyRu = {
         ["Vercel Inc.", "хостинг сайта и обработка отправленных форм", "США", "договор об обработке данных со стандартными договорными условиями (SCC), действует с момента принятия условий сервиса"],
         ["Supabase Inc.", "база заявок, хранилище присланных фотографий, а также отдача части изображений сайта — поэтому при обычном просмотре страниц ваш IP-адрес виден этому поставщику", "компания в США, сервер базы и хранилище — в Стокгольме, Швеция (Европейский союз)", "договор об обработке данных со стандартными договорными условиями (SCC)"],
         ["Telegram FZ-LLC", "мгновенное уведомление сотрудника о новой заявке", "ОАЭ", "договор об обработке с мессенджером невозможен — см. примечание ниже"],
+        ["Google Ireland Ltd. / Google LLC", "реклама в поиске Google и подсчёт заявок, которые она приносит; получает данные о визите (IP, браузер, адрес страницы, метку клика по объявлению) только после вашего согласия в окне cookie", "Ирландия (Европейский союз) и США", "условия Google о защите данных для рекламы со стандартными договорными условиями (SCC)"],
         ["LeadGenium (A.I. „IVAN DĂNĂLACHE”)", "разработка и техническое сопровождение сайта", "Республика Молдова", "договор об обработке персональных данных между нами и подрядчиком"],
       ] },
       p2: [
         "Данные могут быть переданы государственным органам, если этого требует закон, — только в объёме требования и только по официальному запросу.",
-        "О передаче за пределы Молдовы. Решения Национального центра о достаточном уровне защиты данных в США и ОАЭ на дату этой редакции нет. Поэтому передача опирается на стандартные договорные условия, включённые в договоры об обработке с Vercel и Supabase (ст. 46 Закона № 195/2024); копию этих условий можно запросить у нас письмом на " + O.email + ", мы храним их у себя. Для Telegram таких гарантий не существует — именно поэтому персональные данные из уведомлений и убираются.",
+        "О передаче за пределы Молдовы. Решения Национального центра о достаточном уровне защиты данных в США и ОАЭ на дату этой редакции нет. Поэтому передача опирается на стандартные договорные условия, включённые в договоры об обработке с Vercel, Supabase и Google (ст. 46 Закона № 195/2024); копию этих условий можно запросить у нас письмом на " + O.email + ", мы храним их у себя. Для Telegram таких гарантий не существует — именно поэтому персональные данные из уведомлений и убираются.",
         "Примечание о Telegram. Уведомление о заявке приходит сотруднику в мессенджер, чтобы вам ответили быстро. Это передача данных в страну, с сервисом которой нельзя заключить договор об обработке, поэтому мы переводим уведомления на канал без персональных данных: в сообщении останется только факт «пришла новая заявка», а сама заявка будет открываться в защищённой панели.",
       ] },
     { h: "6. Сколько храним",
@@ -133,7 +135,7 @@ const privacyRu = {
       "Как только вы нажали, вы оказываетесь в чужом сервисе, и дальше действуют его правила: он видит ваш номер или учётную запись и ведёт свои записи. Мы на это повлиять не можем и отвечаем только за то, что вы напишете нам в переписке, — на такие обращения распространяются разделы 4 и 6 этой политики.",
     ] },
     { h: "8. Cookie и память браузера", p: [
-      "Сайт не ставит рекламных и аналитических cookie. На нём нет Google Analytics, нет пикселей социальных сетей, нет тепловых карт и записи сессий, нет рекламных сетей. Отдельного окна согласия на cookie нет ровно потому, что спрашивать не о чем.",
+      "Единственные необязательные cookie на сайте — тега Google Ads: по ним видно, какое объявление привело заявку. Тег загружается только после того, как вы нажмёте «Принять» в окне cookie. Если нажать «Отклонить» или ничего не нажимать, он не загружается, и Google о визите ничего не узнаёт. Аналитики, пикселей социальных сетей, тепловых карт и записи сессий на сайте нет.",
       'Подробности — на странице <a href="/ru/cookies">«Cookie и память браузера»</a>.',
     ] },
     { h: "9. Ваши права",
@@ -203,6 +205,7 @@ const privacyRo = {
         ["Să prestăm serviciul comandat și să efectuăm decontările", "executarea contractului (lit. b)"],
         ["Să păstrăm documentele primare privind serviciile prestate", "îndeplinirea unei obligații legale (lit. c) — legislația contabilă și fiscală"],
         ["Funcționarea și securitatea site-ului: jurnale, protecție împotriva abuzurilor și spamului", "interesul legitim al operatorului (lit. f)"],
+        ["Să înțelegem ce anunțuri Google Ads aduc cereri (eticheta Google Ads și cookie-urile ei)", "consimțământul dvs. (lit. a) — butonul „Accept” din fereastra cookie; fără el eticheta nu se încarcă"],
       ] },
       p2: [
         `Consimțământul se exprimă prin bifarea căsuței de lângă linkul către această politică. Este benevol: fără el nu putem primi cererea prin site, dar ne puteți oricând suna. Consimțământul poate fi retras oricând printr-un mesaj la ${O.email} — retragerea nu afectează legalitatea prelucrării de până la ea.`,
@@ -215,11 +218,12 @@ const privacyRo = {
         ["Vercel Inc.", "găzduirea site-ului și procesarea formularelor trimise", "SUA", "acord de prelucrare a datelor cu clauze contractuale standard (SCC), în vigoare din momentul acceptării condițiilor serviciului"],
         ["Supabase Inc.", "baza de date a cererilor, stocarea fotografiilor trimise și livrarea unei părți din imaginile site-ului — de aceea la simpla vizitare adresa dvs. IP este vizibilă acestui furnizor", "compania este în SUA, iar serverul bazei și stocarea — la Stockholm, Suedia (Uniunea Europeană)", "acord de prelucrare a datelor cu clauze contractuale standard (SCC)"],
         ["Telegram FZ-LLC", "notificarea imediată a angajatului despre o cerere nouă", "EAU", "un acord de prelucrare cu mesageria nu este posibil — vezi nota de mai jos"],
+        ["Google Ireland Ltd. / Google LLC", "publicitate în căutarea Google și numărarea cererilor pe care le aduce; primește datele vizitei (IP, browser, adresa paginii, eticheta clicului pe anunț) doar după consimțământul dvs. în fereastra cookie", "Irlanda (Uniunea Europeană) și SUA", "condițiile Google privind protecția datelor pentru publicitate (Google Ads Data Processing Terms) cu clauze contractuale standard (SCC)"],
         ["LeadGenium (A.I. „IVAN DĂNĂLACHE”)", "dezvoltarea și mentenanța tehnică a site-ului", "Republica Moldova", "acord de prelucrare a datelor cu caracter personal între noi și prestator"],
       ] },
       p2: [
         "Datele pot fi transmise autorităților publice dacă legea o cere — doar în volumul solicitat și doar în baza unei cereri oficiale.",
-        "Despre transferul în afara Moldovei. La data acestei versiuni nu există o decizie a Centrului Național privind caracterul adecvat al nivelului de protecție în SUA și în EAU. De aceea transferul se întemeiază pe clauzele contractuale standard incluse în acordurile de prelucrare cu Vercel și Supabase (art. 46 din Legea nr. 195/2024); o copie a acestor clauze poate fi cerută de la noi printr-un mesaj la " + O.email + ", le păstrăm la sediu. Pentru Telegram astfel de garanții nu există — tocmai de aceea datele cu caracter personal sunt scoase din notificări.",
+        "Despre transferul în afara Moldovei. La data acestei versiuni nu există o decizie a Centrului Național privind caracterul adecvat al nivelului de protecție în SUA și în EAU. De aceea transferul se întemeiază pe clauzele contractuale standard incluse în acordurile de prelucrare cu Vercel, Supabase și Google (art. 46 din Legea nr. 195/2024); o copie a acestor clauze poate fi cerută de la noi printr-un mesaj la " + O.email + ", le păstrăm la sediu. Pentru Telegram astfel de garanții nu există — tocmai de aceea datele cu caracter personal sunt scoase din notificări.",
         "Notă despre Telegram. Notificarea despre cerere ajunge la angajat în mesagerie, ca să vi se răspundă repede. Acesta este un transfer într-o țară cu al cărei serviciu nu poate fi încheiat un acord de prelucrare, de aceea mutăm notificările pe un canal fără date cu caracter personal: în mesaj va rămâne doar faptul „a sosit o cerere nouă”, iar cererea se va deschide în panoul protejat.",
       ] },
     { h: "6. Cât timp păstrăm",
@@ -236,7 +240,7 @@ const privacyRo = {
       "De îndată ce le apăsați, ajungeți într-un serviciu străin, unde se aplică regulile lui: el vă vede numărul sau contul și ține propriile evidențe. Noi nu putem influența acest lucru și răspundem doar pentru ceea ce ne scrieți în corespondență — acestor mesaje li se aplică secțiunile 4 și 6 din această politică.",
     ] },
     { h: "8. Cookie și memoria browserului", p: [
-      "Site-ul nu plasează cookie publicitare sau de analiză. Nu există Google Analytics, pixeli ai rețelelor sociale, hărți termice sau înregistrarea sesiunilor, nu există rețele publicitare. Nu există o fereastră separată de consimțământ pentru cookie tocmai pentru că nu avem ce întreba.",
+      "Singurele cookie neobligatorii de pe site sunt cele ale etichetei Google Ads: din ele se vede ce anunț a adus o cerere. Eticheta se încarcă doar după ce apăsați „Accept” în fereastra cookie. Dacă apăsați „Refuz” sau nu apăsați nimic, ea nu se încarcă, iar Google nu află nimic despre vizită. Analize, pixeli ai rețelelor sociale, hărți termice și înregistrarea sesiunilor nu există pe site.",
       'Detalii — pe pagina <a href="/cookies">„Cookie și memoria browserului”</a>.',
     ] },
     { h: "9. Drepturile dvs.",
@@ -280,36 +284,39 @@ const cookiesRu = {
   slug: "/ru/cookies",
   lang: "ru",
   metaTitle: "Cookie и память браузера | All Clean Кишинёв",
-  metaDesc: "Что сайт All Clean сохраняет в вашем браузере и что отправляет наружу. Счётчиков и рекламных cookie на сайте нет.",
+  metaDesc: "Что сайт All Clean сохраняет в вашем браузере: без согласия — ничего, с согласием — cookie тега Google Ads. Как изменить выбор.",
   title: "Cookie и память браузера",
   lead: "Страница объясняет, что сайт сохраняет на вашем устройстве и что отправляет наружу. Дополняет политику конфиденциальности.",
   footNote: `<a href="/ru/privacy">Политика конфиденциальности</a> · ${O.legalNameRu} · IDNO ${O.idno} · ${O.addressRu}`,
   blocks: [
     { h: "Коротко", p: [
-      "Сайт allclean.md не ставит cookie: ни рекламных, ни аналитических, ни «своих для удобства». Поэтому здесь нет окна «мы используем cookie» — спрашивать не о чем.",
-      "Это не общая фраза, а проверяемое утверждение: откройте на любой странице инструменты разработчика (F12) → «Application» → «Cookies». Список будет пуст.",
+      "Без вашего согласия сайт allclean.md не ставит cookie и не подключает сторонние скрипты. Единственное, что может появиться с вашего согласия, — тег Google Ads: по нему видно, какое рекламное объявление привело заявку.",
+      "При первом визите внизу страницы появляется окно с двумя одинаковыми кнопками: «Принять» и «Отклонить». Пока вы не нажали «Принять», тег не загружается.",
+      'Выбор можно изменить в любой момент: <button type="button" onclick="window.lgConsentOpen&&window.lgConsentOpen()" style="margin-top:6px;padding:12px 22px;border:0;border-radius:12px;background:#0c2959;color:#fff;font-weight:700;cursor:pointer">Изменить выбор cookie</button>',
+    ] },
+    { h: "Что ставится после «Принять»",
+      table: { head: ["Cookie", "Кто ставит", "Зачем", "Срок"], rows: [
+        ["_gcl_au", "Google Ads, на allclean.md", "связать визит с кликом по объявлению", "90 дней"],
+        ["_gcl_aw", "Google Ads, на allclean.md", "хранит метку клика по объявлению (gclid), если вы пришли по рекламе", "90 дней"],
+        ["IDE, test_cookie и подобные", "Google, на своих доменах (doubleclick.net, google.com)", "подсчёт рекламных конверсий на стороне Google", "по правилам Google, обычно до 13 месяцев"],
+      ] },
+      p2: ["Тег сообщает Google о визите и о странице «Спасибо» после заявки. Имя, телефон и текст заявки в Google не передаются. Персонализированную рекламу (ремаркетинг) мы не включаем."] },
+    { h: "Что хранится без согласия", p: [
+      "Только сам ваш выбор: запись lg_consent в памяти браузера (localStorage) — «принято» или «отклонено» и дата. Без неё окно появлялось бы на каждой странице. Через 12 месяцев запись устаревает, и окно появится снова.",
+      "Часть изображений сайта отдаётся из хранилища Supabase — поставщика, который держит нашу базу заявок. Он видит ваш IP-адрес и модель браузера, как любой сервер, отдающий картинку, но не ставит cookie и не считает посетителей.",
     ] },
     { h: "Чего на сайте нет", ul: [
       "Google Analytics, Яндекс.Метрики и любых других счётчиков;",
-      "пикселей Facebook, Instagram, TikTok и рекламных сетей;",
+      "пикселей Facebook, Instagram, TikTok;",
       "тепловых карт и записи действий посетителя;",
       "чужих шрифтов и библиотек: шрифты, стили и скрипты лежат на нашем домене;",
       "встроенных чужих карт, чатов и виджетов обратного звонка.",
     ] },
-    { h: "Единственный внешний адрес", p: [
-      "Часть изображений сайта отдаётся из хранилища Supabase — поставщика, который держит нашу базу заявок. Значит, при обычном просмотре страниц он видит ваш IP-адрес и модель браузера, как видит их любой сервер, отдающий картинку.",
-      "Это не слежка и не аналитика: изображения не считают посетителей и не ставят cookie. Supabase — наш обработчик по договору, он перечислен в разделе 5 политики конфиденциальности. Больше ни к одному внешнему адресу страница не обращается.",
-    ] },
     { h: "Что происходит, когда вы отправляете заявку", p: [
-      'Только в этот момент данные покидают ваш браузер: заявка уходит на наш сервер и в базу заявок. Что именно передаётся, кому и на сколько — в <a href="/ru/privacy">политике конфиденциальности</a>, разделы 2, 5 и 6.',
-      "Просмотр страниц заявкой не является: если вы ничего не отправляли, у нас остаётся только техническая запись хостинга (IP, браузер, адрес страницы, время), нужная для работы и защиты сайта.",
+      'Заявка уходит на наш сервер и в базу заявок. Что именно передаётся, кому и на сколько — в <a href="/ru/privacy">политике конфиденциальности</a>, разделы 2, 5 и 6. Если вы пришли по рекламе, в адресе страницы, который сохраняется с заявкой, есть метка клика (gclid): по ней мы видим, какое объявление сработало.',
     ] },
-    { h: "Как управлять cookie в браузере", p: [
-      "Даже там, где сайты ставят cookie, последнее слово за вами: любой браузер умеет блокировать и удалять их — в Chrome это «Настройки → Конфиденциальность и безопасность → Файлы cookie», в Firefox «Настройки → Приватность и защита», в Safari «Настройки → Конфиденциальность».",
-      "На работу allclean.md эти настройки не влияют: сайту нечего сохранять.",
-    ] },
-    { h: "Если что-то изменится", p: [
-      "Появление счётчика, карты или чата означает появление cookie. В этот же день на сайте появится окно согласия с равными по заметности кнопками «Принять всё» и «Отклонить всё», скрипты перестанут запускаться до вашего ответа, а эта страница будет переписана. Обещание «мы ничего не ставим» имеет смысл, только пока оно проверяемо.",
+    { h: "Как отозвать согласие", p: [
+      "Нажмите «Изменить выбор cookie» выше и выберите «Отклонить»: тег перестанет загружаться, а его cookie на allclean.md удалятся. Cookie на доменах Google удаляются в настройках браузера: в Chrome «Настройки → Конфиденциальность и безопасность → Файлы cookie», в Firefox «Настройки → Приватность и защита», в Safari «Настройки → Конфиденциальность».",
       `Вопросы — на <a href="mailto:${O.email}">${O.email}</a>.`,
     ] },
   ],
@@ -319,36 +326,39 @@ const cookiesRo = {
   slug: "/cookies",
   lang: "ro",
   metaTitle: "Cookie și memoria browserului | All Clean Chișinău",
-  metaDesc: "Ce salvează site-ul All Clean în browserul dvs. și ce trimite în exterior. Pe site nu există contoare și cookie publicitare.",
+  metaDesc: "Ce salvează site-ul All Clean în browserul dvs.: fără consimțământ — nimic, cu consimțământ — cookie-urile etichetei Google Ads.",
   title: "Cookie și memoria browserului",
   lead: "Pagina explică ce salvează site-ul pe dispozitivul dvs. și ce trimite în exterior. Completează politica de confidențialitate.",
   footNote: `<a href="/privacy">Politica de confidențialitate</a> · ${O.legalNameRo} · IDNO ${O.idno} · ${O.addressRo}`,
   blocks: [
     { h: "Pe scurt", p: [
-      "Site-ul allclean.md nu plasează cookie: nici publicitare, nici de analiză, nici „proprii, pentru comoditate”. De aceea nu există fereastra „folosim cookie” — nu avem ce întreba.",
-      "Aceasta nu este o frază generală, ci o afirmație verificabilă: deschideți pe orice pagină instrumentele pentru dezvoltatori (F12) → „Application” → „Cookies”. Lista va fi goală.",
+      "Fără consimțământul dvs. site-ul allclean.md nu plasează cookie și nu încarcă scripturi terțe. Singurul lucru care poate apărea cu acordul dvs. este eticheta Google Ads: din ea se vede ce anunț publicitar a adus o cerere.",
+      "La prima vizită, în partea de jos a paginii apare o fereastră cu două butoane la fel: „Accept” și „Refuz”. Până nu apăsați „Accept”, eticheta nu se încarcă.",
+      'Alegerea poate fi schimbată oricând: <button type="button" onclick="window.lgConsentOpen&&window.lgConsentOpen()" style="margin-top:6px;padding:12px 22px;border:0;border-radius:12px;background:#0c2959;color:#fff;font-weight:700;cursor:pointer">Schimbați alegerea cookie</button>',
+    ] },
+    { h: "Ce se plasează după „Accept”",
+      table: { head: ["Cookie", "Cine îl plasează", "Pentru ce", "Durata"], rows: [
+        ["_gcl_au", "Google Ads, pe allclean.md", "leagă vizita de clicul pe anunț", "90 de zile"],
+        ["_gcl_aw", "Google Ads, pe allclean.md", "păstrează eticheta clicului pe anunț (gclid), dacă ați venit din reclamă", "90 de zile"],
+        ["IDE, test_cookie și altele asemenea", "Google, pe domeniile sale (doubleclick.net, google.com)", "numărarea conversiilor publicitare la Google", "după regulile Google, de obicei până la 13 luni"],
+      ] },
+      p2: ["Eticheta îi comunică lui Google vizita și pagina „Mulțumim” după cerere. Numele, telefonul și textul cererii nu sunt transmise lui Google. Publicitatea personalizată (remarketing) nu o activăm."] },
+    { h: "Ce se păstrează fără consimțământ", p: [
+      "Doar alegerea dvs.: înregistrarea lg_consent în memoria browserului (localStorage) — „acceptat” sau „refuzat” și data. Fără ea fereastra ar apărea pe fiecare pagină. După 12 luni înregistrarea expiră și fereastra apare din nou.",
+      "O parte din imaginile site-ului este livrată din stocarea Supabase — furnizorul care găzduiește baza noastră de cereri. El vede adresa dvs. IP și tipul browserului, ca orice server care livrează o imagine, dar nu plasează cookie și nu numără vizitatorii.",
     ] },
     { h: "Ce nu există pe site", ul: [
       "Google Analytics, Yandex.Metrica sau alte contoare;",
-      "pixeli Facebook, Instagram, TikTok și rețele publicitare;",
+      "pixeli Facebook, Instagram, TikTok;",
       "hărți termice și înregistrarea acțiunilor vizitatorului;",
       "fonturi și biblioteci străine: fonturile, stilurile și scripturile se află pe domeniul nostru;",
       "hărți, chat-uri și widget-uri de apel invers încorporate de la terți.",
     ] },
-    { h: "Singura adresă externă", p: [
-      "O parte din imaginile site-ului este livrată din stocarea Supabase — furnizorul care găzduiește baza noastră de cereri. Astfel, la vizitarea obișnuită a paginilor el vede adresa dvs. IP și tipul browserului, așa cum le vede orice server care livrează o imagine.",
-      "Aceasta nu este urmărire și nu este analiză: imaginile nu numără vizitatorii și nu plasează cookie. Supabase este prestatorul nostru conform contractului, enumerat în secțiunea 5 a politicii de confidențialitate. La nicio altă adresă externă pagina nu se adresează.",
-    ] },
     { h: "Ce se întâmplă când trimiteți o cerere", p: [
-      'Doar în acel moment datele părăsesc browserul dvs.: cererea ajunge pe serverul nostru și în baza de date a cererilor. Ce anume se transmite, cui și pentru cât timp — în <a href="/privacy">politica de confidențialitate</a>, secțiunile 2, 5 și 6.',
-      "Simpla vizitare a paginilor nu este o cerere: dacă nu ați trimis nimic, la noi rămâne doar înregistrarea tehnică a găzduirii (IP, browser, adresa paginii, ora), necesară pentru funcționarea și protecția site-ului.",
+      'Cererea ajunge pe serverul nostru și în baza de date a cererilor. Ce anume se transmite, cui și pentru cât timp — în <a href="/privacy">politica de confidențialitate</a>, secțiunile 2, 5 și 6. Dacă ați venit din reclamă, adresa paginii, păstrată împreună cu cererea, conține eticheta clicului (gclid): din ea vedem ce anunț a funcționat.',
     ] },
-    { h: "Cum gestionați cookie în browser", p: [
-      "Chiar și acolo unde site-urile plasează cookie, ultimul cuvânt vă aparține: orice browser le poate bloca și șterge — în Chrome „Setări → Confidențialitate și securitate → Cookie-uri”, în Firefox „Setări → Confidențialitate și securitate”, în Safari „Setări → Confidențialitate”.",
-      "Aceste setări nu influențează funcționarea allclean.md: site-ul nu are ce salva.",
-    ] },
-    { h: "Dacă ceva se va schimba", p: [
-      "Apariția unui contor, a unei hărți sau a unui chat înseamnă apariția cookie-urilor. În aceeași zi pe site va apărea fereastra de consimțământ cu butoane la fel de vizibile „Accept tot” și „Refuz tot”, scripturile nu se vor mai încărca până la răspunsul dvs., iar această pagină va fi rescrisă. Promisiunea „nu plasăm nimic” are sens doar cât timp este verificabilă.",
+    { h: "Cum vă retrageți consimțământul", p: [
+      "Apăsați „Schimbați alegerea cookie” de mai sus și alegeți „Refuz”: eticheta nu se mai încarcă, iar cookie-urile ei de pe allclean.md se șterg. Cookie-urile de pe domeniile Google se șterg din setările browserului: în Chrome „Setări → Confidențialitate și securitate → Cookie-uri”, în Firefox „Setări → Confidențialitate și securitate”, în Safari „Setări → Confidențialitate”.",
       `Întrebări — la <a href="mailto:${O.email}">${O.email}</a>.`,
     ] },
   ],

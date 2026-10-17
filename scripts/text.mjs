@@ -28,6 +28,9 @@ const БРЕНДЫ = new RegExp("^(" + [
   // Юридические страницы: названия браузеров, служб и оператора пишутся латиницей и в русском тексте.
   "cookie", "cookies", "Chrome", "Firefox", "Safari", "Edge", "Opera", "Analytics", "Application",
   "LeadGenium", "IVAN", "LACHE", "centru", "datepersonale", "Telegram", "Supabase", "Vercel",
+  // Google Ads на сайте (17.10): юрлица Google, имена cookie и записи выбора на странице Cookie.
+  "Ads", "Ireland", "Ltd", "LLC", "Inc", "SCC", "gclid", "gcl", "au", "aw", "IDE", "test", "doubleclick", "net",
+  "localStorage", "lg", "consent", "lg_consent", "_gcl_au", "_gcl_aw", "test_cookie",
 ].join("|") + ")$", "i");
 
 // Служебные английские слова: в румынском тексте их быть не может.

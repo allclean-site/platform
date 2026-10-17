@@ -116,6 +116,46 @@ function thanks(html) {
   return swapRe(html, "thanks:redirect", /<\/body>/, THANKS + "</body>");
 }
 
+// ── 7. Окно согласия и тег Google Ads ────────────────────────────────────────────────
+// Закон 195/2024 и обещание страницы /cookies: до «Принять» ни скрипта Google, ни cookie —
+// IP посетителя не уходит третьей стороне без согласия (как и с чужими CDN в site-privacy).
+// Кнопки равные. Выбор — lg_consent в localStorage на 12 месяцев; «Отклонить» после «Принять»
+// стирает _gcl_* и перезагружает страницу. Только на allclean.md (в холсте кабинета окна нет);
+// на localhost окно включается параметром ?lgconsent для проверки.
+// Конверсия = просмотр /thank-you (правило «URL содержит thank-you» в Google Ads).
+export const ADS_ID = "AW-18495907060";
+const CONSENT_MARK = "lg-consent-banner";
+const CONSENT_JS =
+  '<script>/*lg-consent-banner*/(function(){' +
+  'var H=location.hostname;if(!(/^(www\\.)?allclean\\.md$/.test(H)||/[?&]lgconsent/.test(location.search)))return;' +
+  'var K="lg_consent",ID="' + ADS_ID + '",ru=/^\\/ru(\\/|$)/.test(location.pathname);' +
+  'function get(){try{var v=JSON.parse(localStorage.getItem(K)||"null");if(v&&Date.now()-v.t<31536e6)return v.v;}catch(e){}return null;}' +
+  'function set(v){try{localStorage.setItem(K,JSON.stringify({v:v,t:Date.now()}));}catch(e){}}' +
+  'var loaded=false;function load(){if(loaded)return;loaded=true;window.dataLayer=window.dataLayer||[];' +
+  'window.gtag=function(){dataLayer.push(arguments);};' +
+  'gtag("consent","default",{ad_storage:"granted",ad_user_data:"granted",ad_personalization:"denied",analytics_storage:"denied"});' +
+  'gtag("js",new Date());gtag("config",ID);' +
+  'var s=document.createElement("script");s.async=true;s.src="https://www.googletagmanager.com/gtag/js?id="+ID;document.head.appendChild(s);}' +
+  'function wipe(){document.cookie.split(";").forEach(function(c){var n=c.split("=")[0].trim();if(/^_gcl_/.test(n)){' +
+  'document.cookie=n+"=;Max-Age=0;path=/";document.cookie=n+"=;Max-Age=0;path=/;domain=."+H.replace(/^www\\./,"");}});}' +
+  'var T=ru?{t:"Мы используем cookie Google Ads, чтобы понимать, какая реклама приводит заявки. Они ставятся только с вашего согласия.",m:"Подробнее",u:"/ru/cookies",y:"Принять",n:"Отклонить"}' +
+  ':{t:"Folosim cookie Google Ads ca să înțelegem ce reclame aduc cereri. Le plasăm doar cu acordul dvs.",m:"Detalii",u:"/cookies",y:"Accept",n:"Refuz"};' +
+  'var box=null;function hide(){if(box){box.remove();box=null;}}' +
+  'function show(){if(box)return;box=document.createElement("div");box.id="lg-consent";box.setAttribute("role","dialog");box.setAttribute("aria-label","Cookie");' +
+  'box.style.cssText="position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483000;max-width:560px;margin:0 auto;background:#fff;color:#0c2959;border-radius:18px;box-shadow:0 18px 50px rgba(12,41,89,.25);padding:18px 20px;font-size:15px;line-height:1.5";' +
+  'var b="flex:1;min-width:120px;padding:12px 16px;border:0;border-radius:12px;background:#0c2959;color:#fff;font-weight:700;font-size:15px;cursor:pointer";' +
+  'box.innerHTML="<p style=\\"margin:0 0 12px\\">"+T.t+" <a href=\\""+T.u+"\\" style=\\"color:inherit;text-decoration:underline\\">"+T.m+"</a></p>"+' +
+  '"<div style=\\"display:flex;gap:10px;flex-wrap:wrap\\"><button type=\\"button\\" data-v=\\"granted\\" style=\\""+b+"\\">"+T.y+"</button><button type=\\"button\\" data-v=\\"denied\\" style=\\""+b+"\\">"+T.n+"</button></div>";' +
+  'box.addEventListener("click",function(e){var v=e.target&&e.target.getAttribute&&e.target.getAttribute("data-v");if(!v)return;var was=get();set(v);hide();' +
+  'if(v==="granted")load();else if(was==="granted"){wipe();location.reload();}});document.body.appendChild(box);}' +
+  'window.lgConsentOpen=show;var c=get();if(c==="granted")load();else if(c!=="denied"){' +
+  'if(document.body)show();else document.addEventListener("DOMContentLoaded",show);}' +
+  '})();</script>';
+function consentBanner(html) {
+  if (html.includes(CONSENT_MARK)) return html;
+  return swapRe(html, "consent:banner", /<\/body>/, CONSENT_JS + "</body>");
+}
+
 /** Все правки одной страницы. `lang` — 'ru' или 'ro'. */
 export function applySeoFixes(html, lang) {
   let out = trailingSlash(html);
@@ -125,6 +165,7 @@ export function applySeoFixes(html, lang) {
   out = posterPreload(out);
   out = org(out, lang);
   out = thanks(out);
+  out = consentBanner(out);
   return out;
 }
 
@@ -135,7 +176,7 @@ export function seoReport() {
 
 /** Ворота сборки: ноль у правки значит, что шаблон поменялся и якорь больше не совпадает. */
 export function assertSeoApplied() {
-  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect"];
+  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "consent:banner"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
   if (missing.length) {
     throw new Error("seo-fixes: не применились правки — " + missing.join(", ") +
