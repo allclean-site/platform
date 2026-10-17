@@ -100,7 +100,8 @@ function снять(doc) {
       тег: el.tagName, кл: (el.className || "").toString().split(" ").slice(0, 2).join("."),
       w: Math.round(r.width), h: Math.round(r.height),
       fs: Math.round(parseFloat(s.fontSize) || 0),
-      src: (el.currentSrc || el.src || "").split("/").pop().slice(0, 40),
+      // Без расширения: сайт отдаёт то же фото в WebP (scripts/optimize-images.mjs), холст — исходник.
+      src: (el.currentSrc || el.src || "").split("/").pop().replace(/\\.(jpe?g|png|webp)$/i, "").slice(0, 40),
       текст: (el.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 28),
     });
   }

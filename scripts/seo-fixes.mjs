@@ -107,7 +107,7 @@ function org(html, lang) {
 // удаление соседей или разворот вложенных <span> сдвигает номера — заголовок меняет кегль
 // и межстрочный. Пустой узел с display:contents коробки не создаёт (и зазора во flex тоже),
 // а счёт сохраняет.
-function closeOf(html, start, tag) {
+export function closeOf(html, start, tag) {
   const re = new RegExp(`<(\\/?)${tag}\\b[^>]*>`, "gi");
   re.lastIndex = start;
   let depth = 0, m;

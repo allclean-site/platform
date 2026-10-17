@@ -32,6 +32,7 @@ import {
 import { applySitePrivacy, report as privacyReport, assertApplied as assertPrivacy } from "./site-privacy.mjs";
 import { seoReport, assertSeoApplied } from "./seo-fixes.mjs";
 import { localizeCdnFiles } from "./localize-cdn.mjs";
+import { optimizeImages } from "./optimize-images.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import { withBlogCards } from "./blog-cards.mjs";
 
@@ -477,6 +478,8 @@ async function main() {
   // После копирования ассетов и генерации блога: всё, что ещё ссылается на чужой CDN
   // (картинки из зеркала и из правок редактора), переносим на свой домен.
   console.log("[build] localize-cdn: " + (await localizeCdnFiles()));
+  // Затем картинки: фото из хранилища на свой домен, WebP, размеры, lazy (scripts/optimize-images.mjs).
+  console.log("[build] images: " + (await optimizeImages()));
 
   // auto-SEO: sitemap.xml (all pages + hreflang alternates) + robots.txt
   const byGroup = new Map();
