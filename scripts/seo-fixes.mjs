@@ -160,7 +160,9 @@ const CONSENT_JS =
   'function wipe(){document.cookie.split(";").forEach(function(c){var n=c.split("=")[0].trim();if(/^_gcl_/.test(n)){' +
   'document.cookie=n+"=;Max-Age=0;path=/";document.cookie=n+"=;Max-Age=0;path=/;domain=."+H.replace(/^www\\./,"");}});}' +
   CONSENT_UI +
-  'window.lgConsentOpen=show;var c=get();if(c==="granted")load();else if(c!=="denied"){' +
+  // Проверка тега в Tag Assistant открывает сайт с ?gtm_debug — это владелец проверяет свой тег:
+  // тег грузится сразу, окно не показывается (обычных посетителей не касается).
+  'window.lgConsentOpen=show;var c=get();if(c==="granted"||/[?&]gtm_debug=/.test(location.search))load();else if(c!=="denied"){' +
   'if(document.body)show();else document.addEventListener("DOMContentLoaded",show);}' +
   '})();</script>';
 function consentBanner(html) {
