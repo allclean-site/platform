@@ -109,7 +109,9 @@ const THANKS =
   '<script>/*lg-thanks*/(function(){if(!/^(www\\.)?allclean\\.md$|^localhost$|^127\\.0\\.0\\.1$/.test(location.hostname))return;' +
   'var f=window.fetch;window.fetch=function(u,o){var r=f.apply(this,arguments);' +
   'if(o&&String(o.method).toUpperCase()==="POST"&&String(u).indexOf("/api/notify-lead")>=0){' +
-  'var done=false,go=function(){if(done)return;done=true;location.href=(/^\\/ru(\\/|$)/.test(location.pathname)?"/ru":"")+"/thank-you";};' +
+  // При проверке в Tag Assistant метка gtm_debug переходит на «спасибо», иначе связь рвётся.
+  'var dbg=(location.search.match(/[?&](gtm_debug=[^&]*)/)||[])[1];' +
+  'var done=false,go=function(){if(done)return;done=true;location.href=(/^\\/ru(\\/|$)/.test(location.pathname)?"/ru":"")+"/thank-you"+(dbg?"?"+dbg:"");};' +
   'setTimeout(go,2500);r.then(go,go);}return r;};})();</script>';
 function thanks(html) {
   if (html.includes(THANKS_MARK)) return html;
