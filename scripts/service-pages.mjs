@@ -31,7 +31,7 @@ const S = [
       faq: [
         ["Что входит в генеральную уборку?", "Всё, что в поддерживающей: полы, пыль на доступных поверхностях, кухня и санузел. К этому добавляются мойка окон, протирание люстр и светильников, глубокая чистка кухни и санузлов. На квартиру уходит до 7 часов."],
         ["Сколько стоит генеральная уборка в Кишинёве?", "От 45 лей за м². Итог зависит от площади, числа окон, этажа и дополнительных услуг: мойки холодильника и духовки, посуды, глажки. Сумму под вашу квартиру покажет калькулятор выше."],
-        ["Чем генеральная уборка отличается от поддерживающей?", 'Поддерживающая уборка занимает 3–5 часов и держит дом в порядке между большими уборками. Генеральную заказывают раз в несколько месяцев, перед праздниками, после переезда или долгого отъезда. Подробнее — в <a href="{blog}">статье о двух видах уборки</a>.'],
+        ["Чем генеральная уборка отличается от поддерживающей?", 'Поддерживающая уборка занимает 3–5 часов и держит дом в порядке между большими уборками. Генеральную заказывают раз в несколько месяцев, перед праздниками, после переезда или долгого отъезда. Подробнее — в <a href="{blog}" style="color:inherit;text-decoration:underline;text-underline-offset:3px">статье о двух видах уборки</a>.'],
         ["Нужно ли покупать средства?", "Нет. Клинеры привозят все средства и инвентарь. Средства безопасны для детей и животных."],
         ["Вы убираете частные дома и в пригородах?", "Да, делаем генеральную уборку квартир и частных домов в Кишинёве и пригородах."],
       ],
@@ -46,7 +46,7 @@ const S = [
       faq: [
         ["Ce include curățenia generală?", "Tot ce include curățenia de menținere: podele, praful de pe suprafețele accesibile, bucătăria și baia. În plus spălăm geamurile, ștergem lustrele și corpurile de iluminat, curățăm în profunzime bucătăria și băile. Pentru un apartament e nevoie de până la 7 ore."],
         ["Cât costă curățenia generală în Chișinău?", "De la 45 lei pe m². Suma depinde de suprafață, numărul de geamuri, etaj și serviciile suplimentare: spălarea frigiderului și a cuptorului, a vaselor, călcatul. Prețul pentru apartamentul dvs. îl arată calculatorul de mai sus."],
-        ["Prin ce diferă curățenia generală de cea de menținere?", 'Curățenia de menținere durează 3–5 ore și păstrează ordinea între curățeniile mari. Cea generală se face o dată la câteva luni, înainte de sărbători, după mutare sau după o absență lungă. Detalii în <a href="{blog}">articolul despre cele două tipuri de curățenie</a>.'],
+        ["Prin ce diferă curățenia generală de cea de menținere?", 'Curățenia de menținere durează 3–5 ore și păstrează ordinea între curățeniile mari. Cea generală se face o dată la câteva luni, înainte de sărbători, după mutare sau după o absență lungă. Detalii în <a href="{blog}" style="color:inherit;text-decoration:underline;text-underline-offset:3px">articolul despre cele două tipuri de curățenie</a>.'],
         ["Trebuie să cumpăr produse de curățenie?", "Nu. Echipa aduce toate produsele și inventarul. Produsele sunt sigure pentru copii și animale."],
         ["Faceți curățenie și în case private din suburbii?", "Da, facem curățenie generală în apartamente și case private din Chișinău și suburbii."],
       ],
@@ -419,7 +419,11 @@ function build() {
 // ── Перелинковка существующих страниц ──────────────────────────────────────────────────
 // Новые страницы должны получать ссылки с близких по теме: без них поиск считает их
 // второстепенными. Всё идемпотентно: повторный запуск ничего не удваивает.
-const a = (href, text) => `<a href="${href}">${text}</a>`;
+// Ссылки в тексте — цветом текста с подчёркиванием: стандартный синий не виден на тёмном
+// первом экране. aBare — прежний вид, чтобы перелинковка обновила уже вставленные ссылки.
+const LINK_STYLE = "color:inherit;text-decoration:underline;text-underline-offset:3px";
+const a = (href, text) => `<a href="${href}" style="${LINK_STYLE}">${text}</a>`;
+const aBare = (href, text) => `<a href="${href}">${text}</a>`;
 const LINKS = {
   // Реставрация полов → паркет, линолеум, мрамор (первый экран).
   "services__floor-restoration": [["sec-0", "Restaurare parchet, linoleum și&nbsp;marmură.",
@@ -453,6 +457,8 @@ function links(idx) {
       }
       for (const [block, from, to] of LINKS[entry.file] || []) {
         if (b.id !== block || h.includes(to)) continue;
+        const bare = to.replace(/ style="[^"]*"/g, "");
+        if (h.includes(bare)) { h = h.replace(bare, to); continue; }
         if (!h.includes(from)) throw new Error(`перелинковка: нет якоря в ${entry.file} ${block}`);
         h = h.replace(from, to);
       }
