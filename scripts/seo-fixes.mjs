@@ -61,6 +61,14 @@ function favicon(html) {
   return swapRe(html, "favicon", /<\/head>/, ICONS + "</head>");
 }
 
+// ── 4а. Адрес в подвале → профиль в Google Картах ──────────────────────────────────────
+const MAPS = "https://www.google.com/maps?cid=12753551464754354058";
+function footerMap(html) {
+  return swapRe(html, "footer:maps",
+    /(<div class="label-small tone-medium"[^>]*>(?:Adresă|Адрес)<\/div>\s*<div class="text-size-large text_body-bold"[^>]*>)(?!\s*<a\b)([\s\S]*?)(<\/div>)/g,
+    `$1<a href="${MAPS}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;text-underline-offset:3px">$2</a>$3`);
+}
+
 // ── 4б. Постер видео первого экрана ───────────────────────────────────────────────────
 // Самый крупный элемент первого экрана — фоновое видео; пока оно не пошло, виден постер.
 // Браузер узнавал о постере только после 230 КБ встроенных стилей и скриптов Webflow, и на
@@ -86,6 +94,16 @@ const ORG_EXTRA = {
     "https://www.linkedin.com/company/65692470",
   ],
 };
+// @id — одна организация на все страницы и языки: на неё ссылаются услуги и статьи.
+// Юрлицо — как в политике (legal-pages.mjs). Пригороды сайт называет только словом
+// «пригороды», поэтому область — муниципий Кишинёв (пригороды входят в него).
+const ORG_ID = `${SITE}/#org`;
+const ORG_LANG = {
+  ro: { legalName: "„ALL CLEAN COMPANY” SRL", alternateName: "All Clean Company",
+        areaServed: [{ "@type": "City", name: "Chișinău" }, { "@type": "AdministrativeArea", name: "Municipiul Chișinău" }] },
+  ru: { legalName: "«ALL CLEAN COMPANY» SRL", alternateName: "All Clean Company",
+        areaServed: [{ "@type": "City", name: "Кишинёв" }, { "@type": "AdministrativeArea", name: "Муниципий Кишинёв" }] },
+};
 function org(html, lang) {
   return html.replace(/(<script type="application\/ld\+json"[^>]*>)([\s\S]*?)(<\/script>)/g,
     (whole, open, json, close) => {
@@ -93,7 +111,7 @@ function org(html, lang) {
       try { o = JSON.parse(json); } catch { return whole; }
       if (![].concat(o["@type"] || []).includes("LocalBusiness")) return whole;
       bump("org:jsonld", 1);
-      Object.assign(o, { url: lang === "ru" ? `${SITE}/ru` : `${SITE}/` }, ORG_EXTRA);
+      Object.assign(o, { "@id": ORG_ID, url: lang === "ru" ? `${SITE}/ru` : `${SITE}/` }, ORG_EXTRA, ORG_LANG[lang === "ru" ? "ru" : "ro"]);
       return open + JSON.stringify(o) + close;
     });
 }
@@ -207,7 +225,13 @@ function jsonld(html) {
       }
       if (n["@type"] === "Service") {
         const offer = offerFor(n.url || url);
-        if (offer) { n.offers = offer; touched = true; bump("ld:offers", 1); }
+        if (offer) { n.offers = offer; bump("ld:offers", 1); }
+        n.provider = { "@id": ORG_ID };
+        touched = true; bump("ld:provider", 1);
+      }
+      if (n["@type"] === "Article" && n.publisher) {
+        n.publisher = { ...n.publisher, "@id": ORG_ID, logo: { "@type": "ImageObject", url: `${SITE}/logo.svg` } };
+        touched = true; bump("ld:article", 1);
       }
     }
     return touched ? open + ldJson(o) + close : whole;
@@ -303,6 +327,7 @@ export function applySeoFixes(html, lang) {
   out = org(out, lang);
   out = h1Clean(out);
   out = jsonld(out);
+  out = footerMap(out);
   out = thanks(out);
   out = consentBanner(out);
   return out;
@@ -316,7 +341,8 @@ export function seoReport() {
 /** Ворота сборки: ноль у правки значит, что шаблон поменялся и якорь больше не совпадает. */
 export function assertSeoApplied() {
   const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "consent:banner",
-    "ld:faq-sync", "ld:faq-add", "ld:offers", "h1:hidden"];
+    "ld:faq-sync", "ld:faq-add", "ld:offers", "h1:hidden",
+    "ld:provider", "ld:article", "footer:maps"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
   if (missing.length) {
     throw new Error("seo-fixes: не применились правки — " + missing.join(", ") +

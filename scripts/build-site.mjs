@@ -9,6 +9,7 @@
 // pages) and a change to rendering can never reach the site without also reaching the editor.
 import { readFile, writeFile, mkdir, rm, readdir, cp, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join, dirname } from "node:path";
 
 const ROOT = process.cwd();
@@ -58,7 +59,7 @@ async function supabaseEdits() {
     throw new Error("no supabase credentials");
   }
   try {
-    const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/site_overrides?select=page_id,overrides,breakpoints&project=eq.${PROJECT}`,
+    const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/site_overrides?select=page_id,overrides,breakpoints,updated_at&project=eq.${PROJECT}`,
       { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
     // ⚠️ A FAILED READ IS NOT "NO EDITS". This used to return null, and null means "build the clean
     // mirror" — so one Supabase hiccup during a rebuild republished all 38 pages WITHOUT a single
@@ -67,13 +68,14 @@ async function supabaseEdits() {
     // Failing the build instead keeps the previous deploy live, which is always the safer state.
     if (!r.ok) throw new Error(`Supabase HTTP ${r.status}`);
     const rows = await r.json();
-    const overrides = {}, breakpoints = {};
+    const overrides = {}, breakpoints = {}, updated = {};
     for (const row of rows) {
+      if (row.updated_at) updated[row.page_id] = row.updated_at;
       if (row.overrides && Object.keys(row.overrides).length) overrides[row.page_id] = row.overrides;
       if (row.breakpoints && Object.keys(row.breakpoints).length) breakpoints[row.page_id] = row.breakpoints;
     }
     console.log(`[build] Supabase edits: ${rows.length} page(s)`);
-    return { overrides, breakpoints };
+    return { overrides, breakpoints, updated };
   } catch (e) {
     console.error("[build] ОСТАНОВЛЕНО: не удалось прочитать правки из Supabase —", e.message);
     console.error("[build] сборка без правок затёрла бы живой сайт; предыдущий деплой остаётся на месте.");
@@ -487,19 +489,30 @@ async function main() {
     if (!byGroup.has(p.group)) byGroup.set(p.group, {});
     byGroup.get(p.group)[p.lang] = p.slug;
   }
+  // lastmod: страница меняется либо кодом (дата последнего коммита — сборка того же коммита
+  // её не сдвигает), либо публикацией клиента (updated_at строки правок; правила фото — на все).
+  // Нет git — дата сборки.
+  let codeDate;
+  try { codeDate = execSync("git log -1 --format=%cI", { encoding: "utf8" }).trim(); } catch { /* нет git */ }
+  if (!codeDate || isNaN(Date.parse(codeDate))) codeDate = new Date().toISOString();
+  const upd = edits.updated || {};
+  const lastmod = (pageId) => {
+    const t = Math.max(Date.parse(codeDate), Date.parse(upd[MEDIA_KEY] || 0) || 0, Date.parse(upd[pageId] || 0) || 0);
+    return `<lastmod>${new Date(t).toISOString().slice(0, 10)}</lastmod>`;
+  };
   const urls = idx.pages.map((p) => {
     const alts = byGroup.get(p.group) || {};
     const links = Object.entries(alts).map(([lang, slug]) => `<xhtml:link rel="alternate" hreflang="${lang}-MD" href="${SITE}${slug}"/>`).join("");
     const xdef = alts[idx.defaultLocale] ? `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${alts[idx.defaultLocale]}"/>` : "";
-    return `<url><loc>${SITE}${p.slug}</loc>${links}${xdef}</url>`;
+    return `<url><loc>${SITE}${p.slug}</loc>${lastmod(p.id)}${links}${xdef}</url>`;
   }).join("");
-  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u}</loc></url>`).join("");
+  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u}</loc>${lastmod()}</url>`).join("");
   // Страницы cookie появились после снятия зеркала, в _pages.json их нет — вносим руками,
   // иначе они не попадут в карту сайта и останутся невидимыми для поиска.
   const cookieXml = LEGAL_PAGES.filter((p) => p.group === "cookies").map((p) => {
     const ro = p.lang === "ro" ? p.slug : p.pair;
     const ru = p.lang === "ru" ? p.slug : p.pair;
-    return `<url><loc>${SITE}${p.slug}</loc>` +
+    return `<url><loc>${SITE}${p.slug}</loc>${lastmod()}` +
       `<xhtml:link rel="alternate" hreflang="ro-MD" href="${SITE}${ro}"/>` +
       `<xhtml:link rel="alternate" hreflang="ru-MD" href="${SITE}${ru}"/>` +
       `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${ro}"/></url>`;

@@ -1,276 +1,280 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
-  "trailingSlash": false,
   "redirects": [
     {
-      "source": "/Servicii",
+      "source": "/Servicii{/}?",
       "destination": "/services",
       "permanent": true
     },
     {
-      "source": "/ru/Servicii",
+      "source": "/ru/Servicii{/}?",
       "destination": "/ru/services",
       "permanent": true
     },
     {
-      "source": "/Servicii-de-curatenie",
+      "source": "/Servicii-de-curatenie{/}?",
       "destination": "/services",
       "permanent": true
     },
     {
-      "source": "/ru/Servicii-de-curatenie",
+      "source": "/ru/Servicii-de-curatenie{/}?",
       "destination": "/ru/services",
       "permanent": true
     },
     {
-      "source": "/Услуги",
+      "source": "/Услуги{/}?",
       "destination": "/services",
       "permanent": true
     },
     {
-      "source": "/%D0%A3%D1%81%D0%BB%D1%83%D0%B3%D0%B8",
+      "source": "/%D0%A3%D1%81%D0%BB%D1%83%D0%B3%D0%B8{/}?",
       "destination": "/services",
       "permanent": true
     },
     {
-      "source": "/ru/Услуги",
+      "source": "/ru/Услуги{/}?",
       "destination": "/ru/services",
       "permanent": true
     },
     {
-      "source": "/ru/%D0%A3%D1%81%D0%BB%D1%83%D0%B3%D0%B8",
+      "source": "/ru/%D0%A3%D1%81%D0%BB%D1%83%D0%B3%D0%B8{/}?",
       "destination": "/ru/services",
       "permanent": true
     },
     {
-      "source": "/Consultanta-si-servicii-de-recrutare",
+      "source": "/Consultanta-si-servicii-de-recrutare{/}?",
       "destination": "/services",
       "permanent": true
     },
     {
-      "source": "/ru/Consultanta-si-servicii-de-recrutare",
+      "source": "/ru/Consultanta-si-servicii-de-recrutare{/}?",
       "destination": "/ru/services",
       "permanent": true
     },
     {
-      "source": "/Curatenie-in-oficii",
+      "source": "/Curatenie-in-oficii{/}?",
       "destination": "/services/office",
       "permanent": true
     },
     {
-      "source": "/ru/Curatenie-in-oficii",
+      "source": "/ru/Curatenie-in-oficii{/}?",
       "destination": "/ru/services/office",
       "permanent": true
     },
     {
-      "source": "/Curatenie-dupa-reparatie",
+      "source": "/Curatenie-dupa-reparatie{/}?",
       "destination": "/services/post-construction",
       "permanent": true
     },
     {
-      "source": "/ru/Curatenie-dupa-reparatie",
+      "source": "/ru/Curatenie-dupa-reparatie{/}?",
       "destination": "/ru/services/post-construction",
       "permanent": true
     },
     {
-      "source": "/Curatarea-mobilei-moale",
+      "source": "/Curatarea-mobilei-moale{/}?",
       "destination": "/services/upholstery",
       "permanent": true
     },
     {
-      "source": "/ru/Curatarea-mobilei-moale",
+      "source": "/ru/Curatarea-mobilei-moale{/}?",
       "destination": "/ru/services/upholstery",
       "permanent": true
     },
     {
-      "source": "/Curatarea-profesionala-a-covoarelor",
+      "source": "/Curatarea-profesionala-a-covoarelor{/}?",
       "destination": "/services/carpet",
       "permanent": true
     },
     {
-      "source": "/ru/Curatarea-profesionala-a-covoarelor",
+      "source": "/ru/Curatarea-profesionala-a-covoarelor{/}?",
       "destination": "/ru/services/carpet",
       "permanent": true
     },
     {
-      "source": "/Curatarea-profesionala-a-covoarelor/machete",
+      "source": "/Curatarea-profesionala-a-covoarelor/machete{/}?",
       "destination": "/services/carpet",
       "permanent": true
     },
     {
-      "source": "/ru/Curatarea-profesionala-a-covoarelor/machete",
+      "source": "/ru/Curatarea-profesionala-a-covoarelor/machete{/}?",
       "destination": "/ru/services/carpet",
       "permanent": true
     },
     {
-      "source": "/Curatarea-spatiilor-de-productie-alimentara",
+      "source": "/Curatarea-spatiilor-de-productie-alimentara{/}?",
       "destination": "/services/disinfection",
       "permanent": true
     },
     {
-      "source": "/ru/Curatarea-spatiilor-de-productie-alimentara",
+      "source": "/ru/Curatarea-spatiilor-de-productie-alimentara{/}?",
       "destination": "/ru/services/disinfection",
       "permanent": true
     },
     {
-      "source": "/Curatarea-depozitelor-si-a-spatiilor-industriale",
+      "source": "/Curatarea-depozitelor-si-a-spatiilor-industriale{/}?",
       "destination": "/services/warehouse",
       "permanent": true
     },
     {
-      "source": "/ru/Curatarea-depozitelor-si-a-spatiilor-industriale",
+      "source": "/ru/Curatarea-depozitelor-si-a-spatiilor-industriale{/}?",
       "destination": "/ru/services/warehouse",
       "permanent": true
     },
     {
-      "source": "/Curatenie-in-magazine-si-supermarketuri",
+      "source": "/Curatenie-in-magazine-si-supermarketuri{/}?",
       "destination": "/services/retail",
       "permanent": true
     },
     {
-      "source": "/ru/Curatenie-in-magazine-si-supermarketuri",
+      "source": "/ru/Curatenie-in-magazine-si-supermarketuri{/}?",
       "destination": "/ru/services/retail",
       "permanent": true
     },
     {
-      "source": "/Servicii-de-restaurare-si-protectia-pardoseli",
+      "source": "/Servicii-de-restaurare-si-protectia-pardoseli{/}?",
       "destination": "/services/floor-restoration",
       "permanent": true
     },
     {
-      "source": "/ru/Servicii-de-restaurare-si-protectia-pardoseli",
+      "source": "/ru/Servicii-de-restaurare-si-protectia-pardoseli{/}?",
       "destination": "/ru/services/floor-restoration",
       "permanent": true
     },
     {
-      "source": "/Spalare-geamuri-si-fatade",
+      "source": "/Spalare-geamuri-si-fatade{/}?",
       "destination": "/services/windows",
       "permanent": true
     },
     {
-      "source": "/ru/Spalare-geamuri-si-fatade",
+      "source": "/ru/Spalare-geamuri-si-fatade{/}?",
       "destination": "/ru/services/windows",
       "permanent": true
     },
     {
-      "source": "/Уборка-квартир",
+      "source": "/Уборка-квартир{/}?",
       "destination": "/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/%D0%A3%D0%B1%D0%BE%D1%80%D0%BA%D0%B0-%D0%BA%D0%B2%D0%B0%D1%80%D1%82%D0%B8%D1%80",
+      "source": "/%D0%A3%D0%B1%D0%BE%D1%80%D0%BA%D0%B0-%D0%BA%D0%B2%D0%B0%D1%80%D1%82%D0%B8%D1%80{/}?",
       "destination": "/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/ru/Уборка-квартир",
+      "source": "/ru/Уборка-квартир{/}?",
       "destination": "/ru/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/ru/%D0%A3%D0%B1%D0%BE%D1%80%D0%BA%D0%B0-%D0%BA%D0%B2%D0%B0%D1%80%D1%82%D0%B8%D1%80",
+      "source": "/ru/%D0%A3%D0%B1%D0%BE%D1%80%D0%BA%D0%B0-%D0%BA%D0%B2%D0%B0%D1%80%D1%82%D0%B8%D1%80{/}?",
       "destination": "/ru/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/О-нас",
+      "source": "/О-нас{/}?",
       "destination": "/about",
       "permanent": true
     },
     {
-      "source": "/%D0%9E-%D0%BD%D0%B0%D1%81",
+      "source": "/%D0%9E-%D0%BD%D0%B0%D1%81{/}?",
       "destination": "/about",
       "permanent": true
     },
     {
-      "source": "/ru/О-нас",
+      "source": "/ru/О-нас{/}?",
       "destination": "/ru/about",
       "permanent": true
     },
     {
-      "source": "/ru/%D0%9E-%D0%BD%D0%B0%D1%81",
+      "source": "/ru/%D0%9E-%D0%BD%D0%B0%D1%81{/}?",
       "destination": "/ru/about",
       "permanent": true
     },
     {
-      "source": "/Контакты",
+      "source": "/Контакты{/}?",
       "destination": "/about",
       "permanent": true
     },
     {
-      "source": "/%D0%9A%D0%BE%D0%BD%D1%82%D0%B0%D0%BA%D1%82%D1%8B",
+      "source": "/%D0%9A%D0%BE%D0%BD%D1%82%D0%B0%D0%BA%D1%82%D1%8B{/}?",
       "destination": "/about",
       "permanent": true
     },
     {
-      "source": "/ru/Контакты",
+      "source": "/ru/Контакты{/}?",
       "destination": "/ru/about",
       "permanent": true
     },
     {
-      "source": "/ru/%D0%9A%D0%BE%D0%BD%D1%82%D0%B0%D0%BA%D1%82%D1%8B",
+      "source": "/ru/%D0%9A%D0%BE%D0%BD%D1%82%D0%B0%D0%BA%D1%82%D1%8B{/}?",
       "destination": "/ru/about",
       "permanent": true
     },
     {
-      "source": "/allclean-na-buukanah-uborka-posle-remonta",
+      "source": "/allclean-na-buukanah-uborka-posle-remonta{/}?",
       "destination": "/services/post-construction",
       "permanent": true
     },
     {
-      "source": "/ru/allclean-na-buukanah-uborka-posle-remonta",
+      "source": "/ru/allclean-na-buukanah-uborka-posle-remonta{/}?",
       "destination": "/ru/services/post-construction",
       "permanent": true
     },
     {
-      "source": "/bezuprechnaya-chistota-kachestvennaya-uborka-v-vashey-kvartire",
+      "source": "/bezuprechnaya-chistota-kachestvennaya-uborka-v-vashey-kvartire{/}?",
       "destination": "/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/ru/bezuprechnaya-chistota-kachestvennaya-uborka-v-vashey-kvartire",
+      "source": "/ru/bezuprechnaya-chistota-kachestvennaya-uborka-v-vashey-kvartire{/}?",
       "destination": "/ru/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/kompleksnaya-uborka-kvartir-v-centre-kishineva",
+      "source": "/kompleksnaya-uborka-kvartir-v-centre-kishineva{/}?",
       "destination": "/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/ru/kompleksnaya-uborka-kvartir-v-centre-kishineva",
+      "source": "/ru/kompleksnaya-uborka-kvartir-v-centre-kishineva{/}?",
       "destination": "/ru/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/uborka-dlya-komforta-roditeley",
+      "source": "/uborka-dlya-komforta-roditeley{/}?",
       "destination": "/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/ru/uborka-dlya-komforta-roditeley",
+      "source": "/ru/uborka-dlya-komforta-roditeley{/}?",
       "destination": "/ru/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/uborka-pered-rojdeniem",
+      "source": "/uborka-pered-rojdeniem{/}?",
       "destination": "/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/ru/uborka-pered-rojdeniem",
+      "source": "/ru/uborka-pered-rojdeniem{/}?",
       "destination": "/ru/services/home-cleaning",
       "permanent": true
     },
     {
-      "source": "/blog/curatenia-generala-si-cea-de-mentinere-diferente",
+      "source": "/blog/curatenia-generala-si-cea-de-mentinere-diferente{/}?",
       "destination": "/blog/curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele",
       "permanent": true
     },
     {
-      "source": "/ru/blog/generalnaya-uborka-i-tekushchaya-uborka-razlichiya",
+      "source": "/ru/blog/generalnaya-uborka-i-tekushchaya-uborka-razlichiya{/}?",
       "destination": "/ru/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya",
+      "permanent": true
+    },
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
       "permanent": true
     }
   ],
