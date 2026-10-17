@@ -300,7 +300,7 @@ const cookiesRu = {
         ["_gcl_aw", "Google Ads, на allclean.md", "хранит метку клика по объявлению (gclid), если вы пришли по рекламе", "90 дней"],
         ["IDE, test_cookie и подобные", "Google, на своих доменах (doubleclick.net, google.com)", "подсчёт рекламных конверсий на стороне Google", "по правилам Google, обычно до 13 месяцев"],
       ] },
-      p2: ["Тег сообщает Google о визите и о странице «Спасибо» после заявки. Имя, телефон и текст заявки в Google не передаются. Персонализированную рекламу (ремаркетинг) мы не включаем."] },
+      p2: ["Тег сообщает Google о визите, о странице «Спасибо» после заявки и о нажатиях на телефон и мессенджеры. Имя, телефон и текст заявки в Google не передаются. Персонализированную рекламу (ремаркетинг) мы не включаем."] },
     { h: "Что хранится без согласия", p: [
       "Только сам ваш выбор: запись lg_consent в памяти браузера (localStorage) — «принято» или «отклонено» и дата. Без неё окно появлялось бы на каждой странице. Через 12 месяцев запись устаревает, и окно появится снова.",
       "Часть изображений сайта отдаётся из хранилища Supabase — поставщика, который держит нашу базу заявок. Он видит ваш IP-адрес и модель браузера, как любой сервер, отдающий картинку, но не ставит cookie и не считает посетителей.",
@@ -342,7 +342,7 @@ const cookiesRo = {
         ["_gcl_aw", "Google Ads, pe allclean.md", "păstrează eticheta clicului pe anunț (gclid), dacă ați venit din reclamă", "90 de zile"],
         ["IDE, test_cookie și altele asemenea", "Google, pe domeniile sale (doubleclick.net, google.com)", "numărarea conversiilor publicitare la Google", "după regulile Google, de obicei până la 13 luni"],
       ] },
-      p2: ["Eticheta îi comunică lui Google vizita și pagina „Mulțumim” după cerere. Numele, telefonul și textul cererii nu sunt transmise lui Google. Publicitatea personalizată (remarketing) nu o activăm."] },
+      p2: ["Eticheta îi comunică lui Google vizita, pagina „Mulțumim” după cerere și apăsările pe telefon și pe messengere. Numele, telefonul și textul cererii nu sunt transmise lui Google. Publicitatea personalizată (remarketing) nu o activăm."] },
     { h: "Ce se păstrează fără consimțământ", p: [
       "Doar alegerea dvs.: înregistrarea lg_consent în memoria browserului (localStorage) — „acceptat” sau „refuzat” și data. Fără ea fereastra ar apărea pe fiecare pagină. După 12 luni înregistrarea expiră și fereastra apare din nou.",
       "O parte din imaginile site-ului este livrată din stocarea Supabase — furnizorul care găzduiește baza noastră de cereri. El vede adresa dvs. IP și tipul browserului, ca orice server care livrează o imagine, dar nu plasează cookie și nu numără vizitatorii.",

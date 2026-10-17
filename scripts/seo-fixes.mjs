@@ -271,6 +271,8 @@ function thanks(html) {
 // на localhost окно включается параметром ?lgconsent для проверки.
 // Конверсия = просмотр /thank-you (правило «URL содержит thank-you» в Google Ads).
 export const ADS_ID = "AW-18495907060";
+// Вторичная конверсия «нажатие на телефон или мессенджер».
+export const CONTACT_CONVERSION = "AW-18495907060/CGjbCMvNhaAdEPTJxPNE";
 // Окно в привычном виде: короткая фраза, «Принять все» и «Отклонить» одинаковые, «Настроить»
 // открывает категории. Категорий две, потому что других cookie на сайте нет: «Необходимые»
 // (только сам выбор) и «Реклама» (тег Google Ads).
@@ -307,6 +309,12 @@ const CONSENT_JS =
   'function wipe(){document.cookie.split(";").forEach(function(c){var n=c.split("=")[0].trim();if(/^_gcl_/.test(n)){' +
   'document.cookie=n+"=;Max-Age=0;path=/";document.cookie=n+"=;Max-Age=0;path=/;domain=."+H.replace(/^www\\./,"");}});}' +
   CONSENT_UI +
+  // Вторичная конверсия «нажатие на связь»: телефон, WhatsApp, Viber, Telegram. Считается, только
+  // когда тег уже загружен (после согласия или в проверке ?gtm_debug); ради неё тег не грузится.
+  // Переход не задерживается: событие уходит маяком.
+  'document.addEventListener("click",function(e){if(!loaded)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a)return;' +
+  'var h=a.getAttribute("href")||"";if(/^(tel|viber|whatsapp|tg):/i.test(h)||/^(https?:)?\\/\\/(wa\\.me|api\\.whatsapp\\.com|t\\.me|telegram\\.me)\\//i.test(h))' +
+  'window.gtag("event","conversion",{send_to:"' + CONTACT_CONVERSION + '",transport_type:"beacon"});},true);' +
   // Проверка тега в Tag Assistant открывает сайт с ?gtm_debug — это владелец проверяет свой тег:
   // тег грузится сразу, окно не показывается (обычных посетителей не касается).
   'window.lgConsentOpen=show;var c=get();if(c==="granted"||/[?&]gtm_debug=/.test(location.search))load();else if(c!=="denied"){' +
@@ -314,7 +322,9 @@ const CONSENT_JS =
   '})();</script>';
 function consentBanner(html) {
   if (html.includes(CONSENT_MARK)) return html;
-  return swapRe(html, "consent:banner", /<\/body>/, CONSENT_JS + "</body>");
+  const out = swapRe(html, "consent:banner", /<\/body>/, CONSENT_JS + "</body>");
+  if (out.includes(CONTACT_CONVERSION)) bump("ads:contact-click", 1);
+  return out;
 }
 
 /** Все правки одной страницы. `lang` — 'ru' или 'ro'. */
@@ -342,7 +352,7 @@ export function seoReport() {
 export function assertSeoApplied() {
   const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "consent:banner",
     "ld:faq-sync", "ld:faq-add", "ld:offers", "h1:hidden",
-    "ld:provider", "ld:article", "footer:maps"];
+    "ld:provider", "ld:article", "footer:maps", "ads:contact-click"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
   if (missing.length) {
     throw new Error("seo-fixes: не применились правки — " + missing.join(", ") +
