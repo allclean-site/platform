@@ -130,6 +130,12 @@ const ждатьХолст = () => new Promise((res) => { готов = res; setT
     b.contentWindow.postMessage({ type: "lg-device", breakpoint: "desktop" }, "*");
     const da = a.contentDocument, db = b.contentDocument;
     for (const d of [da, db]) { try { if (d.fonts && d.fonts.ready) await Promise.race([d.fonts.ready, new Promise((r) => setTimeout(r, 700))]); } catch (e) {} }
+    // lazy-картинки за экраном кадра не грузятся, а у сайта место под них зарезервировано
+    // width/height (optimize-images.mjs): сравниваем загруженное, как видит посетитель.
+    await Promise.race([Promise.all([da, db].flatMap((d) => [...d.images]).map((i) => {
+      if (i.loading === "lazy") i.loading = "eager";
+      return i.complete ? 0 : new Promise((r) => { i.addEventListener("load", r); i.addEventListener("error", r); });
+    })), new Promise((r) => setTimeout(r, 4000))]);
     await new Promise((r) => setTimeout(r, 250));
     const развёрнуто = развернуть(db);
     await new Promise((r) => setTimeout(r, 60));

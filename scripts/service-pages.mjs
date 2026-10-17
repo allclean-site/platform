@@ -518,12 +518,14 @@ const PT = {
 export function priceTableHtml(lang) {
   const t = PT[lang];
   const line = "padding:.95rem .75rem .95rem 0;border-bottom:1px solid rgba(12,41,89,.12);vertical-align:top";
+  // Цель нажатия не меньше 24 px (WCAG 2.2): поля у ссылки, ячейка на столько же меньше.
+  const tap = (href, text) => a(href, text).replace('style="', 'style="display:inline-block;padding:.25rem 0;margin:-.25rem 0;');
   const rows = PRICES.map((p) => {
     const href = path(lang, p.slug);
     const price = (lang === "ru" ? p.pru : p.pro)
       ? (lang === "ru" ? p.pru : p.pro).map((s) => `<div>${esc(s).replace(/(\d) /g, "$1&nbsp;").replace(/ (?=\S+$)/, "&nbsp;")}</div>`).join("")
-      : `${t.none} · ${a(href + "#calc-section", t.calc)}`;
-    return `<tr><td class="text_body-bold" style="${line}">${a(href, esc(p[lang]))}</td><td style="${line};padding-right:0;text-align:right">${price}</td></tr>`;
+      : `${t.none} · ${tap(href + "#calc-section", t.calc)}`;
+    return `<tr><td class="text_body-bold" style="${line}">${tap(href, esc(p[lang]))}</td><td style="${line};padding-right:0;text-align:right">${price}</td></tr>`;
   }).join("");
   return `<section class="section_price-list" style="padding:0 0 5rem"><div class="padding-global"><div class="w-layout-blockcontainer container-large w-container">` +
     `<div style="max-width:52rem;margin:0 auto">` +
