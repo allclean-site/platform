@@ -100,7 +100,7 @@ const privacyRu = {
         ["Оказать заказанную услугу и вести расчёты по ней", "исполнение договора (п. b)"],
         ["Хранить первичные документы по оказанным услугам", "исполнение обязанности, предусмотренной законом (п. c) — бухгалтерское и налоговое законодательство"],
         ["Работоспособность и защита сайта: журналы, защита от перебора и спама", "законный интерес оператора (п. f) — сайт должен работать и не быть каналом для злоупотреблений"],
-        ["Понять, какие объявления Google Ads приводят заявки (тег Google Ads и его cookie)", "ваше согласие (п. a) — кнопка «Принять» в окне cookie; без него тег не загружается"],
+        ["Понять, какие объявления Google Ads приводят заявки (тег Google Ads и его cookie)", "ваше согласие (п. a) в окне cookie; без него тег не загружается"],
       ] },
       p2: [
         `Согласие даётся отметкой в поле рядом со ссылкой на эту политику. Оно добровольно: без него мы не примем заявку через сайт, но вы всегда можете просто позвонить. Согласие можно отозвать в любой момент письмом на ${O.email} — это не влияет на законность обработки, которая шла до отзыва.`,
@@ -135,7 +135,7 @@ const privacyRu = {
       "Как только вы нажали, вы оказываетесь в чужом сервисе, и дальше действуют его правила: он видит ваш номер или учётную запись и ведёт свои записи. Мы на это повлиять не можем и отвечаем только за то, что вы напишете нам в переписке, — на такие обращения распространяются разделы 4 и 6 этой политики.",
     ] },
     { h: "8. Cookie и память браузера", p: [
-      "Единственные необязательные cookie на сайте — тега Google Ads: по ним видно, какое объявление привело заявку. Тег загружается только после того, как вы нажмёте «Принять» в окне cookie. Если нажать «Отклонить» или ничего не нажимать, он не загружается, и Google о визите ничего не узнаёт. Аналитики, пикселей социальных сетей, тепловых карт и записи сессий на сайте нет.",
+      "Единственные необязательные cookie на сайте — тега Google Ads: по ним видно, какое объявление привело заявку. Тег загружается только после вашего согласия в окне cookie. Если нажать «Отклонить», выключить рекламу в настройках или ничего не нажимать, он не загружается, и Google о визите ничего не узнаёт. Аналитики, пикселей социальных сетей, тепловых карт и записи сессий на сайте нет.",
       'Подробности — на странице <a href="/ru/cookies">«Cookie и память браузера»</a>.',
     ] },
     { h: "9. Ваши права",
@@ -205,7 +205,7 @@ const privacyRo = {
         ["Să prestăm serviciul comandat și să efectuăm decontările", "executarea contractului (lit. b)"],
         ["Să păstrăm documentele primare privind serviciile prestate", "îndeplinirea unei obligații legale (lit. c) — legislația contabilă și fiscală"],
         ["Funcționarea și securitatea site-ului: jurnale, protecție împotriva abuzurilor și spamului", "interesul legitim al operatorului (lit. f)"],
-        ["Să înțelegem ce anunțuri Google Ads aduc cereri (eticheta Google Ads și cookie-urile ei)", "consimțământul dvs. (lit. a) — butonul „Accept” din fereastra cookie; fără el eticheta nu se încarcă"],
+        ["Să înțelegem ce anunțuri Google Ads aduc cereri (eticheta Google Ads și cookie-urile ei)", "consimțământul dvs. (lit. a) din fereastra cookie; fără el eticheta nu se încarcă"],
       ] },
       p2: [
         `Consimțământul se exprimă prin bifarea căsuței de lângă linkul către această politică. Este benevol: fără el nu putem primi cererea prin site, dar ne puteți oricând suna. Consimțământul poate fi retras oricând printr-un mesaj la ${O.email} — retragerea nu afectează legalitatea prelucrării de până la ea.`,
@@ -240,7 +240,7 @@ const privacyRo = {
       "De îndată ce le apăsați, ajungeți într-un serviciu străin, unde se aplică regulile lui: el vă vede numărul sau contul și ține propriile evidențe. Noi nu putem influența acest lucru și răspundem doar pentru ceea ce ne scrieți în corespondență — acestor mesaje li se aplică secțiunile 4 și 6 din această politică.",
     ] },
     { h: "8. Cookie și memoria browserului", p: [
-      "Singurele cookie neobligatorii de pe site sunt cele ale etichetei Google Ads: din ele se vede ce anunț a adus o cerere. Eticheta se încarcă doar după ce apăsați „Accept” în fereastra cookie. Dacă apăsați „Refuz” sau nu apăsați nimic, ea nu se încarcă, iar Google nu află nimic despre vizită. Analize, pixeli ai rețelelor sociale, hărți termice și înregistrarea sesiunilor nu există pe site.",
+      "Singurele cookie neobligatorii de pe site sunt cele ale etichetei Google Ads: din ele se vede ce anunț a adus o cerere. Eticheta se încarcă doar după consimțământul dvs. în fereastra cookie. Dacă apăsați „Refuz”, dezactivați publicitatea în setări sau nu apăsați nimic, ea nu se încarcă, iar Google nu află nimic despre vizită. Analize, pixeli ai rețelelor sociale, hărți termice și înregistrarea sesiunilor nu există pe site.",
       'Detalii — pe pagina <a href="/cookies">„Cookie și memoria browserului”</a>.',
     ] },
     { h: "9. Drepturile dvs.",
@@ -291,10 +291,10 @@ const cookiesRu = {
   blocks: [
     { h: "Коротко", p: [
       "Без вашего согласия сайт allclean.md не ставит cookie и не подключает сторонние скрипты. Единственное, что может появиться с вашего согласия, — тег Google Ads: по нему видно, какое рекламное объявление привело заявку.",
-      "При первом визите внизу страницы появляется окно с двумя одинаковыми кнопками: «Принять» и «Отклонить». Пока вы не нажали «Принять», тег не загружается.",
+      "При первом визите внизу страницы появляется окно с кнопками «Принять все», «Отклонить» и «Настроить». В настройках можно включить или выключить рекламные cookie отдельно. Пока вы не согласились на них, тег не загружается.",
       'Выбор можно изменить в любой момент: <button type="button" onclick="window.lgConsentOpen&&window.lgConsentOpen()" style="margin-top:6px;padding:12px 22px;border:0;border-radius:12px;background:#0c2959;color:#fff;font-weight:700;cursor:pointer">Изменить выбор cookie</button>',
     ] },
-    { h: "Что ставится после «Принять»",
+    { h: "Что ставится после согласия",
       table: { head: ["Cookie", "Кто ставит", "Зачем", "Срок"], rows: [
         ["_gcl_au", "Google Ads, на allclean.md", "связать визит с кликом по объявлению", "90 дней"],
         ["_gcl_aw", "Google Ads, на allclean.md", "хранит метку клика по объявлению (gclid), если вы пришли по рекламе", "90 дней"],
@@ -316,7 +316,7 @@ const cookiesRu = {
       'Заявка уходит на наш сервер и в базу заявок. Что именно передаётся, кому и на сколько — в <a href="/ru/privacy">политике конфиденциальности</a>, разделы 2, 5 и 6. Если вы пришли по рекламе, в адресе страницы, который сохраняется с заявкой, есть метка клика (gclid): по ней мы видим, какое объявление сработало.',
     ] },
     { h: "Как отозвать согласие", p: [
-      "Нажмите «Изменить выбор cookie» выше и выберите «Отклонить»: тег перестанет загружаться, а его cookie на allclean.md удалятся. Cookie на доменах Google удаляются в настройках браузера: в Chrome «Настройки → Конфиденциальность и безопасность → Файлы cookie», в Firefox «Настройки → Приватность и защита», в Safari «Настройки → Конфиденциальность».",
+      "Нажмите «Изменить выбор cookie» выше и выберите «Отклонить» или выключите рекламу в настройках: тег перестанет загружаться, а его cookie на allclean.md удалятся. Cookie на доменах Google удаляются в настройках браузера: в Chrome «Настройки → Конфиденциальность и безопасность → Файлы cookie», в Firefox «Настройки → Приватность и защита», в Safari «Настройки → Конфиденциальность».",
       `Вопросы — на <a href="mailto:${O.email}">${O.email}</a>.`,
     ] },
   ],
@@ -333,10 +333,10 @@ const cookiesRo = {
   blocks: [
     { h: "Pe scurt", p: [
       "Fără consimțământul dvs. site-ul allclean.md nu plasează cookie și nu încarcă scripturi terțe. Singurul lucru care poate apărea cu acordul dvs. este eticheta Google Ads: din ea se vede ce anunț publicitar a adus o cerere.",
-      "La prima vizită, în partea de jos a paginii apare o fereastră cu două butoane la fel: „Accept” și „Refuz”. Până nu apăsați „Accept”, eticheta nu se încarcă.",
+      "La prima vizită, în partea de jos a paginii apare o fereastră cu butoanele „Accept toate”, „Refuz” și „Setări”. În setări cookie-urile publicitare pot fi activate sau dezactivate separat. Până nu vă dați acordul pentru ele, eticheta nu se încarcă.",
       'Alegerea poate fi schimbată oricând: <button type="button" onclick="window.lgConsentOpen&&window.lgConsentOpen()" style="margin-top:6px;padding:12px 22px;border:0;border-radius:12px;background:#0c2959;color:#fff;font-weight:700;cursor:pointer">Schimbați alegerea cookie</button>',
     ] },
-    { h: "Ce se plasează după „Accept”",
+    { h: "Ce se plasează după consimțământ",
       table: { head: ["Cookie", "Cine îl plasează", "Pentru ce", "Durata"], rows: [
         ["_gcl_au", "Google Ads, pe allclean.md", "leagă vizita de clicul pe anunț", "90 de zile"],
         ["_gcl_aw", "Google Ads, pe allclean.md", "păstrează eticheta clicului pe anunț (gclid), dacă ați venit din reclamă", "90 de zile"],
@@ -358,7 +358,7 @@ const cookiesRo = {
       'Cererea ajunge pe serverul nostru și în baza de date a cererilor. Ce anume se transmite, cui și pentru cât timp — în <a href="/privacy">politica de confidențialitate</a>, secțiunile 2, 5 și 6. Dacă ați venit din reclamă, adresa paginii, păstrată împreună cu cererea, conține eticheta clicului (gclid): din ea vedem ce anunț a funcționat.',
     ] },
     { h: "Cum vă retrageți consimțământul", p: [
-      "Apăsați „Schimbați alegerea cookie” de mai sus și alegeți „Refuz”: eticheta nu se mai încarcă, iar cookie-urile ei de pe allclean.md se șterg. Cookie-urile de pe domeniile Google se șterg din setările browserului: în Chrome „Setări → Confidențialitate și securitate → Cookie-uri”, în Firefox „Setări → Confidențialitate și securitate”, în Safari „Setări → Confidențialitate”.",
+      "Apăsați „Schimbați alegerea cookie” de mai sus și alegeți „Refuz” sau dezactivați publicitatea în setări: eticheta nu se mai încarcă, iar cookie-urile ei de pe allclean.md se șterg. Cookie-urile de pe domeniile Google se șterg din setările browserului: în Chrome „Setări → Confidențialitate și securitate → Cookie-uri”, în Firefox „Setări → Confidențialitate și securitate”, în Safari „Setări → Confidențialitate”.",
       `Întrebări — la <a href="mailto:${O.email}">${O.email}</a>.`,
     ] },
   ],

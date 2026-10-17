@@ -124,6 +124,27 @@ function thanks(html) {
 // на localhost окно включается параметром ?lgconsent для проверки.
 // Конверсия = просмотр /thank-you (правило «URL содержит thank-you» в Google Ads).
 export const ADS_ID = "AW-18495907060";
+// Окно в привычном виде: короткая фраза, «Принять все» и «Отклонить» одинаковые, «Настроить»
+// открывает категории. Категорий две, потому что других cookie на сайте нет: «Необходимые»
+// (только сам выбор) и «Реклама» (тег Google Ads).
+const CONSENT_UI = `var T=ru?{t:"Мы используем cookie, чтобы сайт работал и чтобы оценивать эффективность рекламы.",m:"Подробнее",u:"/ru/cookies",y:"Принять все",n:"Отклонить",s:"Настроить",h:"Настройки cookie",c1:"Необходимые",d1:"Всегда включены. Хранят ваш выбор о cookie.",c2:"Реклама",d2:"Google Ads: показывает, какая реклама приводит заявки.",sv:"Сохранить выбор"}` +
+  `:{t:"Folosim cookie-uri pentru funcționarea site-ului și pentru a măsura eficiența reclamei.",m:"Detalii",u:"/cookies",y:"Accept toate",n:"Refuz",s:"Setări",h:"Setări cookie",c1:"Necesare",d1:"Mereu active. Păstrează alegerea dvs. privind cookie-urile.",c2:"Publicitate",d2:"Google Ads: ne arată ce reclame aduc cereri.",sv:"Salvează alegerea"};` +
+  `var box=null;function hide(){if(box){box.remove();box=null;}}` +
+  `var B="flex:1;min-width:130px;padding:12px 16px;border:0;border-radius:12px;background:#0c2959;color:#fff;font-weight:700;font-size:15px;cursor:pointer";` +
+  `var L="padding:6px 0;border:0;background:none;color:#0c2959;text-decoration:underline;font-size:14px;cursor:pointer";` +
+  `function main(){return "<p style='margin:0 0 14px'>"+T.t+" <a href='"+T.u+"' style='color:inherit;text-decoration:underline'>"+T.m+"</a></p>"+` +
+  `"<div style='display:flex;gap:10px;flex-wrap:wrap'><button type='button' data-v='granted' style='"+B+"'>"+T.y+"</button><button type='button' data-v='denied' style='"+B+"'>"+T.n+"</button></div>"+` +
+  `"<button type='button' data-a='settings' style='"+L+";margin-top:8px'>"+T.s+"</button>";}` +
+  `function row(id,title,desc,on,lock){return "<label style='display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid #e3e9f5;cursor:"+(lock?"default":"pointer")+"'>"+` +
+  `"<input type='checkbox' id='"+id+"' "+(on?"checked ":"")+(lock?"disabled ":"")+"style='width:20px;height:20px;margin-top:2px;flex:none;accent-color:#0c2959'>"+` +
+  `"<span><b>"+title+"</b><br><span style='font-size:14px;opacity:.8'>"+desc+"</span></span></label>";}` +
+  `function settings(){return "<p style='margin:0 0 6px;font-weight:700'>"+T.h+"</p>"+row("lgc-nec",T.c1,T.d1,true,true)+row("lgc-ads",T.c2,T.d2,get()==="granted",false)+` +
+  `"<div style='display:flex;gap:10px;flex-wrap:wrap;margin-top:12px'><button type='button' data-a='save' style='"+B+"'>"+T.sv+"</button><button type='button' data-v='granted' style='"+B+"'>"+T.y+"</button></div>";}` +
+  `function apply(v){var was=get();set(v);hide();if(v==="granted")load();else if(was==="granted"){wipe();location.reload();}}` +
+  `function show(){if(box)return;box=document.createElement("div");box.id="lg-consent";box.setAttribute("role","dialog");box.setAttribute("aria-label","Cookie");` +
+  `box.style.cssText="position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483000;max-width:440px;margin:0;background:#fff;color:#0c2959;border-radius:18px;box-shadow:0 18px 50px rgba(12,41,89,.25);padding:18px 20px;font-size:15px;line-height:1.5";` +
+  `box.innerHTML=main();box.addEventListener("click",function(e){var t=e.target,v=t.getAttribute&&t.getAttribute("data-v"),a=t.getAttribute&&t.getAttribute("data-a");` +
+  `if(v)apply(v);else if(a==="settings")box.innerHTML=settings();else if(a==="save")apply(box.querySelector("#lgc-ads").checked?"granted":"denied");});document.body.appendChild(box);}`;
 const CONSENT_MARK = "lg-consent-banner";
 const CONSENT_JS =
   '<script>/*lg-consent-banner*/(function(){' +
@@ -138,16 +159,7 @@ const CONSENT_JS =
   'var s=document.createElement("script");s.async=true;s.src="https://www.googletagmanager.com/gtag/js?id="+ID;document.head.appendChild(s);}' +
   'function wipe(){document.cookie.split(";").forEach(function(c){var n=c.split("=")[0].trim();if(/^_gcl_/.test(n)){' +
   'document.cookie=n+"=;Max-Age=0;path=/";document.cookie=n+"=;Max-Age=0;path=/;domain=."+H.replace(/^www\\./,"");}});}' +
-  'var T=ru?{t:"Мы используем cookie Google Ads, чтобы понимать, какая реклама приводит заявки. Они ставятся только с вашего согласия.",m:"Подробнее",u:"/ru/cookies",y:"Принять",n:"Отклонить"}' +
-  ':{t:"Folosim cookie Google Ads ca să înțelegem ce reclame aduc cereri. Le plasăm doar cu acordul dvs.",m:"Detalii",u:"/cookies",y:"Accept",n:"Refuz"};' +
-  'var box=null;function hide(){if(box){box.remove();box=null;}}' +
-  'function show(){if(box)return;box=document.createElement("div");box.id="lg-consent";box.setAttribute("role","dialog");box.setAttribute("aria-label","Cookie");' +
-  'box.style.cssText="position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483000;max-width:560px;margin:0 auto;background:#fff;color:#0c2959;border-radius:18px;box-shadow:0 18px 50px rgba(12,41,89,.25);padding:18px 20px;font-size:15px;line-height:1.5";' +
-  'var b="flex:1;min-width:120px;padding:12px 16px;border:0;border-radius:12px;background:#0c2959;color:#fff;font-weight:700;font-size:15px;cursor:pointer";' +
-  'box.innerHTML="<p style=\\"margin:0 0 12px\\">"+T.t+" <a href=\\""+T.u+"\\" style=\\"color:inherit;text-decoration:underline\\">"+T.m+"</a></p>"+' +
-  '"<div style=\\"display:flex;gap:10px;flex-wrap:wrap\\"><button type=\\"button\\" data-v=\\"granted\\" style=\\""+b+"\\">"+T.y+"</button><button type=\\"button\\" data-v=\\"denied\\" style=\\""+b+"\\">"+T.n+"</button></div>";' +
-  'box.addEventListener("click",function(e){var v=e.target&&e.target.getAttribute&&e.target.getAttribute("data-v");if(!v)return;var was=get();set(v);hide();' +
-  'if(v==="granted")load();else if(was==="granted"){wipe();location.reload();}});document.body.appendChild(box);}' +
+  CONSENT_UI +
   'window.lgConsentOpen=show;var c=get();if(c==="granted")load();else if(c!=="denied"){' +
   'if(document.body)show();else document.addEventListener("DOMContentLoaded",show);}' +
   '})();</script>';
