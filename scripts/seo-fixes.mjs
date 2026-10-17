@@ -98,6 +98,36 @@ function org(html, lang) {
     });
 }
 
+// ── 4в. Скрытое внутри H1 ─────────────────────────────────────────────────────────────
+// Правка клиента на /ru оставила в H1 прежние строки под `display:none !important`
+// («…С ГАРАНТИЕЙ ДЛЯ ЗАНЯТЫХ»). Глазу не видно, а поиск читает скрытый текст заголовка.
+// Трогаем только скрытое инлайном с !important (его не перебьёт ни одно правило).
+// ⚠️ Узел не удаляем, а заменяем ПУСТЫМ того же тега: размеры строки из правок клиента
+// адресуются путём `div.heading-style-h1:nth-of-type(4) > span:nth-of-type(1) > …`, и
+// удаление соседей или разворот вложенных <span> сдвигает номера — заголовок меняет кегль
+// и межстрочный. Пустой узел с display:contents коробки не создаёт (и зазора во flex тоже),
+// а счёт сохраняет.
+function closeOf(html, start, tag) {
+  const re = new RegExp(`<(\\/?)${tag}\\b[^>]*>`, "gi");
+  re.lastIndex = start;
+  let depth = 0, m;
+  while ((m = re.exec(html))) { depth += m[1] ? -1 : 1; if (!depth) return [m.index, re.lastIndex]; }
+  return null;
+}
+const HIDDEN = /<(div|span|p|strong|em|b|i)\b[^>]*\sstyle="[^"]*display:\s*none\s*!important[^"]*"[^>]*>/i;
+function h1Clean(html) {
+  return html.replace(/(<h1\b[^>]*>)([\s\S]*?)(<\/h1>)/gi, (whole, open, inner, close) => {
+    let m;
+    while ((m = inner.match(HIDDEN))) {
+      const end = closeOf(inner, m.index, m[1]);
+      if (!end) break;
+      inner = inner.slice(0, m.index) + `<${m[1]} style="display:contents"></${m[1]}>` + inner.slice(end[1]);
+      bump("h1:hidden", 1);
+    }
+    return open + inner + close;
+  });
+}
+
 // ── 5б. Цены ──────────────────────────────────────────────────────────────────────────
 // Только цены, которые уже написаны на страницах услуг (FAQ и первый экран). Без цены —
 // «по осмотру» и калькулятор. Отсюда берут таблица на /pricing (scripts/service-pages.mjs)
@@ -271,6 +301,7 @@ export function applySeoFixes(html, lang) {
   out = favicon(out);
   out = posterPreload(out);
   out = org(out, lang);
+  out = h1Clean(out);
   out = jsonld(out);
   out = thanks(out);
   out = consentBanner(out);
@@ -285,7 +316,7 @@ export function seoReport() {
 /** Ворота сборки: ноль у правки значит, что шаблон поменялся и якорь больше не совпадает. */
 export function assertSeoApplied() {
   const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "consent:banner",
-    "ld:faq-sync", "ld:faq-add", "ld:offers"];
+    "ld:faq-sync", "ld:faq-add", "ld:offers", "h1:hidden"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
   if (missing.length) {
     throw new Error("seo-fixes: не применились правки — " + missing.join(", ") +
