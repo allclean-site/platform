@@ -350,6 +350,62 @@ async function writeLegalPages(written, media) {
   return LEGAL_PAGES.length;
 }
 
+// ---- «спасибо» после заявки ---------------------------------------------------------------------
+// Сюда формы переводят после успешной заявки (scripts/seo-fixes.mjs, thanks). Вёрстка — от политики,
+// как у юридических страниц. Страница не для поиска: noindex, без языковых пар и вне карты сайта.
+const THANKS_PAGES = [
+  { lang: "ro", slug: "/thank-you", pair: "/ru/thank-you", metaTitle: "Mulțumim, cererea a fost primită | All Clean",
+    title: "Mulțumim, cererea a fost primită",
+    text: "Managerul vă va contacta pentru a confirma detaliile și prețul exact. Lucrăm zilnic între 8:00 și 21:00, cererile trimise mai târziu le preluăm dimineața.",
+    urgent: "Dacă e urgent, sunați sau scrieți-ne:", call: "Sunați", home: ["/", "Prima pagină"], more: ["/services", "Toate serviciile"] },
+  { lang: "ru", slug: "/ru/thank-you", pair: "/thank-you", metaTitle: "Спасибо, заявка принята | All Clean",
+    title: "Спасибо, заявка принята",
+    text: "Менеджер свяжется с вами, подтвердит детали и назовёт точную цену. Работаем ежедневно с 8:00 до 21:00, заявки, отправленные позже, обработаем утром.",
+    urgent: "Если вопрос срочный, позвоните или напишите:", call: "Позвонить", home: ["/ru", "На главную"], more: ["/ru/services", "Все услуги"] },
+];
+
+function thanksMain(pg) {
+  const btn = (href, text, extra) =>
+    `<a href="${href}" class="cta_primary${extra || ""} w-inline-block"><div class="button_text-mask"><div class="text-button">${escHtml(text)}</div></div><div class="btn-bg"></div></a>`;
+  const ch = (href, text) => `<a href="${href}" style="color:inherit;text-decoration:underline;white-space:nowrap">${text}</a>`;
+  return '<section class="section_hero-faq"><div class="padding-global"><div class="w-layout-blockcontainer container-large w-container">' +
+    '<div style="padding:3.5rem 0 4.5rem;display:flex;flex-direction:column;gap:1.1rem;align-items:flex-start;max-width:44rem">' +
+    '<div class="label-large">✓</div>' +
+    `<h1 class="heading-style-h3 margin-0">${escHtml(pg.title)}</h1>` +
+    `<p class="text-size-large">${escHtml(pg.text)}</p>` +
+    `<p class="text-size-large">${escHtml(pg.urgent)} ${ch("tel:+37379955044", "+373 79 955 044")} · ` +
+    `${ch("https://api.whatsapp.com/send?phone=37379955044", "WhatsApp")} · ${ch("viber://chat?number=%2B37379955044", "Viber")} · ` +
+    `${ch("https://t.me/+37379955044", "Telegram")}</p>` +
+    `<div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.5rem">${btn(pg.home[0], pg.home[1])}${btn(pg.more[0], pg.more[1], " secondary")}</div>` +
+    "</div></div></div></section>";
+}
+
+async function writeThanksPages(written, media) {
+  const tpl = {
+    ro: JSON.parse(await readFile(join(IMPORT, "privacy.json"), "utf8")),
+    ru: JSON.parse(await readFile(join(IMPORT, "ru__privacy.json"), "utf8")),
+  };
+  for (const pg of THANKS_PAGES) {
+    const t = tpl[pg.lang];
+    const prefix = legalHead(t.prefix, { ...pg, metaDesc: pg.text })
+      .replace(/<link\b[^>]*rel="canonical"[^>]*>/gi, '<meta name="robots" content="noindex">')
+      .replace(/<link\b[^>]*rel="alternate"[^>]*>/gi, "")
+      .replace(/<meta\b[^>]*property="og:url"[^>]*>/gi, "");
+    const page = {
+      ...t, slug: pg.slug, prefix,
+      blocks: t.blocks.map((b) => (b.content.region === "main" ? { ...b, content: { ...b.content, html: thanksMain(pg) } } : b)),
+    };
+    const html = applySitePrivacy(exportPageHtml(page, undefined, undefined, { media }), pg.lang)
+      .replace(/(<a\b[^>]*class="[^"]*lang-toggle[^"]*"[^>]*href=")[^"]*(")/g, `$1${pg.pair}$2`)
+      .replace(/(<a\b[^>]*href=")[^"]*("[^>]*class="[^"]*lang-toggle[^"]*")/g, `$1${pg.pair}$2`);
+    const rel = slugToFile(pg.slug);
+    await mkdir(dirname(join(OUT, rel)), { recursive: true });
+    await writeFile(join(OUT, rel), html);
+    written.add(rel);
+  }
+  return THANKS_PAGES.length;
+}
+
 async function main() {
   const editsPath = process.argv[2];
   let edits = { overrides: {}, breakpoints: {} };
@@ -394,6 +450,7 @@ async function main() {
 
   // Политика и cookie — своим содержимым поверх вёрстки зеркала (перезаписывают /privacy).
   console.log(`[build] юридические страницы: ${await writeLegalPages(written, media)}`);
+  console.log(`[build] страницы «спасибо»: ${await writeThanksPages(written, media)}`);
 
   console.log(`[build] правки 195/2024: ${privacyReport()}`);
   assertPrivacy();

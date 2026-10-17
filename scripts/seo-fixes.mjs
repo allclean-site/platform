@@ -98,6 +98,24 @@ function org(html, lang) {
     });
 }
 
+// ── 6. Страница «спасибо» после заявки ───────────────────────────────────────────────
+// Все формы (калькуляторы, запись) после того, как база приняла заявку, вызывают
+// /api/notify-lead — это единственная общая точка успеха. Ждём, пока уведомление уйдёт
+// (не дольше 2,5 с), и переводим на /thank-you своего языка: человек видит, что заявка
+// дошла, а реклама и аналитика получают одну страницу-конверсию. Только на самом сайте:
+// в холсте кабинета форму пробуют при правке, там переход не нужен.
+const THANKS_MARK = "lg-thanks";
+const THANKS =
+  '<script>/*lg-thanks*/(function(){if(!/^(www\\.)?allclean\\.md$|^localhost$|^127\\.0\\.0\\.1$/.test(location.hostname))return;' +
+  'var f=window.fetch;window.fetch=function(u,o){var r=f.apply(this,arguments);' +
+  'if(o&&String(o.method).toUpperCase()==="POST"&&String(u).indexOf("/api/notify-lead")>=0){' +
+  'var done=false,go=function(){if(done)return;done=true;location.href=(/^\\/ru(\\/|$)/.test(location.pathname)?"/ru":"")+"/thank-you";};' +
+  'setTimeout(go,2500);r.then(go,go);}return r;};})();</script>';
+function thanks(html) {
+  if (html.includes(THANKS_MARK)) return html;
+  return swapRe(html, "thanks:redirect", /<\/body>/, THANKS + "</body>");
+}
+
 /** Все правки одной страницы. `lang` — 'ru' или 'ro'. */
 export function applySeoFixes(html, lang) {
   let out = trailingSlash(html);
@@ -106,6 +124,7 @@ export function applySeoFixes(html, lang) {
   out = favicon(out);
   out = posterPreload(out);
   out = org(out, lang);
+  out = thanks(out);
   return out;
 }
 
@@ -116,7 +135,7 @@ export function seoReport() {
 
 /** Ворота сборки: ноль у правки значит, что шаблон поменялся и якорь больше не совпадает. */
 export function assertSeoApplied() {
-  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld"];
+  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
   if (missing.length) {
     throw new Error("seo-fixes: не применились правки — " + missing.join(", ") +

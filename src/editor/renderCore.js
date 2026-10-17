@@ -846,14 +846,16 @@ export const FORM_FIX = [
   "var subs=f.querySelectorAll('input[type=submit],button[type=submit]');",
   "var links=f.querySelectorAll('a');",
   "for(j=0;j<links.length;j++){var a=links[j];",
-  "if(!dead(a)||a.getAttribute('data-lgcms-submit'))continue;",
+  // «Уже подключена» — свойство элемента, а не атрибут: атрибут попадает в сохранённую правку
+  // клиента, и с 01.10 кнопка записи приходила с ним, пропускалась и не отправляла форму.
+  "if(!dead(a)||a.__lgSubmit)continue;",
   "var ar=a.getBoundingClientRect(),covers=null;",
   "for(k=0;k<subs.length;k++){var sr=subs[k].getBoundingClientRect();",
   "if(sr.width<1&&sr.height<1)continue;",
   "var ov=Math.max(0,Math.min(ar.right,sr.right)-Math.max(ar.left,sr.left))*Math.max(0,Math.min(ar.bottom,sr.bottom)-Math.max(ar.top,sr.top));",
   "if(ov>sr.width*sr.height*0.5){covers=subs[k];break;}}",
   "if(!covers)continue;",
-  "a.setAttribute('data-lgcms-submit','1');",
+  "a.setAttribute('data-lgcms-submit','1');a.__lgSubmit=1;",
   // Это кнопка отправки, а ссылка она только по разметке шаблона: читалка объявляла «ссылка», а
   // пробел — привычный для кнопки способ нажатия — не срабатывал.
   "a.setAttribute('role','button');",
