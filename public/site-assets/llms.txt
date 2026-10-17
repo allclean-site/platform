@@ -49,7 +49,7 @@ Key facts:
 
 ## Prices, booking and contacts
 
-- [Цены / Prețuri](https://allclean.md/ru/pricing) ([RO](https://allclean.md/pricing)): online calculator for all services.
+- [Цены / Prețuri](https://allclean.md/ru/pricing) ([RO](https://allclean.md/pricing)): price table "from" for every service and an online calculator.
 - [Записаться / Programare](https://allclean.md/ru/book-cleaning) ([RO](https://allclean.md/book-cleaning))
 - [О компании и контакты / Despre noi](https://allclean.md/ru/about) ([RO](https://allclean.md/about))
 - [Google Maps profile](https://www.google.com/maps?cid=12753551464754354058)

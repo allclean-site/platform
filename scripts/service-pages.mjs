@@ -14,6 +14,7 @@
 // линолеум 60. Фасады — как в FAQ страницы мойки окон. Затопление — без цены (после осмотра).
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { PRICES } from "./seo-fixes.mjs";
 
 const DIR = join(process.cwd(), "public", "import", "allclean");
 const SITE = "https://allclean.md";
@@ -503,4 +504,48 @@ export function appendFaq(html, items) {
   return html.slice(0, inner) + add + html.slice(inner);
 }
 
-if (process.argv[1] && process.argv[1].endsWith("service-pages.mjs")) build();
+// ── Таблица цен на /pricing ───────────────────────────────────────────────────────────
+// Была только калькулятором: ни одной цены текстом ни для посетителя, ни для поиска. Отдельный
+// блок сразу после первого экрана; цены — из PRICES (seo-fixes.mjs), без цены — «по осмотру»
+// со ссылкой на калькулятор услуги. Блок обычный: клиент правит его в кабинете, как остальные.
+const PRICE_BLOCK = "sec-prices";
+const PT = {
+  ru: { label: "Прайс", h2: "Цены на услуги", th: ["Услуга", "Цена от"], none: "по осмотру", calc: "калькулятор",
+        note: "Точную стоимость назовёт менеджер, когда уточнит площадь и состояние помещения." },
+  ro: { label: "Tarife", h2: "Prețuri pentru servicii", th: ["Serviciu", "Preț de la"], none: "după vizionare", calc: "calculator",
+        note: "Prețul exact îl spune managerul după ce clarifică suprafața și starea încăperii." },
+};
+export function priceTableHtml(lang) {
+  const t = PT[lang];
+  const line = "padding:.95rem .75rem .95rem 0;border-bottom:1px solid rgba(12,41,89,.12);vertical-align:top";
+  const rows = PRICES.map((p) => {
+    const href = path(lang, p.slug);
+    const price = (lang === "ru" ? p.pru : p.pro)
+      ? (lang === "ru" ? p.pru : p.pro).map((s) => `<div>${esc(s).replace(/(\d) /g, "$1&nbsp;").replace(/ (?=\S+$)/, "&nbsp;")}</div>`).join("")
+      : `${t.none} · ${a(href + "#calc-section", t.calc)}`;
+    return `<tr><td class="text_body-bold" style="${line}">${a(href, esc(p[lang]))}</td><td style="${line};padding-right:0;text-align:right">${price}</td></tr>`;
+  }).join("");
+  return `<section class="section_price-list" style="padding:0 0 5rem"><div class="padding-global"><div class="w-layout-blockcontainer container-large w-container">` +
+    `<div style="max-width:52rem;margin:0 auto">` +
+    `<div class="master_label"><div class="label-large">${t.label}</div></div>` +
+    `<h2 class="heading-style-h4" style="margin:1rem 0 1.5rem;text-align:center">${t.h2}</h2>` +
+    `<table class="text-size-regular" style="width:100%;border-collapse:collapse">` +
+    `<thead><tr><th style="${line};text-align:left;opacity:.6;font-weight:500">${t.th[0]}</th><th style="${line};padding-right:0;text-align:right;opacity:.6;font-weight:500">${t.th[1]}</th></tr></thead>` +
+    `<tbody>${rows}</tbody></table>` +
+    `<p class="text-size-regular" style="margin:1.25rem 0 0;opacity:.75">${t.note}</p>` +
+    `</div></div></div></section>`;
+}
+function priceList() {
+  for (const lang of ["ro", "ru"]) {
+    const file = join(DIR, (lang === "ru" ? "ru__" : "") + "pricing.json");
+    const page = JSON.parse(readFileSync(file, "utf8"));
+    const block = { id: PRICE_BLOCK, type: "section", content: { label: "Прайс", region: "main", html: priceTableHtml(lang) } };
+    const at = page.blocks.findIndex((b) => b.id === PRICE_BLOCK);
+    if (at >= 0) page.blocks[at] = block;
+    else page.blocks.splice(page.blocks.findIndex((b) => b.id === "sec-0") + 1, 0, block);
+    writeFileSync(file, JSON.stringify(page));
+  }
+  console.log("[service-pages] таблица цен на /pricing и /ru/pricing");
+}
+
+if (process.argv[1] && process.argv[1].endsWith("service-pages.mjs")) { build(); priceList(); }

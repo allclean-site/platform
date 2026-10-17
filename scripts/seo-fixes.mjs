@@ -98,6 +98,97 @@ function org(html, lang) {
     });
 }
 
+// ── 5б. Цены ──────────────────────────────────────────────────────────────────────────
+// Только цены, которые уже написаны на страницах услуг (FAQ и первый экран). Без цены —
+// «по осмотру» и калькулятор. Отсюда берут таблица на /pricing (scripts/service-pages.mjs)
+// и offers в разметке услуги. Меняется цена на странице — меняется и здесь, и в llms.txt.
+// min — для разметки; unit: m2 (за м²), item (за предмет), иначе — за объект.
+export const PRICES = [
+  { slug: "home-cleaning", ru: "Уборка квартир и домов", ro: "Curățenie apartamente și case" },
+  { slug: "deep-cleaning", min: 45, unit: "m2", ru: "Генеральная уборка", ro: "Curățenie generală",
+    pru: ["45 лей/м²"], pro: ["45 lei/m²"] },
+  { slug: "post-construction", min: 3700, ru: "Уборка после ремонта", ro: "Curățenie după renovare",
+    pru: ["до 40 м² — 3700 лей", "до 60 м² — 4700 лей", "до 90 м² — 5700 лей", "офисы — 35 лей/м²"],
+    pro: ["până la 40 m² — 3700 lei", "până la 60 m² — 4700 lei", "până la 90 m² — 5700 lei", "birouri — 35 lei/m²"] },
+  { slug: "office", ru: "Уборка офисов", ro: "Curățenie birouri" },
+  { slug: "windows", min: 40, unit: "m2", ru: "Мойка окон", ro: "Spălarea geamurilor",
+    pru: ["внутри — 40 лей/м²", "снаружи — 45 лей/м²", "витражи — 40 лей/м²"],
+    pro: ["interior — 40 lei/m²", "exterior — 45 lei/m²", "vitralii — 40 lei/m²"] },
+  { slug: "facades", min: 35, unit: "m2", ru: "Мойка фасадов и витрин", ro: "Spălare fațade și vitrine",
+    pru: ["стеклянные фасады — 35 лей/м²", "витражи — 40 лей/м²"],
+    pro: ["fațade din sticlă — 35 lei/m²", "vitralii — 40 lei/m²"] },
+  { slug: "carpet", min: 45, unit: "m2", ru: "Чистка ковров и ковролина", ro: "Curățare covoare și mochetă",
+    pru: ["ковролин — 45 лей/м²", "ковры — 55 лей/м²"], pro: ["mochetă — 45 lei/m²", "covoare — 55 lei/m²"] },
+  { slug: "upholstery", min: 50, max: 450, unit: "item", ru: "Чистка мягкой мебели", ro: "Curățare mobilă tapițată",
+    pru: ["50–450 лей за предмет"], pro: ["50–450 lei per obiect"] },
+  { slug: "parquet", min: 250, unit: "m2", ru: "Циклевка паркета", ro: "Restaurare parchet",
+    pru: ["250 лей/м² (1 слой лака)"], pro: ["250 lei/m² (1 strat de lac)"] },
+  { slug: "marble", min: 180, unit: "m2", ru: "Полировка мрамора", ro: "Polizare marmură", pru: ["180 лей/м²"], pro: ["180 lei/m²"] },
+  { slug: "linoleum", min: 60, unit: "m2", ru: "Чистка линолеума", ro: "Curățare linoleum", pru: ["60 лей/м²"], pro: ["60 lei/m²"] },
+  { slug: "retail", ru: "Уборка магазинов", ro: "Curățenie magazine" },
+  { slug: "warehouse", ru: "Уборка складов", ro: "Curățenie depozite" },
+  { slug: "disinfection", ru: "Дезинфекция пищевых производств", ro: "Dezinfecție producție alimentară" },
+  { slug: "flood-cleanup", ru: "Уборка после затопления", ro: "Curățenie după inundație" },
+];
+
+// ── 5в. Разметка: вопросы, цены, связи ────────────────────────────────────────────────
+// FAQPage — из ВИДИМЫХ вопросов страницы (с правками клиента): на страницах услуг разметка
+// отставала на два вопроса, на /pricing и главных её не было вовсе. Блог вёрстан иначе
+// (h3), его вопросы здесь не находятся, и его разметка остаётся своей.
+// Текст вопросов приходит из правок клиента: «<» экранируем, чтобы </script> не закрыл блок.
+const ldJson = (o) => JSON.stringify(o).replace(/</g, "\\u003c");
+const plainText = (s) => s.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ")
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+  .replace(/\s+/g, " ").trim();
+function visibleFaq(html) {
+  const out = [];
+  // Вопрос и ответ ищем внутри одного пункта: кусок от «expandable-single» до следующего.
+  for (const item of html.split('class="expandable-single').slice(1)) {
+    const m = item.match(/class="text-size-large text_body-bold"[^>]*>([\s\S]*?)<\/div>[\s\S]*?<p class="faq-paragraph"[^>]*>([\s\S]*?)<\/p>/);
+    if (!m) continue;
+    const q = plainText(m[1]), a = plainText(m[2]);
+    if (q && a) out.push({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } });
+  }
+  return out;
+}
+const pageUrl = (html) => (html.match(/<link rel="canonical" href="([^"]+)"/) || [])[1] || "";
+function offerFor(url) {
+  const slug = (url.match(/\/services\/([a-z-]+)$/) || [])[1];
+  const p = PRICES.find((x) => x.slug === slug && x.min);
+  if (!p) return null;
+  const spec = { "@type": p.unit ? "UnitPriceSpecification" : "PriceSpecification", minPrice: p.min, priceCurrency: "MDL" };
+  if (p.max) spec.maxPrice = p.max;
+  if (p.unit) spec.unitCode = p.unit === "m2" ? "MTK" : "C62";
+  return { "@type": "Offer", priceCurrency: "MDL", price: p.min, priceSpecification: spec, url };
+}
+function jsonld(html) {
+  const faq = visibleFaq(html);
+  const url = pageUrl(html);
+  let hasFaq = false;
+  html = html.replace(/(<script type="application\/ld\+json"[^>]*>)([\s\S]*?)(<\/script>)/g, (whole, open, json, close) => {
+    let o;
+    try { o = JSON.parse(json); } catch { return whole; }
+    const nodes = o["@graph"] || [o];
+    let touched = false;
+    for (const n of nodes) {
+      if (n["@type"] === "FAQPage") {
+        hasFaq = true;
+        if (faq.length) { n.mainEntity = faq; touched = true; bump("ld:faq-sync", 1); }
+      }
+      if (n["@type"] === "Service") {
+        const offer = offerFor(n.url || url);
+        if (offer) { n.offers = offer; touched = true; bump("ld:offers", 1); }
+      }
+    }
+    return touched ? open + ldJson(o) + close : whole;
+  });
+  if (!hasFaq && faq.length) {
+    html = swapRe(html, "ld:faq-add", /<\/head>/,
+      `<script type="application/ld+json">${ldJson({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq })}</script></head>`);
+  }
+  return html;
+}
+
 // ── 6. Страница «спасибо» после заявки ───────────────────────────────────────────────
 // Все формы (калькуляторы, запись) после того, как база приняла заявку, вызывают
 // /api/notify-lead — это единственная общая точка успеха. Ждём, пока уведомление уйдёт
@@ -180,6 +271,7 @@ export function applySeoFixes(html, lang) {
   out = favicon(out);
   out = posterPreload(out);
   out = org(out, lang);
+  out = jsonld(out);
   out = thanks(out);
   out = consentBanner(out);
   return out;
@@ -192,7 +284,8 @@ export function seoReport() {
 
 /** Ворота сборки: ноль у правки значит, что шаблон поменялся и якорь больше не совпадает. */
 export function assertSeoApplied() {
-  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "consent:banner"];
+  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "consent:banner",
+    "ld:faq-sync", "ld:faq-add", "ld:offers"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
   if (missing.length) {
     throw new Error("seo-fixes: не применились правки — " + missing.join(", ") +
