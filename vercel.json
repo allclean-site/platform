@@ -421,6 +421,21 @@
           "value": "public, max-age=604800"
         }
       ]
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "query",
+          "key": "gtm_debug"
+        }
+      ],
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "unsafe-none"
+        }
+      ]
     }
   ]
 }
