@@ -30,3 +30,7 @@ public/fonts/**/*.otf
 public/fonts/**/*.woff
 public/fonts/**/*.woff2
 scratchpad/
+
+# внутренние документы — только локально: репозиторий публичный (28.10.2026)
+LEGAL/
+HANDOFF.md
