@@ -50,9 +50,11 @@ export async function externalizeCalc() {
 
   const fns = bodies.map((b) => "function(P){const SUPABASE_URL=P.u,SUPABASE_KEY=P.k,PROJECT_ID=P.p,locale=P.l,slug=P.s,t=P.t," +
     "totalSteps=P.n,detailsStep=P.d,uid=P.id,PHOTO_ALT=P.a;\n" + b + "\n}");
+  // Каждый калькулятор запускается своей задачей: десять подряд давали одну долгую задачу
+  // и блокировали поток на старте страницы (TBT).
   const js = "(function(){var T=[" + fns.join(",\n") + "];\n" +
-    "function run(){var s=document.querySelectorAll('script[data-lg-calc]');for(var i=0;i<s.length;i++){if(s[i].lgDone)continue;s[i].lgDone=1;" +
-    "try{var P=JSON.parse(s[i].textContent);T[P.v](P);}catch(e){console.error('calc',e);}}}\n" +
+    "function one(s){if(s.lgDone)return;s.lgDone=1;try{var P=JSON.parse(s.textContent);T[P.v](P);}catch(e){console.error('calc',e);}}\n" +
+    "function run(){var s=[].slice.call(document.querySelectorAll('script[data-lg-calc]'));(function next(){var x=s.shift();if(!x)return;one(x);setTimeout(next,0);})();}\n" +
     "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();})();\n";
   const name = `/js/calc/${createHash("sha1").update(js).digest("hex").slice(0, 10)}.js`;
   await mkdir(join(OUT, "js", "calc"), { recursive: true });
