@@ -349,9 +349,14 @@ export function seoReport() {
 }
 
 /** Ворота сборки: ноль у правки значит, что шаблон поменялся и якорь больше не совпадает. */
+// ⚠️ Сюда не входят починки, которым ПРАВКА КЛИЕНТА законно даёт ноль: «h1:hidden» чистит скрытые
+// строки, оставшиеся от одной старой правки заголовка на /ru, — клиент перепечатал заголовок, и
+// чистить нечего; «ld:faq-add» нужна четырём страницам, где FAQ есть, а разметки нет, — клиент
+// убрал эти вопросы, и добавлять нечего. Ноль у них падал сборкой: публикация сообщала
+// «сайт пересобирается», а сайт навсегда оставался на прошлом деплое.
 export function assertSeoApplied() {
   const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "consent:banner",
-    "ld:faq-sync", "ld:faq-add", "ld:offers", "h1:hidden",
+    "ld:faq-sync", "ld:offers",
     "ld:provider", "ld:article", "footer:maps", "ads:contact-click"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
   if (missing.length) {
