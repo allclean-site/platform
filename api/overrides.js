@@ -7,6 +7,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const EDIT_KEY = (process.env.EDIT_KEY || "").trim();
 
+// Подробности ответа базы и исключения — в лог функции, клиенту короткое сообщение.
+async function fail(what, r) { console.error(what, r.status, (await r.text()).slice(0, 300)); return `${what} (${r.status})`; }
+const oops = (what, e) => { console.error(what, e); return what; };
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -29,10 +33,10 @@ export default async function handler(req, res) {
   let rows;
   try {
     const r = await fetch(url, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
-    if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()) });
+    if (!r.ok) return res.status(502).json({ error: await fail("read failed", r) });
     rows = await r.json();
   } catch (e) {
-    return res.status(502).json({ error: "read failed: " + String(e) });
+    return res.status(502).json({ error: oops("read failed", e) });
   }
 
   const overrides = {};

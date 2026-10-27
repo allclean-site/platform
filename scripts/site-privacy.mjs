@@ -94,6 +94,26 @@ function photos(html) {
   html = swap(html, "photo:remove",
     "photos = photos.filter(function (u) { return u !== url; })",
     "photos = photos.filter(function (u) { return u !== path; })");
+
+  // Фото уходило в хранилище в момент выбора файла: до галочки согласия и даже если заявку так
+  // и не отправили. Теперь файл ждёт в памяти, а грузится при отправке, после проверки согласия;
+  // в заявку попадают только принятые хранилищем.
+  html = swap(html, "photo:defer",
+    "fetch(SUPABASE_URL + '/storage/v1/object/calc-uploads/' + path, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'content-type': f.type, 'x-upsert': 'true' }, body: f })\n          .then(function (r) { if (!r.ok) throw 0; ",
+    "Promise.resolve().then(function () { lgFiles[path] = f; ");
+  html = swap(html, "photo:upload",
+    "var fileInput = document.getElementById(uid + '-file'),",
+    "var lgFiles = {};\n" +
+    "    function lgUp(list) { return Promise.all(list.map(function (p) { var f = lgFiles[p]; if (!f) return null; " +
+    "return fetch(SUPABASE_URL + '/storage/v1/object/calc-uploads/' + p, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'content-type': f.type, 'x-upsert': 'true' }, body: f })" +
+    ".then(function (r) { return r.ok ? p : null; }, function () { return null; }); })).then(function (ok) { return ok.filter(Boolean); }); }\n" +
+    "    var fileInput = document.getElementById(uid + '-file'),");
+  html = swap(html, "photo:submit",
+    "      fetch(SUPABASE_URL + '/rest/v1/site_leads', {",
+    "      lgUp(photos).then(function (sent) { photos = sent; return fetch(SUPABASE_URL + '/rest/v1/site_leads', {");
+  html = swap(html, "photo:submit-end",
+    "      }).then(function (r) {\n        submitting = false;",
+    "      }); }).then(function (r) {\n        submitting = false;");
   return html;
 }
 
@@ -172,7 +192,8 @@ export function report() {
  * страницу без обязательной галочки или с чужим CDN.
  */
 export function assertApplied() {
-  const required = ["cdn:webflow-js", "cdn:gsap", "cdn:font", "consent:required", "consent:book", "consent:calc", "photo:name", "photo:store", "photo:remove", "footer:requisites", "consent:guard"];
+  const required = ["cdn:webflow-js", "cdn:gsap", "cdn:font", "consent:required", "consent:book", "consent:calc", "photo:name", "photo:store", "photo:remove",
+    "photo:defer", "photo:upload", "photo:submit", "photo:submit-end", "footer:requisites", "consent:guard"];
   const missing = required.filter((k) => !counts.get(k));
   if (missing.length) {
     throw new Error(

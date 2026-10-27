@@ -126,10 +126,13 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "method not allowed" });
 
+  // Браузер с сайта всегда шлёт Origin или Referer. Запрос без обоих — это скрипт, и после починки
+  // уведомлений он слал бы спам менеджеру в Telegram. Кривой Referer раньше ронял функцию (500).
   const origin = req.headers.origin || "";
   const referer = req.headers.referer || "";
-  const from = origin || (referer ? new URL(referer).origin : "");
-  if (from && !ALLOWED.test(from)) return res.status(403).json({ error: "forbidden" });
+  let from = origin;
+  if (!from && referer) { try { from = new URL(referer).origin; } catch { from = ""; } }
+  if (!from || !ALLOWED.test(from)) return res.status(403).json({ error: "forbidden" });
 
   let body;
   try { body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {}); }

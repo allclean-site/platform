@@ -31,9 +31,10 @@ import {
 // запись, закрытые фотографии, реквизиты в подвале). Применяются к готовому HTML, чтобы
 // зеркало осталось снимком; см. комментарий в самом модуле.
 import { applySitePrivacy, report as privacyReport, assertApplied as assertPrivacy } from "./site-privacy.mjs";
-import { seoReport, assertSeoApplied } from "./seo-fixes.mjs";
+import { seoReport, assertSeoApplied, checkLlms } from "./seo-fixes.mjs";
 import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { optimizeImages } from "./optimize-images.mjs";
+import { externalizeCalc } from "./calc-external.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import { withBlogCards, withRelatedArticles, relatedArticles } from "./blog-cards.mjs";
 import { markdownToHtml, sanitizeArticleHtml } from "../src/engine/blog/markdown.js";
@@ -317,7 +318,12 @@ async function write404() {
     // страница не должна попасть в поиск и не должна объявлять себя копией главной
     .replace(/<link\b[^>]*rel="canonical"[^>]*>/gi, '<meta name="robots" content="noindex">')
     .replace(/<link\b[^>]*rel="alternate"[^>]*>/gi, "")
-    .replace(/<meta\b[^>]*property="og:(url|title)"[^>]*>/gi, "");
+    .replace(/<meta\b[^>]*property="og:(url|title)"[^>]*>/gi, "")
+    // От главной ей не нужны постер видео (preload впустую, предупреждение в консоли), разметка
+    // компании и скрипты видео, лент, слайдера и форм — на странице их нет.
+    .replace(/<link rel="preload" as="image"[^>]*>/gi, "")
+    .replace(/<script type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<script id="lgcms-(?:video|marquee|sliderfill|formfix)">[\s\S]*?<\/script>/gi, "");
   await writeFile(join(OUT, "404.html"), html);
   console.log("[build] 404.html из оболочки главной");
 }
@@ -482,6 +488,9 @@ async function main() {
   assertPrivacy();
   console.log(`[build] seo-fixes: ${seoReport()}`);
   assertSeoApplied();
+  // Цены в разметке берутся со страниц; llms.txt написан руками и должен говорить то же.
+  const llmsMiss = checkLlms(await readFile(join(ASSETS, "llms.txt"), "utf8"));
+  if (llmsMiss.length) console.warn("[build] ВНИМАНИЕ: в llms.txt другая цена, чем на странице: " + llmsMiss.join(", "));
 
   // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept)
   // and add their cards to the /blog and /ru/blog index grids.
@@ -516,6 +525,8 @@ async function main() {
   console.log("[build] localize-cdn: " + (await localizeCdnFiles()));
   // Затем картинки: фото из хранилища на свой домен, WebP, размеры, lazy (scripts/optimize-images.mjs).
   console.log("[build] images: " + (await optimizeImages()));
+  // Скрипт калькуляторов — один кешируемый файл вместо копии в каждом (scripts/calc-external.mjs).
+  console.log("[build] calc: " + (await externalizeCalc()));
 
   // auto-SEO: sitemap.xml (all pages + hreflang alternates) + robots.txt
   const byGroup = new Map();
@@ -561,6 +572,9 @@ async function main() {
   await writeFile(join(OUT, "sitemap.xml"), sitemap);
   await writeFile(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   console.log(`[build] sitemap.xml (${idx.pages.length} urls) + robots.txt`);
+
+  // Слепки для ворот (правки и карточки блога, 1,7 МБ) ворота читают с диска; на сайт их не кладём.
+  if (process.env.VERCEL) for (const n of ["__edits.json", "__blog-cards.json"]) await rm(join(OUT, n), { force: true });
 
   const size = (await stat(join(OUT, "index.html"))).size;
   console.log(`[build] done → ${OUT} (home ${size}b, default locale ${idx.defaultLocale})`);

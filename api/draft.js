@@ -21,6 +21,10 @@ const EDIT_KEY = (process.env.EDIT_KEY || "").trim();
 const REST = () => `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_drafts`;
 const auth = () => ({ apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "Content-Type": "application/json" });
 
+// Подробности ответа базы и исключения — в лог функции, клиенту короткое сообщение.
+async function fail(what, r) { console.error(what, r.status, (await r.text()).slice(0, 300)); return `${what} (${r.status})`; }
+const oops = (what, e) => { console.error(what, e); return what; };
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -45,7 +49,7 @@ export default async function handler(req, res) {
     if (action === "read") {
       const url = `${REST()}?project=eq.${encodeURIComponent(project)}&select=page_id,overrides,breakpoints,updated_at,updated_by`;
       const r = await fetch(url, { headers: auth() });
-      if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()) });
+      if (!r.ok) return res.status(502).json({ error: await fail("read failed", r) });
       const rows = await r.json();
       const overrides = {}, breakpoints = {}, meta = {};
       for (const row of rows || []) {
@@ -103,7 +107,7 @@ export default async function handler(req, res) {
         headers: { ...auth(), Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify([row]),
       });
-      if (!r.ok) return res.status(502).json({ error: "save failed: " + (await r.text()) });
+      if (!r.ok) return res.status(502).json({ error: await fail("save failed", r) });
       return res.status(200).json({ ok: true, updatedAt });
     }
 
@@ -111,12 +115,12 @@ export default async function handler(req, res) {
       let url = `${REST()}?project=eq.${encodeURIComponent(project)}`;
       if (body.pageId) url += `&page_id=eq.${encodeURIComponent(body.pageId)}`;
       const r = await fetch(url, { method: "DELETE", headers: { ...auth(), Prefer: "return=minimal" } });
-      if (!r.ok) return res.status(502).json({ error: "clear failed: " + (await r.text()) });
+      if (!r.ok) return res.status(502).json({ error: await fail("clear failed", r) });
       return res.status(200).json({ ok: true });
     }
 
     return res.status(400).json({ error: "unknown action" });
   } catch (e) {
-    return res.status(502).json({ error: String(e) });
+    return res.status(502).json({ error: oops("server error", e) });
   }
 }

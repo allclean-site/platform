@@ -19,6 +19,10 @@ const EDIT_KEY = (process.env.EDIT_KEY || "").trim();
 const REST = (t) => `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/${t}`;
 const auth = () => ({ apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "Content-Type": "application/json" });
 
+// Подробности ответа базы и исключения — в лог функции, клиенту короткое сообщение.
+async function fail(what, r) { console.error(what, r.status, (await r.text()).slice(0, 300)); return `${what} (${r.status})`; }
+const oops = (what, e) => { console.error(what, e); return what; };
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -44,7 +48,7 @@ export default async function handler(req, res) {
       const url = `${REST("site_versions")}?project=eq.${encodeURIComponent(project)}` +
         `&select=id,created_at,created_by,note,pages&order=created_at.desc&limit=30`;
       const r = await fetch(url, { headers: auth() });
-      if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()) });
+      if (!r.ok) return res.status(502).json({ error: await fail("read failed", r) });
       const rows = await r.json();
       return res.status(200).json({
         ok: true,
@@ -60,7 +64,7 @@ export default async function handler(req, res) {
     if (body.action === "get") {
       if (!body.id) return res.status(400).json({ error: "id required" });
       const g = await fetch(`${REST("site_versions")}?id=eq.${encodeURIComponent(body.id)}&select=snapshot,created_at,created_by,note`, { headers: auth() });
-      if (!g.ok) return res.status(502).json({ error: "read failed: " + (await g.text()) });
+      if (!g.ok) return res.status(502).json({ error: await fail("read failed", g) });
       const found = await g.json();
       if (!found || !found.length) return res.status(404).json({ error: "version not found" });
       return res.status(200).json({ ok: true, createdAt: found[0].created_at, createdBy: found[0].created_by || "",
@@ -70,7 +74,7 @@ export default async function handler(req, res) {
     if (body.action === "restore") {
       if (!body.id) return res.status(400).json({ error: "id required" });
       const g = await fetch(`${REST("site_versions")}?id=eq.${encodeURIComponent(body.id)}&select=snapshot`, { headers: auth() });
-      if (!g.ok) return res.status(502).json({ error: "read failed: " + (await g.text()) });
+      if (!g.ok) return res.status(502).json({ error: await fail("read failed", g) });
       const found = await g.json();
       if (!found || !found.length) return res.status(404).json({ error: "version not found" });
 
@@ -99,7 +103,7 @@ export default async function handler(req, res) {
         headers: { ...auth(), Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify(rows),
       });
-      if (!up.ok) return res.status(502).json({ error: "restore failed: " + (await up.text()) });
+      if (!up.ok) return res.status(502).json({ error: await fail("restore failed", up) });
 
       // Страницы, которых в снимке нет, гасим по одной — по имени, а не "всё, что есть в проекте".
       const cur = await fetch(`${REST("site_overrides")}?project=eq.${encodeURIComponent(project)}&select=page_id`, { headers: auth() })
@@ -131,6 +135,6 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: "unknown action" });
   } catch (e) {
-    return res.status(502).json({ error: String(e) });
+    return res.status(502).json({ error: oops("server error", e) });
   }
 }
