@@ -102,7 +102,7 @@ const artPath = (locale, slug) => (locale === "ro" ? `blog/${slug}/index.html` :
 
 const D = "data-astro-cid-zcwx364o";
 function buildSec0(a, dateStr) {
-  const cover = a.cover_url ? `<div class="image-wrap_hero-article" ${D}><img src="${escAttr(a.cover_url)}" loading="eager" alt="${escAttr(a.cover_alt || a.title)}" sizes="100vw" class="image_cover" ${D}></div>` : "";
+  const cover = a.cover_url ? `<div class="image-wrap_hero-article" ${D}><img src="${escAttr(a.cover_url)}" loading="eager" alt="${escAttr(a.cover_alt || a.meta?.coverAlt || a.title)}" sizes="100vw" class="image_cover" ${D}></div>` : "";
   const faq = (a.meta && a.meta.faq) || [];
   const faqTitle = a.locale === "ro" ? "Întrebări frecvente" : "Часто задаваемые вопросы";
   const faqHtml = faq.length ? `<div class="wrap_6-center" ${D}><div class="wrap_faq-block" style="opacity:1" ${D}><div class="headline_faq-block" ${D}><h2 class="heading-style-h4 margin-0" ${D}>${escHtml(faqTitle)}</h2></div><div class="faq-block blog-faq" ${D}>${faq.map((f) => `<div class="expandable-single" ${D}><div class="expandable-top" ${D}><h3 class="heading-style-h6 margin-0" ${D}>${escHtml(f.question)}</h3></div><div class="expandable-content" ${D}><p>${escHtml(f.answer)}</p></div></div>`).join("")}</div></div></div>` : "";
@@ -212,7 +212,9 @@ async function generateArticles(written, media = []) {
     const dest = join(OUT, path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, doc);
-    written.add(path); newUrls.push(artUrl(a.locale, a.slug));
+    // Пара языков — для hreflang в карте сайта, как у страниц из зеркала.
+    const alt = (l) => (pair[l] && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair[l].slug || "") ? artUrl(l, pair[l].slug) : null);
+    written.add(path); newUrls.push({ loc: artUrl(a.locale, a.slug), ro: alt("ro"), ru: alt("ru") });
     (newByLocale[a.locale] || (newByLocale[a.locale] = [])).push(a);
     made++;
   }
@@ -489,7 +491,10 @@ async function main() {
     const xdef = alts[idx.defaultLocale] ? `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${alts[idx.defaultLocale]}"/>` : "";
     return `<url><loc>${SITE}${p.slug}</loc>${lastmod(p.id)}${links}${xdef}</url>`;
   }).join("");
-  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u}</loc>${lastmod()}</url>`).join("");
+  // Статьи из кабинета — с парой языков, как страницы зеркала: без неё поиск не связывал RO и RU версии.
+  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u.loc}</loc>${lastmod()}` +
+    (u.ro && u.ru ? `<xhtml:link rel="alternate" hreflang="ro-MD" href="${u.ro}"/><xhtml:link rel="alternate" hreflang="ru-MD" href="${u.ru}"/>` +
+      `<xhtml:link rel="alternate" hreflang="x-default" href="${u.ro}"/>` : "") + "</url>").join("");
   // Страницы cookie появились после снятия зеркала, в _pages.json их нет — вносим руками,
   // иначе они не попадут в карту сайта и останутся невидимыми для поиска.
   const cookieXml = LEGAL_PAGES.filter((p) => p.group === "cookies").map((p) => {

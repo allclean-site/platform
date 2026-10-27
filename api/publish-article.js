@@ -102,7 +102,9 @@ export default async function handler(req, res) {
     image2_url: a.image2Url || null,
     seo_title: a.seoTitle || null,
     seo_description: a.seoDescription || null,
-    meta: a.meta || {},
+    // Alt обложки — в meta: отдельного столбца нет, и подпись, набранная клиентом, терялась
+    // (на сайте alt = заголовок).
+    meta: { ...(a.meta || {}), ...(a.coverAlt ? { coverAlt: String(a.coverAlt).slice(0, 300) } : {}) },
     jsonld: jsonLd(a),
     status: "published",
     auto_translated: !!a.autoTranslated,
