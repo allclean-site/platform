@@ -210,6 +210,10 @@ async function generateArticles(written, media = []) {
   const newByLocale = { ro: [], ru: [] };
   let made = 0, skipped = 0;
   for (const a of arts) {
+    // Адрес — это путь файла сборки: строка из базы с пробелом или «../» уехала бы мимо out/.
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(a.slug || "") || !["ro", "ru"].includes(a.locale)) {
+      console.warn(`[build] blog: пропущена статья с недопустимым адресом «${a.locale}/${a.slug}»`); skipped++; continue;
+    }
     const path = artPath(a.locale, a.slug);
     if (written.has(path)) { skipped++; continue; } // keep the original rich mirror page if it exists
     const pair = byGroup.get(a.group_id) || {};

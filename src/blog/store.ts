@@ -107,7 +107,9 @@ export function enrich(a: Article): Article {
   const excerpt = a.excerpt || text.slice(0, 165).trim() + (text.length > 165 ? "…" : "");
   return {
     ...a,
-    slug: a.slug || slugify(a.title) || a.id,
+    // Адрес, набранный руками, тоже проходит транслит: «Curățenia de Primăvară!» или «весенняя-уборка»
+    // уходили на сайт как есть — с пробелами, кириллицей и «!» в адресе, canonical и карте сайта.
+    slug: slugify(a.slug || a.title) || a.id,
     excerpt,
     seoTitle: a.seoTitle || a.title,
     seoDescription: a.seoDescription || excerpt,

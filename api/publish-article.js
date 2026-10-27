@@ -72,7 +72,23 @@ export default async function handler(req, res) {
   }
 
   const arts = (body.articles || []).filter((a) => a && a.slug && a.title);
-  if (!arts.length) return res.status(400).json({ error: "no articles with slug+title" });
+  if (!arts.length) return res.status(400).json({ error: "Нет статьи с заголовком и адресом (slug)." });
+
+  // Адрес статьи становится путём файла в сборке (out/blog/<slug>/index.html) и адресом на сайте.
+  // Кабинет его транслитерирует, но граница доверия здесь: пробел, кириллица или «../» в адресе
+  // ломали canonical и карту сайта или выводили файл сборки за её пределы.
+  const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+  const bad = arts.find((a) => !SLUG.test(String(a.slug)) || String(a.slug).length > 100 || !["ro", "ru"].includes(a.locale));
+  if (bad) return res.status(400).json({ error: `Недопустимый адрес статьи «${String(bad.slug).slice(0, 80)}»: только латиница, цифры и дефис.` });
+  // Один адрес — одна статья. Две статьи с одним адресом сборка не различает: вторая молча не
+  // выходила на сайт, а кабинет показывал «Опубликовано».
+  for (const a of arts) {
+    const q = `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/articles?select=group_id&project_id=eq.${PROJECT_ID}` +
+      `&locale=eq.${encodeURIComponent(a.locale)}&slug=eq.${encodeURIComponent(a.slug)}&group_id=neq.${encodeURIComponent(a.group)}`;
+    const r = await fetch(q, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
+    if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()).slice(0, 200) });
+    if ((await r.json()).length) return res.status(409).json({ error: `Адрес «${a.slug}» уже занят другой статьёй — измените URL (slug) во вкладке SEO.` });
+  }
 
   const rows = arts.map((a) => ({
     project_id: PROJECT_ID,
