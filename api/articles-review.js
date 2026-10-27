@@ -55,9 +55,12 @@ export default async function handler(req, res) {
       const taken = all.filter((a) => a.status === "approved" || a.status === "published");
       const suggested = {};
       for (const r of rows.filter((x) => x.status === "review")) {
+        // Дата, заложенная при посеве (publish_at у строки review), — если она ещё впереди и свободна.
+        const own = r.publish_at && Date.parse(r.publish_at) > now.getTime() &&
+          !taken.some((t) => t.locale === r.locale && String(t.publish_at || "").slice(0, 10) === String(r.publish_at).slice(0, 10));
         const w = win[queueId(r)];
         const from = w && w.window_from && Date.parse(w.window_from) > now.getTime() ? new Date(w.window_from + "T00:00:00Z") : now;
-        suggested[r.id] = nextSlot(r.locale, taken, from);
+        suggested[r.id] = own ? r.publish_at : nextSlot(r.locale, taken, from);
         taken.push({ locale: r.locale, publish_at: suggested[r.id] });
       }
       return res.status(200).json({ ok: true, articles: rows, suggested, windows: win });
@@ -117,7 +120,7 @@ export default async function handler(req, res) {
       const checks = checkArticle(next, ctxFor(next, all));
       next.meta = { ...meta, checks: { errors: checks.errors, warnings: checks.warnings, at: now.toISOString() } };
       const patch = { title: next.title, body: next.body, excerpt: next.excerpt, seo_title: next.seo_title, seo_description: next.seo_description,
-        cover_url: next.cover_url, slug: next.slug, meta: next.meta, status: "review", publish_at: null, updated_at: now.toISOString() };
+        cover_url: next.cover_url, slug: next.slug, meta: next.meta, status: "review", updated_at: now.toISOString() };
       await db(`articles?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify(patch) });
       await setQueue(row, { status: "review" });
       return res.status(200).json({ ok: true, status: "review", checks });

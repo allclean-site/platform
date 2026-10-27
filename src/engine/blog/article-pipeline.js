@@ -85,7 +85,7 @@ export function numbersIn(text) {
 export function factNumbers(facts) {
   const set = new Set();
   const walk = (v, key) => {
-    if (v == null || /^(source|sources|url|todo_owner|banned_claims|photos|pages)$/i.test(key || "")) return;
+    if (v == null || /^(source|sources|url|todo_owner|banned_claims|photos|photos_note|pages|about|checked|legal)$/i.test(key || "")) return;
     if (typeof v === "string") { if (!v.includes("TODO_owner")) numbersIn(v).forEach((n) => set.add(n)); return; }
     if (typeof v === "number") { set.add(String(v)); return; }
     if (Array.isArray(v)) { v.forEach((x) => walk(x, key)); return; }
@@ -98,7 +98,7 @@ export function factNumbers(facts) {
 // ---- проверка черновика -------------------------------------------------------------------------
 
 export const BANNED = [
-  [/лучш/i, "«лучший»"], [/№\s*1(?!\d)/, "«№1»"], [/24\s*\/\s*7/, "«24/7»"], [/лицензи/i, "«лицензия»"],
+  [/лучш(ий|ая|ее|ие|его|ей|ему|им|их|ую|ими|ем)(?![а-яё])/i, "«лучший»"], [/№\s*1(?!\d)/, "«№1»"], [/24\s*\/\s*7/, "«24/7»"], [/лицензи/i, "«лицензия»"],
   [/1\s?200\s*\+/, "«1200+»"], [/\bcel(e|ui)?\s+mai\s+bun/i, "«cel mai bun»"], [/\bnr\.?\s*1(?!\d)/i, "«nr. 1»"],
   [/licen[țţt][aăe]/i, "«licență»"],
 ];
