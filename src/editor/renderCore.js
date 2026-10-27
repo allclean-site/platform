@@ -1133,7 +1133,45 @@ export function withTemplateText(html, lang) {
 /** Put those repairs in the page head — same position for the publisher and the editing canvas. */
 export function withSiteRuntime(html) {
   const tags = siteRuntimeTags();
+  html = withFontFaces(html);
   return html.includes("</head>") ? html.replace("</head>", tags + "</head>") : html.replace(/<body/, tags + "<body");
+}
+
+/**
+ * Кириллица Onest объявлена под семействами шаблона («Decalotype Fix», Bricolagegrotesque) одним
+ * правилом с весом 400 900, а латиница — правилами по одному весу. Chrome берёт для семейства одну
+ * группу правил по весу: заголовки получали группу 400–900, где только кириллица, и латиница
+ * уходила в Arial, а Decalotype не грузился вовсе. Разворачиваем правило Onest в те же веса, что
+ * у латиницы семейства: группы совпадают, и браузер берёт оба файла по диапазону знаков.
+ * Тот же файл под разными весами качается один раз (шрифт переменный, 100–900).
+ */
+export function withFontFaces(html) {
+  if (!html || html.indexOf("font-weight:400 900") < 0) return html;
+  const RANGE = /@font-face\{font-family:([^;{}]+);font-style:normal;font-weight:400 900;([^{}]*)\}/g;
+  const weights = (fam) => {
+    const w = new Set();
+    for (const m of html.matchAll(/@font-face\{([^{}]*)\}/g)) {
+      const body = m[1];
+      if (!body.includes("font-family:" + fam + ";") || !/font-style:normal/.test(body)) continue;
+      const fw = (body.match(/font-weight:(\d+)(?:;|$)/) || [])[1];
+      if (fw) w.add(fw);
+    }
+    return [...w].sort();
+  };
+  const cache = {};
+  const out = html.replace(RANGE, (whole, fam, rest) => {
+    const ws = cache[fam] || (cache[fam] = weights(fam));
+    if (!ws.length) return whole;
+    return ws.map((w) => `@font-face{font-family:${fam};font-style:normal;font-weight:${w};${rest}}`).join("");
+  });
+  // Первый экран: заголовки (Decalotype 700 — файл ExtraBold; в русских из него знаки препинания
+  // и цифры, без него строка заголовка перескакивает) и текст: Bricolage 400 или кириллица Onest.
+  if (out.indexOf('rel="preload" as="font"') >= 0) return out;
+  const ru = /<html\b[^>]*\blang="ru/i.test(out);
+  const font = (href) => `<link rel="preload" as="font" type="font/woff2" href="${href}" crossorigin>`;
+  const pre = font("/fonts/webflow/Decalotype-ExtraBold-fix.woff2") +
+    font(ru ? "/fonts/onest/onest-cyrillic.woff2" : "/fonts/webflow/BricolageGrotesque-Regular.woff2");
+  return /<meta name="viewport"[^>]*>/.test(out) ? out.replace(/(<meta name="viewport"[^>]*>)/, `$1${pre}`) : out;
 }
 
 /** Inheritable text props are also forced onto descendants so nested-span headings actually restyle. */
