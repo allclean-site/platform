@@ -119,7 +119,9 @@ export default async function handler(req, res) {
     seo_description: a.seoDescription || null,
     // Alt обложки — в meta: отдельного столбца нет, и подпись, набранная клиентом, терялась
     // (на сайте alt = заголовок).
-    meta: { ...(a.meta || {}), ...(a.coverAlt ? { coverAlt: String(a.coverAlt).slice(0, 300) } : {}) },
+    // Автор — туда же: на сайте он стоит рядом с датой, как в превью кабинета.
+    meta: { ...(a.meta || {}), ...(a.coverAlt ? { coverAlt: String(a.coverAlt).slice(0, 300) } : {}),
+      ...(a.author ? { author: String(a.author).slice(0, 120) } : {}) },
     jsonld: jsonLd(a),
     status: "published",
     auto_translated: !!a.autoTranslated,

@@ -105,8 +105,12 @@ function buildSec0(a, dateStr) {
   const cover = a.cover_url ? `<div class="image-wrap_hero-article" ${D}><img src="${escAttr(a.cover_url)}" loading="eager" alt="${escAttr(a.cover_alt || a.meta?.coverAlt || a.title)}" sizes="100vw" class="image_cover" ${D}></div>` : "";
   const faq = (a.meta && a.meta.faq) || [];
   const faqTitle = a.locale === "ro" ? "Întrebări frecvente" : "Часто задаваемые вопросы";
+  // «Коротко» и автор — как в превью кабинета: там они видны, а на сайт раньше не выходили.
+  const tk = ((a.meta && a.meta.takeaways) || []).filter((t) => String(t || "").trim());
+  const tkHtml = tk.length ? `<p><strong>${a.locale === "ro" ? "Pe scurt" : "Коротко"}</strong></p><ul>${tk.map((t) => `<li>${escHtml(t)}</li>`).join("")}</ul>` : "";
+  const by = a.meta && a.meta.author ? " · " + escHtml(a.meta.author) : "";
   const faqHtml = faq.length ? `<div class="wrap_6-center" ${D}><div class="wrap_faq-block" style="opacity:1" ${D}><div class="headline_faq-block" ${D}><h2 class="heading-style-h4 margin-0" ${D}>${escHtml(faqTitle)}</h2></div><div class="faq-block blog-faq" ${D}>${faq.map((f) => `<div class="expandable-single" ${D}><div class="expandable-top" ${D}><h3 class="heading-style-h6 margin-0" ${D}>${escHtml(f.question)}</h3></div><div class="expandable-content" ${D}><p>${escHtml(f.answer)}</p></div></div>`).join("")}</div></div></div>` : "";
-  return `<section class="section_hero-article" ${D}><div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${mdToHtml(a.body || "")}</div></div>${faqHtml}</div></div></div></section>`;
+  return `<section class="section_hero-article" ${D}><div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}${by}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${tkHtml}${mdToHtml(a.body || "")}</div></div>${faqHtml}</div></div></div></section>`;
 }
 
 /** Rebuild the template <head> for this article (title/desc/canonical/og/hreflang/JSON-LD). */
