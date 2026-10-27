@@ -43,7 +43,7 @@ for (const e of idx.pages) {
   // Как SiteEditor.loadPage: опубликованный слой (черновика и локального слоя у проверки нет).
   const ov = C.pageOverrides(p, C.mergeOverrideLayers(pub[p.id]), C.mergeOverrideLayers(pub[C.sharedKey(p.lang)]));
   const карточки = (p.slug === "/blog" && cards.ro) || (p.slug === "/ru/blog" && cards.ru) || [];
-  const doc = C.previewDoc({ ...p, blocks: C.canvasBlocks(p, ov, rules, карточки) }, true);
+  const doc = C.previewDoc({ ...p, blocks: C.canvasBlocks(p, ov, rules, карточки, (cards.related && cards.related[p.slug]) || []) }, true);
   // Холст берёт файлы сайта из /site-assets/ кабинета; здесь их отдаёт сама сборка из корня.
   const name = e.file.replace(/\//g, "__") + ".html";
   writeFileSync(join(OUT, "__cabinet", name), C.toCanonical(doc), "utf8");

@@ -35,8 +35,10 @@ import { seoReport, assertSeoApplied } from "./seo-fixes.mjs";
 import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { optimizeImages } from "./optimize-images.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
-import { withBlogCards } from "./blog-cards.mjs";
-import { markdownToHtml } from "../src/engine/blog/markdown.js";
+import { withBlogCards, withRelatedArticles, relatedArticles } from "./blog-cards.mjs";
+import { markdownToHtml, sanitizeArticleHtml } from "../src/engine/blog/markdown.js";
+import { authorName, withAuthor } from "../src/engine/blog/article-pipeline.js";
+import { jsonLd as articleJsonLd } from "../api/publish-article.js";
 
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");
@@ -91,9 +93,9 @@ const escHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt
 const escAttr = (s) => escHtml(s).replace(/"/g, "&quot;");
 
 /** Тело статьи → HTML тем же разборщиком, что превью в кабинете (src/engine/blog/markdown.js).
- *  Тело, уже написанное HTML (старые статьи), идёт как есть. */
+ *  Тело, уже написанное HTML (старые статьи), проходит очистку по списку тегов (аудит QA, A7). */
 function mdToHtml(md) {
-  if (/<(p|h[1-6]|ul|ol|div|figure)[ >]/i.test(md)) return md; // already HTML
+  if (/<(p|h[1-6]|ul|ol|div|figure)[ >]/i.test(md)) return sanitizeArticleHtml(md);
   return markdownToHtml(md);
 }
 
@@ -101,6 +103,9 @@ const artUrl = (locale, slug) => (locale === "ro" ? `${SITE}/blog/${slug}` : `${
 const artPath = (locale, slug) => (locale === "ro" ? `blog/${slug}/index.html` : `${locale}/blog/${slug}/index.html`);
 
 const D = "data-astro-cid-zcwx364o";
+const ARTICLE_TABLE_CSS = "<style>.article-table{overflow-x:auto;margin:1.25rem 0 1.75rem}.article-table table{width:100%;border-collapse:collapse}" +
+  ".article-table th,.article-table td{border-bottom:1px solid rgba(12,41,89,.14);padding:.65rem 1rem .65rem 0;text-align:left;vertical-align:top}" +
+  ".article-table th{font-weight:600;opacity:.75}</style>";
 function buildSec0(a, dateStr) {
   const cover = a.cover_url ? `<div class="image-wrap_hero-article" ${D}><img src="${escAttr(a.cover_url)}" loading="eager" alt="${escAttr(a.cover_alt || a.meta?.coverAlt || a.title)}" sizes="100vw" class="image_cover" ${D}></div>` : "";
   const faq = (a.meta && a.meta.faq) || [];
@@ -108,9 +113,15 @@ function buildSec0(a, dateStr) {
   // «Коротко» и автор — как в превью кабинета: там они видны, а на сайт раньше не выходили.
   const tk = ((a.meta && a.meta.takeaways) || []).filter((t) => String(t || "").trim());
   const tkHtml = tk.length ? `<p><strong>${a.locale === "ro" ? "Pe scurt" : "Коротко"}</strong></p><ul>${tk.map((t) => `<li>${escHtml(t)}</li>`).join("")}</ul>` : "";
-  const by = a.meta && a.meta.author ? " · " + escHtml(a.meta.author) : "";
+  const by = authorName(a.meta) ? " · " + escHtml(authorName(a.meta)) : "";
   const faqHtml = faq.length ? `<div class="wrap_6-center" ${D}><div class="wrap_faq-block" style="opacity:1" ${D}><div class="headline_faq-block" ${D}><h2 class="heading-style-h4 margin-0" ${D}>${escHtml(faqTitle)}</h2></div><div class="faq-block blog-faq" ${D}>${faq.map((f) => `<div class="expandable-single" ${D}><div class="expandable-top" ${D}><h3 class="heading-style-h6 margin-0" ${D}>${escHtml(f.question)}</h3></div><div class="expandable-content" ${D}><p>${escHtml(f.answer)}</p></div></div>`).join("")}</div></div></div>` : "";
-  return `<section class="section_hero-article" ${D}><div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}${by}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${tkHtml}${mdToHtml(a.body || "")}</div></div>${faqHtml}</div></div></div></section>`;
+  // Подзаголовки тела — классами статьи-образца: голый <h2> шаблон рисует размером заголовка
+  // страницы. Таблица — в обёртке с прокруткой, чтобы на телефоне не раздвигала страницу.
+  const body = mdToHtml(a.body || "")
+    .replace(/<h2>/g, '<h2 class="heading-style-h5">').replace(/<h3>/g, '<h3 class="heading-style-h6">').replace(/<h4>/g, '<h4 class="heading-style-h6">')
+    .replace(/<table>/g, '<div class="article-table"><table>').replace(/<\/table>/g, "</table></div>");
+  const tableCss = body.includes('class="article-table"') ? ARTICLE_TABLE_CSS : "";
+  return `<section class="section_hero-article" ${D}>${tableCss}<div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}${by}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${tkHtml}${body}</div></div>${faqHtml}</div></div></div></section>`;
 }
 
 /** Rebuild the template <head> for this article (title/desc/canonical/og/hreflang/JSON-LD). */
@@ -130,7 +141,13 @@ export function buildHead(prefix, a, roSlug, ruSlug) {
     .replace(/(og:url"\s+content=")[^"]*(")/, `$1${url}$2`)
     .replace(/(hreflang="ru-MD"\s+href=")[^"]*(")/, `$1${ruUrl}$2`)
     .replace(/(hreflang="ro-MD"\s+href=")[^"]*(")/, `$1${roUrl}$2`)
-    .replace(/(hreflang="x-default"\s+href=")[^"]*(")/, `$1${roUrl}$2`);
+    .replace(/(hreflang="x-default"\s+href=")[^"]*(")/, `$1${roSlug ? roUrl : url}$2`);
+  // Статья без пары на другом языке (черновики конвейера пишутся по одному языку): ссылка на
+  // «вторую версию» указывала бы на саму статью с чужим языком. Такую строку убираем.
+  if (!roSlug || !ruSlug) {
+    const other = a.locale === "ro" ? "ru" : "ro";
+    h = h.replace(new RegExp(`<link\\b[^>]*hreflang="${other}-MD"[^>]*>\\s*`, "g"), "");
+  }
 
   // Разметка для поиска. В шапке статьи-образца ТРИ блока ld+json: карточка компании, сама статья
   // (@graph с Article и FAQPage) и хлебные крошки. Замена без флага g попадала в первый — то есть
@@ -149,7 +166,8 @@ export function buildHead(prefix, a, roSlug, ruSlug) {
         return open + JSON.stringify(o) + close;
       } catch { return whole; }
     }
-    return open + JSON.stringify(a.jsonld || {}) + close;                          // Article/@graph — этой статьи
+    // Article/@graph — этой статьи; автор по подписи (человек или компания), «<» не закрывает script.
+    return open + JSON.stringify(withAuthor(a.jsonld || {}, a.meta)).replace(/</g, "\\u003c") + close;
   });
 
   // og:image и twitter:image — обложка статьи; у образца они указывают на его собственную.
@@ -170,7 +188,8 @@ async function generateArticles(written, media = []) {
   if (process.env.MOCK_ARTICLES) { arts = JSON.parse(process.env.MOCK_ARTICLES); } // test hook
   else if (!URL || !KEY) { console.log("[build] blog: no Supabase creds — skipping article generation"); return { urls: [], newByLocale: {} }; }
   else try {
-    const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/articles?select=group_id,locale,slug,title,excerpt,body,cover_url,seo_title,seo_description,meta,jsonld,created_at&project_id=eq.${PROJECT_ID}&status=eq.published`,
+    // select=* — чтобы сборка не падала, пока в базе нет новых столбцов (publish_at), и наоборот.
+    const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/articles?select=*&project_id=eq.${PROJECT_ID}&status=eq.published`,
       { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
     // Пропустить статьи нельзя: страницы блога генерируются на каждой сборке, и «пропустили» значит
     // «удалили с сайта все опубликованные из кабинета статьи».
@@ -182,6 +201,11 @@ async function generateArticles(written, media = []) {
     process.exitCode = 1;
     throw e;
   }
+
+  // На сайт — только опубликованное. Запрос уже фильтрует статус, но черновик на проверке (review),
+  // одобренная до своей даты (approved) и отклонённая не должны попасть сюда ни при каком сбое
+  // фильтра. Проверка: scripts/check-article-pipeline.mjs --build.
+  arts = arts.filter((a) => a && a.status === "published");
 
   // group_id → { ro?, ru? } for hreflang pairing
   const byGroup = new Map();
@@ -201,10 +225,13 @@ async function generateArticles(written, media = []) {
     if (written.has(path)) { skipped++; continue; } // keep the original rich mirror page if it exists
     const pair = byGroup.get(a.group_id) || {};
     const tpl = a.locale === "ru" ? ruTpl : roTpl;
-    const dateStr = new Date(a.created_at || Date.now()).toLocaleDateString(a.locale === "ru" ? "ru-RU" : "ro-RO", { day: "numeric", month: "long", year: "numeric" });
+    const dateStr = new Date(a.publish_at || a.created_at || Date.now()).toLocaleDateString(a.locale === "ru" ? "ru-RU" : "ro-RO", { day: "numeric", month: "long", year: "numeric" });
+    // Разметку пишет публикация (api/publish-article.js); у строки без неё — та же функция здесь.
+    const ld = a.jsonld && Object.keys(a.jsonld).length ? a.jsonld : articleJsonLd({ title: a.title, seoDescription: a.seo_description,
+      excerpt: a.excerpt, locale: a.locale, slug: a.slug, coverUrl: a.cover_url, datePublished: a.publish_at || a.created_at, meta: a.meta });
     const page = {
       ...tpl,
-      prefix: buildHead(tpl.prefix, a, pair.ro?.slug, pair.ru?.slug),
+      prefix: buildHead(tpl.prefix, { ...a, jsonld: ld }, pair.ro?.slug, pair.ru?.slug),
       blocks: tpl.blocks.map((b) => (b.content.region === "main" ? { ...b, content: { ...b.content, html: buildSec0(a, dateStr) } } : b)),
     };
     // Через exportPageHtml, как и все остальные страницы. Раньше статьи собирались мимо него —
@@ -212,18 +239,25 @@ async function generateArticles(written, media = []) {
     // ссылок, без имён у иконок соцсетей, без запуска фонового видео и лент. Обход студии
     // показывал на них ссылки без имени, мелкий текст и мелкие цели нажатия — и это было не
     // «наследие шаблона», а просто пропущенный шаг сборки.
-    const doc = applySitePrivacy(exportPageHtml(page, undefined, undefined, { media }), a.locale);
+    // Переключатель языка вёл на пару статьи-образца — чужую статью. Теперь на свою пару, а без неё
+    // на список блога другого языка. Адрес абсолютный, как у образца.
+    const other = a.locale === "ro" ? "ru" : "ro";
+    const toggle = pair[other] && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair[other].slug || "") ? artUrl(other, pair[other].slug)
+      : other === "ro" ? `${SITE}/blog` : `${SITE}/ru/blog`;
+    const doc = applySitePrivacy(exportPageHtml(page, undefined, undefined, { media }), a.locale)
+      .replace(/(<a\b[^>]*class="[^"]*lang-toggle[^"]*"[^>]*href=")[^"]*(")/g, `$1${toggle}$2`)
+      .replace(/(<a\b[^>]*href=")[^"]*("[^>]*class="[^"]*lang-toggle[^"]*")/g, `$1${toggle}$2`);
     const dest = join(OUT, path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, doc);
     // Пара языков — для hreflang в карте сайта, как у страниц из зеркала.
     const alt = (l) => (pair[l] && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair[l].slug || "") ? artUrl(l, pair[l].slug) : null);
-    written.add(path); newUrls.push({ loc: artUrl(a.locale, a.slug), ro: alt("ro"), ru: alt("ru") });
+    written.add(path); newUrls.push({ loc: artUrl(a.locale, a.slug), locale: a.locale, ro: alt("ro"), ru: alt("ru"), mod: a.updated_at || a.publish_at || a.created_at });
     (newByLocale[a.locale] || (newByLocale[a.locale] = [])).push(a);
     made++;
   }
   console.log(`[build] blog: ${arts.length} published articles — ${made} pages generated, ${skipped} kept from mirror`);
-  return { urls: newUrls, newByLocale };
+  return { urls: newUrls, newByLocale, published: arts };
 }
 
 /** Карточки новых статей в начало сетки списка блога. Разметка — в scripts/blog-cards.mjs,
@@ -451,12 +485,23 @@ async function main() {
 
   // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept)
   // and add their cards to the /blog and /ru/blog index grids.
-  const { urls: articleUrls, newByLocale } = await generateArticles(written, media);
+  const { urls: articleUrls, newByLocale, published } = await generateArticles(written, media);
   await injectCards("blog/index.html", newByLocale.ro || [], "ro");
   await injectCards("ru/blog/index.html", newByLocale.ru || [], "ru");
+  // «Полезные статьи» на страницах услуг: до трёх статей этой услуги (meta.service_page).
+  const related = {};
+  for (const p of idx.pages) {
+    const list = relatedArticles(p.slug, p.lang, published || []);
+    if (!list.length) continue;
+    const file = join(OUT, slugToFile(p.slug));
+    if (!existsSync(file)) continue;
+    await writeFile(file, withRelatedArticles(await readFile(file, "utf8"), list, p.lang));
+    related[p.slug] = list;
+  }
+  if (Object.keys(related).length) console.log(`[build] blog: «Полезные статьи» на ${Object.keys(related).length} стр. услуг`);
   // Слепок карточек рядом со сборкой: ворота строят двойник холста из него и сверяют список
-  // блога с живым, а не «с точностью до одной статьи».
-  await writeFile(join(OUT, "__blog-cards.json"), JSON.stringify(newByLocale));
+  // блога с живым, а не «с точностью до одной статьи». related — те же блоки на страницах услуг.
+  await writeFile(join(OUT, "__blog-cards.json"), JSON.stringify({ ...newByLocale, related }));
 
   await write404();
 
@@ -496,9 +541,12 @@ async function main() {
     return `<url><loc>${SITE}${p.slug}</loc>${lastmod(p.id)}${links}${xdef}</url>`;
   }).join("");
   // Статьи из кабинета — с парой языков, как страницы зеркала: без неё поиск не связывал RO и RU версии.
-  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u.loc}</loc>${lastmod()}` +
+  // lastmod статьи — её последняя публикация (updated_at), а не дата коммита кода.
+  const artMod = (u) => (Date.parse(u.mod || "") ? `<lastmod>${new Date(u.mod).toISOString().slice(0, 10)}</lastmod>` : lastmod());
+  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u.loc}</loc>${artMod(u)}` +
     (u.ro && u.ru ? `<xhtml:link rel="alternate" hreflang="ro-MD" href="${u.ro}"/><xhtml:link rel="alternate" hreflang="ru-MD" href="${u.ru}"/>` +
-      `<xhtml:link rel="alternate" hreflang="x-default" href="${u.ro}"/>` : "") + "</url>").join("");
+      `<xhtml:link rel="alternate" hreflang="x-default" href="${u.ro}"/>`
+      : `<xhtml:link rel="alternate" hreflang="${u.locale}-MD" href="${u.loc}"/><xhtml:link rel="alternate" hreflang="x-default" href="${u.loc}"/>`) + "</url>").join("");
   // Страницы cookie появились после снятия зеркала, в _pages.json их нет — вносим руками,
   // иначе они не попадут в карту сайта и останутся невидимыми для поиска.
   const cookieXml = LEGAL_PAGES.filter((p) => p.group === "cookies").map((p) => {

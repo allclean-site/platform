@@ -1,0 +1,146 @@
+{
+  "about": "Паспорт фактов allclean.md: единственный источник цифр и обещаний для статей. Только то, что написано на живом сайте 27.10.2026, у каждого факта адрес страницы. Пункты TODO_owner ждут ответа владельца, в статьях их нет. Проверка черновика (src/engine/blog/article-pipeline.js, factNumbers) пропускает в текст только числа, которые есть здесь вне todo_owner, banned_claims, photos и pages.",
+  "checked": "2026-10-27",
+  "company": {
+    "brand": { "value": "All Clean", "source": "https://allclean.md/ru/about" },
+    "legal": { "value": "«ALL CLEAN COMPANY» SRL, IDNO 1020600014361", "source": "https://allclean.md/ru/pricing" },
+    "phone": { "value": "+373 79 955 044", "note": "есть WhatsApp, Viber, Telegram", "source": "https://allclean.md/ru/pricing" },
+    "email": { "value": "info@allclean.md", "source": "https://allclean.md/ru/about" },
+    "address": { "ru": "ул. Месаджер, 7, Кишинёв, MD-2069", "ro": "str. Mesager 7, Chișinău, MD-2069", "source": "https://allclean.md/about" },
+    "hours": { "ru": "ежедневно с 8:00 до 21:00", "ro": "zilnic între 8:00 și 21:00", "source": "https://allclean.md/ru/services/deep-cleaning" },
+    "area": { "ru": "Кишинёв и пригороды, квартиры и частные дома", "ro": "Chișinău și suburbii, apartamente și case private", "source": "https://allclean.md/ru/services/deep-cleaning" },
+    "ratings": [
+      { "ru": "4,7 в Google", "ro": "4,7 în Google", "source": "https://allclean.md/ru/services/deep-cleaning" },
+      { "ru": "4,8 на 999.md", "ro": "4,8 pe 999.md", "source": "https://allclean.md/ru/services/deep-cleaning" }
+    ]
+  },
+  "prices": [
+    { "service": "deep-cleaning", "unit": "м²", "from": 45, "ru": "генеральная уборка от 45 лей за м²", "ro": "curățenie generală de la 45 lei pe m²",
+      "depends_ru": "площадь, число окон, этаж, дополнительные услуги: мойка холодильника и духовки, посуды, глажка",
+      "depends_ro": "suprafața, numărul de geamuri, etajul, serviciile suplimentare: spălarea frigiderului și a cuptorului, a vaselor, călcatul",
+      "source": "https://allclean.md/ru/services/deep-cleaning" },
+    { "service": "post-construction", "unit": "объект", "ru": "уборка после ремонта: до 40 м² от 3700 лей, до 60 м² от 4700 лей, до 90 м² от 5700 лей; офисы от 35 лей за м²",
+      "ro": "curățenie după renovare: până la 40 m² de la 3700 lei, până la 60 m² de la 4700 lei, până la 90 m² de la 5700 lei; birouri de la 35 lei/m²",
+      "tiers": [ { "upto_m2": 40, "from": 3700 }, { "upto_m2": 60, "from": 4700 }, { "upto_m2": 90, "from": 5700 }, { "office_per_m2": 35 } ],
+      "depends_ru": "площадь, наличие мебели, объём загрязнений; окна после ремонта дороже обычных (цемент, краска, наклейки)",
+      "depends_ro": "suprafața, prezența mobilei, gradul de murdărie; geamurile după renovare costă mai mult (ciment, vopsea, autocolante)",
+      "source": "https://allclean.md/ru/services/post-construction" },
+    { "service": "windows", "unit": "м²", "ru": "мойка окон внутри от 40 лей/м², снаружи от 45 лей/м², витражи от 40 лей/м², стеклянные фасады от 35 лей/м²",
+      "ro": "spălarea geamurilor la interior de la 40 lei/m², la exterior de la 45 lei/m², vitralii de la 40 lei/m², fațade din sticlă de la 35 lei/m²",
+      "source": "https://allclean.md/ru/services/windows" },
+    { "service": "facades", "unit": "м²", "ru": "стеклянные фасады от 35 лей/м², витражи от 40 лей/м²", "ro": "fațade din sticlă de la 35 lei/m², vitralii de la 40 lei/m²",
+      "note": "в калькуляторе фасада другая ставка — см. todo_owner", "source": "https://allclean.md/ru/services/facades" },
+    { "service": "carpet", "unit": "м²", "ru": "ковролин от 45 лей/м², ковры от 55 лей/м²", "ro": "mochetă de la 45 lei/m², covoare de la 55 lei/m²", "source": "https://allclean.md/ru/pricing" },
+    { "service": "upholstery", "unit": "предмет", "ru": "химчистка мягкой мебели от 50 до 450 лей за предмет", "ro": "curățarea mobilei tapițate de la 50 la 450 lei per obiect",
+      "depends_ru": "предмет и материал обивки (текстиль или кожа)", "depends_ro": "obiectul și materialul (textil sau piele)", "source": "https://allclean.md/ru/services/upholstery" },
+    { "service": "parquet", "unit": "м²", "ru": "циклёвка паркета 250 лей/м² с одним слоем лака", "ro": "restaurare parchet 250 lei/m² cu un strat de lac", "source": "https://allclean.md/ru/pricing" },
+    { "service": "marble", "unit": "м²", "ru": "полировка мрамора 180 лей/м²", "ro": "polizare marmură 180 lei/m²", "source": "https://allclean.md/ru/pricing" },
+    { "service": "linoleum", "unit": "м²", "ru": "чистка линолеума 60 лей/м²", "ro": "curățare linoleum 60 lei/m²", "source": "https://allclean.md/ru/pricing" },
+    { "service": "home-cleaning", "ru": "цена зависит от типа уборки, площади и дополнительных услуг, предварительную сумму считает калькулятор, точную подтверждает менеджер",
+      "ro": "prețul depinde de tipul curățeniei, suprafață și serviciile suplimentare; suma preliminară o arată calculatorul, cea exactă o confirmă managerul", "source": "https://allclean.md/ru/services/home-cleaning" },
+    { "service": "by-inspection", "ru": "уборка офисов, магазинов, складов, после затопления, дезинфекция — цена по осмотру", "ro": "birouri, magazine, depozite, după inundație, dezinfecție — preț după evaluare", "source": "https://allclean.md/ru/pricing" }
+  ],
+  "durations": {
+    "maintenance": { "ru": "поддерживающая уборка занимает 3–5 часов", "ro": "curățenia de întreținere durează 3–5 ore", "source": "https://allclean.md/ru/services/home-cleaning" },
+    "deep": { "ru": "генеральная уборка квартиры — до 7 часов", "ro": "curățenia generală a unui apartament — până la 7 ore", "source": "https://allclean.md/ru/services/deep-cleaning" },
+    "deep_frequency": { "ru": "генеральную заказывают раз в несколько месяцев, перед праздниками, после переезда или долгого отъезда", "ro": "cea generală se face o dată la câteva luni, înainte de sărbători, după mutare sau după o absență lungă", "source": "https://allclean.md/ru/services/deep-cleaning" }
+  },
+  "included": {
+    "maintenance": { "ru": "мытьё и пылесос полов, протирание всех доступных поверхностей от пыли, удаление паутины, лёгкая уборка кухни и санузла", "ro": "spălarea și aspirarea pardoselilor, ștergerea de praf a tuturor suprafețelor accesibile, îndepărtarea pânzelor de păianjen, curățenia ușoară a bucătăriei și a băii", "source": "https://allclean.md/ru/services/home-cleaning" },
+    "deep": { "ru": "всё из поддерживающей (полы, пыль на доступных поверхностях, кухня и санузел), плюс мойка окон, протирание люстр и светильников, глубокая чистка кухни и санузлов", "ro": "tot ce include curățenia de menținere (podele, praf de pe suprafețele accesibile, bucătăria și baia), plus spălarea geamurilor, ștergerea lustrelor și a corpurilor de iluminat, curățarea în profunzime a bucătăriei și a băilor", "source": "https://allclean.md/ru/services/deep-cleaning" },
+    "deep_extras": { "ru": "мойка внутри духовки, холодильника и шкафов относится к генеральной уборке и добавляется при оформлении заказа; посуда и глажка — дополнительные услуги", "ro": "spălarea în interiorul cuptorului, frigiderului și dulapurilor ține de curățenia generală și se adaugă la plasarea comenzii; vasele și călcatul sunt servicii suplimentare", "source": "https://allclean.md/ru/faq" },
+    "post_construction": { "ru": "сбор строительного мусора и пыли, удаление наклеек с окон, мойка окон внутри и снаружи, снятие защитной плёнки с рам, обеспыливание стен, чистка розеток и выключателей, протирание дверей и рам, дезинфекция плитки и сантехники, чистка радиаторов и плинтусов, специальная мойка полов", "ro": "colectarea deșeurilor de construcție și a prafului, îndepărtarea autocolantelor de pe geamuri, spălarea geamurilor la interior și exterior, îndepărtarea foliei de protecție de pe rame, desprăfuirea pereților, curățarea prizelor și întrerupătoarelor, ștergerea ușilor și a ramelor, dezinfecția gresiei și a sanitarelor, curățarea caloriferelor și a plintelor, spălarea specială a pardoselilor", "source": "https://allclean.md/ru/services/post-construction" },
+    "post_construction_debris": { "ru": "сбор и вынос строительного мусора можно организовать, объём указывается в калькуляторе и уточняется при осмотре", "ro": "colectarea și evacuarea deșeurilor de construcție se pot organiza, volumul se indică în calculator și se precizează la evaluare", "source": "https://allclean.md/ru/services/post-construction" },
+    "post_construction_when": { "ru": "заказывать после завершения всех пыльных работ и установки сантехники", "ro": "după finalizarea tuturor lucrărilor cu praf și montarea sanitarelor", "source": "https://allclean.md/ru/services/post-construction" },
+    "windows": { "ru": "моем изнутри и снаружи там, где есть доступ; для верхних этажей специальное оборудование, при необходимости автовышка, доступ и высота учитываются в цене; неразводные составы, безопасные для рам и уплотнителей; стеклянные фасады, витрины, фасады Etalbond", "ro": "spălăm la interior și exterior unde există acces; pentru etajele superioare echipament special, la nevoie nacelă, accesul și înălțimea intră în calcul; soluții fără urme, sigure pentru rame și garnituri; fațade din sticlă, vitrine, fațade Etalbond", "source": "https://allclean.md/ru/services/windows" },
+    "windows_calculator": { "ru": "калькулятор мойки окон учитывает, что моем (окна, витражные окна, фасад, стеклянные перегородки), тип окон (стандартные, полупанорамные, панорамные), только изнутри или изнутри и снаружи, количество окон и этаж", "ro": "calculatorul pentru geamuri ține cont de ce spălăm (geamuri, vitralii, fațadă, pereți despărțitori din sticlă), tipul geamurilor (standard, semipanoramice, panoramice), doar interior sau interior și exterior, numărul de geamuri și etajul", "source": "https://allclean.md/ru/pricing" },
+    "windows_assessment": { "ru": "бесплатный выезд на оценку объёма; для больших площадей и регулярного обслуживания скидки", "ro": "deplasare gratuită pentru evaluare; reduceri pentru suprafețe mari și întreținere regulată", "source": "https://allclean.md/ru/services/windows" }
+  },
+  "booking": {
+    "lead_time": { "ru": "бронировать рекомендуем за 2–3 дня, иногда есть свободное время и на тот же день", "ro": "recomandăm rezervarea cu 2–3 zile înainte, uneori sunt sloturi chiar în aceeași zi", "source": "https://allclean.md/ru/faq" },
+    "reschedule": { "ru": "перенести или отменить запись можно бесплатно не позднее чем за 24 часа до визита", "ro": "reprogramarea sau anularea sunt gratuite cu cel puțin 24 de ore înainte de vizită", "source": "https://allclean.md/ru/faq" },
+    "guarantee": { "ru": "если качество не устроило, сообщите в течение 24 часов — клинера пришлют повторно бесплатно", "ro": "dacă nu sunteți mulțumit, anunțați în 24 de ore — trimitem gratuit un curățător din nou", "source": "https://allclean.md/ru/faq" },
+    "presence": { "ru": "быть дома не обязательно, нужен доступ в квартиру; многие оставляют ключи консьержу", "ro": "nu trebuie să fiți acasă, e nevoie de acces în apartament; mulți clienți lasă cheile la portar", "source": "https://allclean.md/ru/faq" },
+    "one_off": { "ru": "доступны разовая, регулярная и генеральная уборка", "ro": "sunt disponibile curățenia unică, regulată și generală", "source": "https://allclean.md/ru/faq" },
+    "regular_discount": { "ru": "при еженедельном, раз в две недели и ежемесячном графике скидка на каждую уборку ставится автоматически", "ro": "pentru programul săptămânal, la două săptămâni sau lunar se aplică automat o reducere la fiecare curățenie", "source": "https://allclean.md/ru/faq" },
+    "same_cleaner": { "ru": "при регулярных уборках за клиентом по возможности закрепляют одного клинера", "ro": "la curățeniile regulate vă atribuim, pe cât posibil, același curățător", "source": "https://allclean.md/ru/faq" },
+    "calculator": { "ru": "на странице каждой услуги есть калькулятор: он показывает предварительную сумму, точную цену подтверждает менеджер", "ro": "pe pagina fiecărui serviciu este un calculator: arată suma preliminară, prețul exact îl confirmă managerul", "source": "https://allclean.md/ru/pricing" }
+  },
+  "conditions": {
+    "inventory": { "ru": "клинеры привозят все средства и инвентарь, покупать ничего не нужно", "ro": "echipa aduce toate produsele și inventarul, nu trebuie cumpărat nimic", "source": "https://allclean.md/ru/services/deep-cleaning" },
+    "products": { "ru": "средства нетоксичны и безопасны для детей и животных; можно попросить средства без запаха", "ro": "soluțiile sunt netoxice și sigure pentru copii și animale; se pot cere produse fără miros", "source": "https://allclean.md/ru/faq" },
+    "furniture": { "ru": "лёгкие предметы передвигают, тяжёлую мебель нет", "ro": "obiectele ușoare se mută, mobila grea nu", "source": "https://allclean.md/ru/faq" },
+    "dishes_laundry": { "ru": "лёгкое мытьё посуды входит в стандартную уборку, стирка — только как дополнительная услуга", "ro": "spălarea ușoară a vaselor este inclusă, spălătoria doar ca serviciu suplimentar", "source": "https://allclean.md/ru/faq" },
+    "pets": { "ru": "шерсть животных убирают, инвентарь и пылесосы на это рассчитаны", "ro": "părul de animale nu e o problemă, inventarul și aspiratoarele sunt potrivite", "source": "https://allclean.md/ru/faq" },
+    "staff": { "ru": "каждый клинер проходит собеседование, проверку и отбор", "ro": "fiecare curățător trece prin interviu, verificare și selecție", "source": "https://allclean.md/ru/faq" }
+  },
+  "flood": {
+    "scope": { "ru": "убирают грязь, нечистоты и мокрый мусор, моют полы, стены и мебель, дезинфицируют поверхности, помогают убрать запах", "ro": "curățăm murdăria, apele uzate și gunoiul ud, spălăm podele, pereți și mobilă, dezinfectăm suprafețele, ajutăm la eliminarea mirosului", "source": "https://allclean.md/ru/services/flood-cleanup" },
+    "no_plumbing": { "ru": "канализацию не ремонтируют: сначала перекрыть воду и вызвать сантехника или аварийную службу", "ro": "nu reparăm canalizarea: întâi se închide apa și se cheamă instalatorul sau serviciul de urgență", "source": "https://allclean.md/ru/services/flood-cleanup" },
+    "price": { "ru": "цена после осмотра или по фото", "ro": "prețul după evaluare sau după fotografii", "source": "https://allclean.md/ru/services/flood-cleanup" }
+  },
+  "upholstery": {
+    "methods": { "ru": "для текстиля и кожи разные методы и средства; для сильных пятен и запахов специальные средства", "ro": "metode și soluții diferite pentru textil și piele; pentru pete și mirosuri puternice soluții speciale", "source": "https://allclean.md/ru/services/upholstery" },
+    "drying": { "ru": "мягкая мебель обычно высыхает за несколько часов, оборудование не переувлажняет наполнитель", "ro": "mobila se usucă de obicei în câteva ore, echipamentul nu umezește excesiv umplutura", "source": "https://allclean.md/ru/services/upholstery" }
+  },
+  "todo_owner": [
+    "TODO_owner: минимальный заказ по каждой услуге",
+    "TODO_owner: время сушки дивана и матраса в часах, по тканям",
+    "TODO_owner: сколько человек в бригаде на генеральной и после ремонта, сколько бригад в декабре",
+    "TODO_owner: мойка фасадов — 25 лей/м² (калькулятор) или 35 лей/м² (текст страницы)",
+    "TODO_owner: цена уборки после затопления за м², время выезда, отвечаете ли ночью",
+    "TODO_owner: автор статей — имя, должность, фото, стаж",
+    "TODO_owner: цена визита поддерживающей уборки и размер скидки за регулярность",
+    "TODO_owner: свободные даты в декабре и срок записи перед праздниками",
+    "TODO_owner: часы работы — на сайте до 21:00, в Google Картах до 22:00",
+    "TODO_owner: длительность стандартной уборки — на /faq 2–3 часа, на странице уборки квартир 3–5",
+    "TODO_owner: оплата — на /faq написано «онлайн при бронировании», так ли это на самом деле",
+    "TODO_owner: список пригородов и условия выезда",
+    "TODO_owner: цена вывоза строительного мусора",
+    "TODO_owner: фото своих работ для статей (до/после, район, площадь, дата) и разрешение клиентов"
+  ],
+  "banned_claims": [
+    { "text": "Лицензия и страховка / Licență și asigurare", "why": "на сайте без подтверждения, в статьи не берём", "source": "https://allclean.md/ru/about" },
+    { "text": "1200+ постоянных клиентов", "why": "цифра шаблона, не подтверждена", "source": "https://allclean.md/ru/pricing" },
+    { "text": "Лучший сервис 2025", "why": "не подтверждено, слово «лучший» запрещено", "source": "https://allclean.md/ru/pricing" },
+    { "text": "4 свободных слота на этой неделе", "why": "плашка шаблона, не факт", "source": "https://allclean.md/ru/pricing" },
+    { "text": "все сотрудники застрахованы", "why": "не подтверждено владельцем", "source": "https://allclean.md/ru/services/home-cleaning" },
+    { "text": "команда на /about (Мария Войку и др.)", "why": "имена из шаблона, ждут данных клиента", "source": "https://allclean.md/ru/about" }
+  ],
+  "photos": [
+    { "url": "/media/allclean/1790843184888-25ml3c.webp", "services": ["deep-cleaning", "home-cleaning"], "people": "руки в перчатках, без лиц", "ru": "Ведро с тряпкой и перчатки для генеральной уборки", "ro": "Găleată cu lavetă și mănuși pentru curățenia generală" },
+    { "url": "/media/allclean/site/1783059471700-wkst60.webp", "services": ["post-construction"], "people": "ноги работника, без лица", "ru": "Мойка пола после ремонта в квартире", "ro": "Spălarea pardoselii după renovare" },
+    { "url": "/media/allclean/site/1783058728363-5qthje.webp", "services": ["windows", "facades"], "people": "работник в профиль", "ru": "Мойка окна снаружи", "ro": "Spălarea geamului la exterior" },
+    { "url": "/media/allclean/site/1783060155220-82qwli.jpg", "services": ["upholstery"], "people": "рука, без лица", "ru": "Химчистка обивки мягкой мебели", "ro": "Curățarea tapițeriei" },
+    { "url": "/media/allclean/1790257054538-tsb2ga.webp", "services": ["carpet"], "people": "руки, без лица", "ru": "Чистка ковролина пылесосом", "ro": "Curățarea mochetei cu aspiratorul" },
+    { "url": "/media/allclean/1790257047688-dkiay3.webp", "services": ["parquet", "floor-restoration"], "people": "нет", "ru": "Паркет после циклёвки и лака", "ro": "Parchet după șlefuire și lac" },
+    { "url": "/media/allclean/1790843532053-wjdr6b.webp", "services": ["marble", "linoleum", "floor-restoration"], "people": "ноги работника, без лица", "ru": "Полировка каменного пола машиной", "ro": "Polizarea pardoselii din piatră" }
+  ],
+  "photos_note": "Это фото с сайта, похоже стоковые. Люди без лиц или их нет. Заменить на фото своих работ, когда владелец их даст.",
+  "pages": {
+    "ru": {
+      "/ru/services/deep-cleaning": "Генеральная уборка", "/ru/services/home-cleaning": "Уборка квартир и домов",
+      "/ru/services/post-construction": "Уборка после ремонта", "/ru/services/windows": "Мойка окон",
+      "/ru/services/facades": "Мойка фасадов и витрин", "/ru/services/upholstery": "Химчистка мягкой мебели",
+      "/ru/services/carpet": "Чистка ковров и ковролина", "/ru/services/office": "Уборка офисов",
+      "/ru/services/flood-cleanup": "Уборка после затопления", "/ru/services/parquet": "Циклёвка паркета",
+      "/ru/services/marble": "Полировка мрамора", "/ru/services/linoleum": "Чистка линолеума",
+      "/ru/services/floor-restoration": "Реставрация полов", "/ru/services/retail": "Уборка магазинов",
+      "/ru/services/warehouse": "Уборка складов", "/ru/services/disinfection": "Дезинфекция пищевых производств",
+      "/ru/services": "Все услуги", "/ru/pricing": "Цены на уборку", "/ru/faq": "Частые вопросы", "/ru/about": "О компании",
+      "/ru/book-cleaning": "Запись на уборку", "/ru/blog": "Блог", "/ru": "Главная"
+    },
+    "ro": {
+      "/services/deep-cleaning": "Curățenie generală", "/services/home-cleaning": "Curățenie apartamente și case",
+      "/services/post-construction": "Curățenie după renovare", "/services/windows": "Spălarea geamurilor",
+      "/services/facades": "Spălare fațade și vitrine", "/services/upholstery": "Curățare mobilă tapițată",
+      "/services/carpet": "Curățare covoare și mochetă", "/services/office": "Curățenie birouri",
+      "/services/flood-cleanup": "Curățenie după inundație", "/services/parquet": "Restaurare parchet",
+      "/services/marble": "Polizare marmură", "/services/linoleum": "Curățare linoleum",
+      "/services/floor-restoration": "Restaurarea pardoselilor", "/services/retail": "Curățenie magazine",
+      "/services/warehouse": "Curățenie depozite", "/services/disinfection": "Dezinfecție producție alimentară",
+      "/services": "Toate serviciile", "/pricing": "Prețuri", "/faq": "Întrebări frecvente", "/about": "Despre noi",
+      "/book-cleaning": "Programare", "/blog": "Blog", "/": "Prima pagină"
+    }
+  }
+}

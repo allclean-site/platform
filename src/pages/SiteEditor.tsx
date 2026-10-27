@@ -26,7 +26,7 @@ import { META_KEY, readMeta, decodeMeta, encodeMeta, type PageMeta,
 import { indexMediaFromDoc, syncSiteMedia } from "../editor/media";
 import { postSiteApi } from "../editor/siteApi";
 // Карточка статьи в списке блога — та же функция, которой её рисует сборка.
-import { artPathOf, type BlogCardArticle } from "../../scripts/blog-cards.mjs";
+import { artPathOf, relatedArticles, type RelatedArticle } from "../../scripts/blog-cards.mjs";
 import { ElementInspector } from "./ElementInspector";
 import { LayersTree } from "./Layers";
 import { PublishDialog } from "./PublishDialog";
@@ -549,11 +549,11 @@ export function SiteEditor() {
    * списка блога. Холст этого не делал — клиент видел в редакторе на одну статью меньше, чем на
    * сайте. Тянем список один раз за сессию и просим перечитать страницу, когда он приедет.
    */
-  const publishedArts = useRef<BlogCardArticle[]>([]);
+  const publishedArts = useRef<RelatedArticle[]>([]);
   const [artsTick, setArtsTick] = useState(0);
   useEffect(() => {
     let alive = true;
-    void postSiteApi<{ articles?: BlogCardArticle[] }>("publish-article", { op: "list" }).then((r) => {
+    void postSiteApi<{ articles?: RelatedArticle[] }>("publish-article", { op: "list" }).then((r) => {
       if (!alive || !r.ok || !r.data?.articles) return;
       publishedArts.current = r.data.articles;
       setArtsTick((n) => n + 1);
@@ -593,7 +593,7 @@ export function SiteEditor() {
         const карточки = (p.slug === "/blog" || p.slug === "/ru/blog")
           ? publishedArts.current.filter((a) => a.locale === p.lang && !свои.has(artPathOf(a.locale, a.slug)))
           : [];
-        const blocks = canvasBlocks(p, resolveForPage(p, p.lang), rules, карточки);
+        const blocks = canvasBlocks(p, resolveForPage(p, p.lang), rules, карточки, relatedArticles(p.slug, p.lang, publishedArts.current));
         const samePage = loadedPageId.current === p.id;
         const prev = lastHtml.current;
         lastHtml.current = Object.fromEntries(blocks.map((b) => [b.id, b.content.html]));

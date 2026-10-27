@@ -7,7 +7,8 @@
  * can render — including inline images as `![caption](url)`.
  */
 
-export type BlockType = "p" | "h2" | "h3" | "ul" | "ol" | "quote" | "img" | "hr";
+/** "table" хранит таблицу как есть, строками «| a | b |»: редактор правит её текстом, не теряя при сохранении. */
+export type BlockType = "p" | "h2" | "h3" | "ul" | "ol" | "quote" | "img" | "hr" | "table";
 
 export interface Block {
   id: string;
@@ -29,6 +30,7 @@ export function newBlock(type: BlockType): Block {
   if (type === "ul" || type === "ol") return { id: blockId(), type, items: [""] };
   if (type === "img") return { id: blockId(), type, url: "", alt: "" };
   if (type === "hr") return { id: blockId(), type };
+  if (type === "table") return { id: blockId(), type, text: "| Что | Цена |\n|---|---|\n|  |  |" };
   return { id: blockId(), type, text: "" };
 }
 
@@ -85,6 +87,7 @@ export function blocksToMd(blocks: Block[]): string {
       case "ol": parts.push((b.items || []).filter((i) => i.trim()).map((i, n) => `${n + 1}. ${i}`).join("\n")); break;
       case "img": if (b.url) parts.push(`![${(b.alt || "").replace(/[\[\]]/g, "")}](${b.url})`); break;
       case "hr": parts.push("---"); break;
+      case "table": parts.push((b.text || "").split("\n").map((l) => l.trim()).filter(Boolean).join("\n")); break;
       default: parts.push((b.text || "").trim());
     }
   }
@@ -106,6 +109,12 @@ export function mdToBlocks(md: string): Block[] {
 
     let m: RegExpExecArray | null;
     if ((m = IMG_RE.exec(t))) { push({ type: "img", url: m[2], alt: m[1] }); i++; continue; }
+    if (/^\|.*\|$/.test(t)) {
+      const buf: string[] = [];
+      while (i < lines.length && /^\|.*\|$/.test(lines[i].trim())) { buf.push(lines[i].trim()); i++; }
+      push({ type: "table", text: buf.join("\n") });
+      continue;
+    }
     if (/^(---|\*\*\*|___)$/.test(t)) { push({ type: "hr" }); i++; continue; }
     if ((m = /^(#{2,4})\s+(.*)$/.exec(t))) { push({ type: m[1].length >= 3 ? "h3" : "h2", text: m[2].trim() }); i++; continue; }
     if (/^>\s?/.test(t)) {
@@ -129,7 +138,7 @@ export function mdToBlocks(md: string): Block[] {
     // paragraph: gather until blank / block start
     const buf: string[] = [t];
     i++;
-    while (i < lines.length && lines[i].trim() && !/^(#{2,4}\s|>|[-*]\s|\d+\.\s|!\[|---$|\*\*\*$|___$)/.test(lines[i].trim())) {
+    while (i < lines.length && lines[i].trim() && !/^(#{2,4}\s|>|[-*]\s|\d+\.\s|!\[|\||---$|\*\*\*$|___$)/.test(lines[i].trim())) {
       buf.push(lines[i].trim()); i++;
     }
     push({ type: "p", text: buf.join(" ") });

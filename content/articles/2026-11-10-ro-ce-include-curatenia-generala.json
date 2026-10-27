@@ -1,0 +1,35 @@
+{
+  "group_id": "7429b8dc-85fa-4027-a46e-ea7b73ef1862",
+  "locale": "ro",
+  "publish_at": "2026-11-10T05:00:00.000Z",
+  "slug": "ce-include-curatenia-generala-a-apartamentului",
+  "title": "Ce include curățenia generală a apartamentului?",
+  "seo_title": "Ce include curățenia generală a apartamentului",
+  "seo_description": "Ce include curățenia generală a apartamentului în Chișinău: podele, praf, geamuri, lustre, bucătărie și baie în profunzime. Ce se plătește separat și cât costă.",
+  "excerpt": "Lista lucrărilor la curățenia generală comparată cu cea de menținere: ce intră, ce se adaugă contra cost și cât durează un apartament.",
+  "cover_url": "https://allclean.md/media/allclean/1790843184888-25ml3c.webp",
+  "body": "Curățenia generală include tot ce se face la cea de menținere: podelele, praful de pe suprafețele accesibile, bucătăria și baia. În plus se spală geamurile, se șterg lustrele și corpurile de iluminat, iar bucătăria și băile se curăță în profunzime. Un apartament ia până la 7 ore, prețul în Chișinău pornește de la 45 lei pe m².\n\n## Generală și de menținere: ce include fiecare\n\n| Ce se face | De menținere | Generală |\n|---|---|---|\n| Spălarea și aspirarea pardoselilor | da | da |\n| Praful de pe suprafețele accesibile, pânzele de păianjen | da | da |\n| Bucătăria și baia | curățenie ușoară | curățare în profunzime |\n| Geamurile | serviciu suplimentar | da |\n| Lustrele și corpurile de iluminat | nu | da |\n| Frigiderul și cuptorul pe interior | serviciu suplimentar | serviciu suplimentar |\n| Durata | 3–5 ore | până la 7 ore |\n\n## Ce se plătește separat\n\nLa plasarea comenzii pentru curățenia generală se adaugă spălarea frigiderului și a cuptorului, a vaselor și călcatul. Aceste servicii schimbă suma, de aceea e bine să le bifați în calculator de la început. Spălătoria se face doar ca serviciu suplimentar. Obiectele ușoare echipa le mută, mobila grea nu, din motive de siguranță.\n\n## Cum decurge curățenia generală\n\n1. În calculator indicați suprafața, mobila, numărul de geamuri, etajul și serviciile suplimentare. El arată prețul preliminar.\n2. Managerul confirmă prețul exact și ora. Rezervarea se recomandă cu 2–3 zile înainte.\n3. Echipa vine cu propriile produse și inventar, nu trebuie să cumpărați nimic. Nu e obligatoriu să fiți acasă, e suficient accesul în apartament.\n4. Curățenia unui apartament durează până la 7 ore.\n5. Dacă ceva nu vă convine, anunțați-ne în 24 de ore și trimitem gratuit un curățător din nou.\n\n## Când e nevoie de curățenia generală\n\nCurățenia generală se face o dată la câteva luni, înainte de sărbători, după mutare sau după o absență lungă. Între ele ordinea se păstrează cu curățenia de menținere, care durează 3–5 ore. Cele două tipuri sunt comparate în [articolul despre curățenia generală și cea de menținere](/blog/curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele).\n\n## Cât costă la noi\n\nCurățenia generală costă de la 45 lei pe m². Suma depinde de suprafață, numărul de geamuri, etaj și serviciile suplimentare. Prețul pentru apartamentul dvs. îl calculați pe pagina serviciului [Curățenie generală](/services/deep-cleaning), iar tarifele pentru spălarea geamurilor, curățarea mobilei și celelalte servicii sunt pe pagina [Prețuri](/pricing).",
+  "meta": {
+    "faq": [
+      { "question": "Ce se plătește separat la curățenia generală?", "answer": "Spălarea frigiderului și a cuptorului, a vaselor și călcatul. Le adăugați la plasarea comenzii, iar ele schimbă suma." },
+      { "question": "Prin ce diferă curățenia generală de cea de menținere?", "answer": "Cea de menținere durează 3–5 ore și păstrează ordinea între curățeniile mari. Cea generală durează până la 7 ore și adaugă geamurile, lustrele și curățarea în profunzime a bucătăriei și a băilor." },
+      { "question": "Se spală geamurile la curățenia generală?", "answer": "Da, spălarea geamurilor intră în curățenia generală. Numărul de geamuri influențează suma." },
+      { "question": "Trebuie să cumpăr produse de curățenie?", "answer": "Nu. Echipa aduce toate produsele și inventarul, iar soluțiile sunt sigure pentru copii și animale." },
+      { "question": "Mutați mobila?", "answer": "Obiectele ușoare da, mobila grea nu, din motive de siguranță." }
+    ],
+    "takeaways": [
+      "Curățenia generală cuprinde tot ce se face la cea de menținere, plus geamurile, lustrele și curățarea în profunzime a bucătăriei și a băilor.",
+      "Frigiderul și cuptorul pe interior, vasele și călcatul se adaugă contra cost.",
+      "Un apartament durează până la 7 ore, prețul pornește de la 45 lei pe m²."
+    ],
+    "tags": ["Curățenie generală", "Ce include"],
+    "coverAlt": "Găleată cu lavetă și mănuși pentru curățenia generală",
+    "sources": [
+      "https://allclean.md/services/deep-cleaning",
+      "https://allclean.md/services/home-cleaning",
+      "https://allclean.md/faq"
+    ],
+    "service_page": "/services/deep-cleaning",
+    "queue": { "id": "O04", "query": "ce include curatenia generala", "question": "Ce include curățenia generală și ce se plătește separat?", "service_page": "/services/deep-cleaning" }
+  }
+}
