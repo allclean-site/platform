@@ -5,7 +5,9 @@
 .se-error { color: var(--danger); }
 
 /* Top bar */
-.se__bar { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: var(--r-lg);
+/* Переносится на вторую строку: на 1280–1440 содержимое (≈1224 px) шире панели, и «Опубликовать»
+   уезжала за край окна — на 1280 её было не видно без горизонтальной прокрутки. */
+.se__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 14px; border-radius: var(--r-lg);
   border: 1px solid var(--glass-border); box-shadow: var(--e1); }
 .se__back { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none;
   font-weight: 600; font-size: 14px; }
@@ -37,7 +39,8 @@
 .se__draft--error { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
 .se__draft--conflict { color: var(--warning); background: color-mix(in srgb, var(--warning) 18%, transparent); }
 .se__publish { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: var(--r-md);
-  border: 0; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: var(--e1); }
+  border: 0; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: var(--e1);
+  white-space: nowrap; margin-left: auto; }   /* и на второй строке остаётся справа */
 .se__publish:hover:not(:disabled) { background: var(--accent-hover); }
 .se__publish:disabled { opacity: .5; cursor: default; }
 
