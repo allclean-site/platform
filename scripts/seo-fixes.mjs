@@ -43,8 +43,11 @@ function contacts(html) {
 
 // ── 3. Соцсети ────────────────────────────────────────────────────────────────────────
 const FACEBOOK = "https://www.facebook.com/allclean.md";
+const LINKEDIN = "https://www.linkedin.com/company/65692470";
 function socials(html) {
   html = swapRe(html, "social:facebook", /href="https:\/\/facebook\.com"/g, `href="${FACEBOOK}" rel="noopener"`);
+  // LinkedIn вёл на главную linkedin.com; страница компании та же, что в sameAs разметки.
+  html = swapRe(html, "social:linkedin", /href="https:\/\/linkedin\.com"/g, `href="${LINKEDIN}" rel="noopener"`);
   // Иконка Instagram — пустой <a> с одной svg внутри, вложенных ссылок нет.
   html = swapRe(html, "social:instagram", /<a href="https:\/\/instagram\.com"[^>]*>[\s\S]*?<\/a>/g, "");
   return html;
@@ -91,7 +94,7 @@ const ORG_EXTRA = {
     "https://www.google.com/maps?cid=12753551464754354058",
     FACEBOOK,
     "https://999.md/ru/profile/ACCMD",
-    "https://www.linkedin.com/company/65692470",
+    LINKEDIN,
   ],
 };
 // @id — одна организация на все страницы и языки: на неё ссылаются услуги и статьи.
@@ -379,7 +382,7 @@ export function seoReport() {
 // убрал эти вопросы, и добавлять нечего. Ноль у них падал сборкой: публикация сообщала
 // «сайт пересобирается», а сайт навсегда оставался на прошлом деплое.
 export function assertSeoApplied() {
-  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "forms:antispam", "consent:banner",
+  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:linkedin", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "forms:antispam", "consent:banner",
     "ld:faq-sync", "ld:offers",
     "ld:provider", "ld:article", "footer:maps", "ads:contact-click"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
