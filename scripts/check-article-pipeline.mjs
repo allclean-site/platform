@@ -276,7 +276,7 @@ if (process.argv.includes("--build")) {
   const ruPage = readFileSync(join(ROOT, "out", "ru/blog/kogda-zakazyvat-generalnuyu-uborku-pered-novym-godom/index.html"), "utf8");
   assert.match(ruPage, /hreflang="ro-MD" href="https:\/\/allclean\.md\/blog\/cand-rezervi-curatenia-generala-inainte-de-sarbatori"/);
   assert.match(sitemap, /<loc>https:\/\/allclean\.md\/ru\/blog\/kogda-zakazyvat-generalnuyu-uborku-pered-novym-godom<\/loc><lastmod>[^<]+<\/lastmod><xhtml:link rel="alternate" hreflang="ro-MD"/);
-  assert.match(ruPage, /<table>/);
+  assert.match(ruPage, /<div class="article-table"><table>/);
   const graph = [...ruPage.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
     .map((m) => JSON.parse(m[1])).find((o) => o["@graph"])?.["@graph"] || [];
   const art = graph.find((n) => n["@type"] === "Article");

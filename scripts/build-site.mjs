@@ -103,6 +103,9 @@ const artUrl = (locale, slug) => (locale === "ro" ? `${SITE}/blog/${slug}` : `${
 const artPath = (locale, slug) => (locale === "ro" ? `blog/${slug}/index.html` : `${locale}/blog/${slug}/index.html`);
 
 const D = "data-astro-cid-zcwx364o";
+const ARTICLE_TABLE_CSS = "<style>.article-table{overflow-x:auto;margin:1.25rem 0 1.75rem}.article-table table{width:100%;border-collapse:collapse}" +
+  ".article-table th,.article-table td{border-bottom:1px solid rgba(12,41,89,.14);padding:.65rem 1rem .65rem 0;text-align:left;vertical-align:top}" +
+  ".article-table th{font-weight:600;opacity:.75}</style>";
 function buildSec0(a, dateStr) {
   const cover = a.cover_url ? `<div class="image-wrap_hero-article" ${D}><img src="${escAttr(a.cover_url)}" loading="eager" alt="${escAttr(a.cover_alt || a.meta?.coverAlt || a.title)}" sizes="100vw" class="image_cover" ${D}></div>` : "";
   const faq = (a.meta && a.meta.faq) || [];
@@ -112,7 +115,13 @@ function buildSec0(a, dateStr) {
   const tkHtml = tk.length ? `<p><strong>${a.locale === "ro" ? "Pe scurt" : "Коротко"}</strong></p><ul>${tk.map((t) => `<li>${escHtml(t)}</li>`).join("")}</ul>` : "";
   const by = authorName(a.meta) ? " · " + escHtml(authorName(a.meta)) : "";
   const faqHtml = faq.length ? `<div class="wrap_6-center" ${D}><div class="wrap_faq-block" style="opacity:1" ${D}><div class="headline_faq-block" ${D}><h2 class="heading-style-h4 margin-0" ${D}>${escHtml(faqTitle)}</h2></div><div class="faq-block blog-faq" ${D}>${faq.map((f) => `<div class="expandable-single" ${D}><div class="expandable-top" ${D}><h3 class="heading-style-h6 margin-0" ${D}>${escHtml(f.question)}</h3></div><div class="expandable-content" ${D}><p>${escHtml(f.answer)}</p></div></div>`).join("")}</div></div></div>` : "";
-  return `<section class="section_hero-article" ${D}><div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}${by}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${tkHtml}${mdToHtml(a.body || "")}</div></div>${faqHtml}</div></div></div></section>`;
+  // Подзаголовки тела — классами статьи-образца: голый <h2> шаблон рисует размером заголовка
+  // страницы. Таблица — в обёртке с прокруткой, чтобы на телефоне не раздвигала страницу.
+  const body = mdToHtml(a.body || "")
+    .replace(/<h2>/g, '<h2 class="heading-style-h5">').replace(/<h3>/g, '<h3 class="heading-style-h6">').replace(/<h4>/g, '<h4 class="heading-style-h6">')
+    .replace(/<table>/g, '<div class="article-table"><table>').replace(/<\/table>/g, "</table></div>");
+  const tableCss = body.includes('class="article-table"') ? ARTICLE_TABLE_CSS : "";
+  return `<section class="section_hero-article" ${D}>${tableCss}<div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}${by}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${tkHtml}${body}</div></div>${faqHtml}</div></div></div></section>`;
 }
 
 /** Rebuild the template <head> for this article (title/desc/canonical/og/hreflang/JSON-LD). */
@@ -243,7 +252,7 @@ async function generateArticles(written, media = []) {
     await writeFile(dest, doc);
     // Пара языков — для hreflang в карте сайта, как у страниц из зеркала.
     const alt = (l) => (pair[l] && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair[l].slug || "") ? artUrl(l, pair[l].slug) : null);
-    written.add(path); newUrls.push({ loc: artUrl(a.locale, a.slug), locale: a.locale, ro: alt("ro"), ru: alt("ru") });
+    written.add(path); newUrls.push({ loc: artUrl(a.locale, a.slug), locale: a.locale, ro: alt("ro"), ru: alt("ru"), mod: a.updated_at || a.publish_at || a.created_at });
     (newByLocale[a.locale] || (newByLocale[a.locale] = [])).push(a);
     made++;
   }
@@ -532,7 +541,9 @@ async function main() {
     return `<url><loc>${SITE}${p.slug}</loc>${lastmod(p.id)}${links}${xdef}</url>`;
   }).join("");
   // Статьи из кабинета — с парой языков, как страницы зеркала: без неё поиск не связывал RO и RU версии.
-  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u.loc}</loc>${lastmod()}` +
+  // lastmod статьи — её последняя публикация (updated_at), а не дата коммита кода.
+  const artMod = (u) => (Date.parse(u.mod || "") ? `<lastmod>${new Date(u.mod).toISOString().slice(0, 10)}</lastmod>` : lastmod());
+  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u.loc}</loc>${artMod(u)}` +
     (u.ro && u.ru ? `<xhtml:link rel="alternate" hreflang="ro-MD" href="${u.ro}"/><xhtml:link rel="alternate" hreflang="ru-MD" href="${u.ru}"/>` +
       `<xhtml:link rel="alternate" hreflang="x-default" href="${u.ro}"/>`
       : `<xhtml:link rel="alternate" hreflang="${u.locale}-MD" href="${u.loc}"/><xhtml:link rel="alternate" hreflang="x-default" href="${u.loc}"/>`) + "</url>").join("");
