@@ -720,6 +720,9 @@ export function SiteEditor() {
         // Strip them back to canonical root paths BEFORE storing — otherwise every save appended
         // another prefix and the published page pointed at a path nothing serves (404 video/images).
         d.html = toCanonical(d.html);
+        // Вставки сборки (data-lg-gen, scripts/seo-fixes.mjs) в правку не попадают: иначе их текст
+        // застыл бы в блоке клиента и перестал обновляться вместе с кодом (как подвал с реквизитами).
+        d.html = d.html.replace(/<(div|p)\b[^>]*\sdata-lg-gen="[^"]*"[^>]*>[\s\S]*?<\/\1>/g, "");
         if (d.html === lastHtml.current[d.id]) return;   // nothing actually changed
         const region = page.blocks.find((b) => b.id === d.id)?.content.region;
         if (isSharedRegion(region)) {

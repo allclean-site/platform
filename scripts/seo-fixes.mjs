@@ -392,6 +392,129 @@ function consentBanner(html) {
   return out;
 }
 
+// ── 8. Денежные страницы (allclean-marketing/SEO_GROWTH_PLAN.md, разделы 4–5) ──────────
+// Только факты, которые уже есть на сайте: цены — со страницы (pagePrice) или из PRICES,
+// часы, гарантия и район — если страница сама их называет.
+// Вставленное здесь помечено data-lg-gen: холст не даёт его править и снимает перед сохранением
+// блока (SiteEditor), иначе копия текста застыла бы в правке клиента.
+
+// /pricing: H1 под запрос, вид прежний (тот же тег и капс).
+const PRICING_H1 = [
+  [/(<h1\b[^>]*>)\s*PREȚURI SIMPLE PENTRU FIECARE CASĂ\s*(<\/h1>)/, "$1PREȚURI PENTRU CURĂȚENIE ÎN&nbsp;CHIȘINĂU$2"],
+  [/(<h1\b[^>]*>)\s*ПРОСТЫЕ ЦЕНЫ ДЛЯ(?:&nbsp;|\s)КАЖДОГО ДОМА\s*(<\/h1>)/, "$1ЦЕНЫ НА&nbsp;УБОРКУ В&nbsp;КИШИНЁВЕ$2"],
+];
+function pricingH1(html) {
+  for (const [re, to] of PRICING_H1) html = swapRe(html, "seo:pricing-h1", re, to);
+  return html;
+}
+
+// Главная: description с ценами — только вместо описания из шаблона (своё описание клиента сильнее).
+const HOME_DESC = [
+  ["Serviciu profesional de curățenie în Chișinău: apartamente, case și birouri. Prețuri transparente, programare online.",
+    "Curățenie în Chișinău: generală de la 45 lei/m², după renovare de la 3700 lei, spălarea geamurilor de la 40 lei/m². Zilnic 8:00–21:00, calcul online."],
+  ["Профессиональная клининговая служба в Кишинёве: уборка квартир, домов и офисов. Прозрачные цены, онлайн-запись.",
+    "Клининг в Кишинёве: генеральная уборка от 45 лей/м², после ремонта от 3700 лей, мойка окон от 40 лей/м². Ежедневно 8:00–21:00, расчёт онлайн."],
+];
+function homeDesc(html) {
+  for (const [was, now] of HOME_DESC) {
+    const parts = html.split(`content="${was}"`);   // description, og: и twitter:
+    if (parts.length > 1) { bump("seo:home-desc", 1); html = parts.join(`content="${now}"`); }
+  }
+  return html;
+}
+
+// Десять калькуляторов в переключателе несли по своему H2, хотя видно их по одному и заголовки
+// спрятаны (.cp-panel .calc-head{display:none}). Один H2 — у переключателя, остальные — div.
+function calcHeadings(html) {
+  if (!html.includes("calc-picker")) return html;
+  return swapRe(html, "seo:calc-h2", /(<div class="calc-head"[^>]*>)\s*<h2\b([^>]*)>([\s\S]*?)<\/h2>/g, '$1<div class="calc-title"$2>$3</div>');
+}
+
+// Ответ первым абзацем — сразу под карточкой первого экрана, внутри той же секции.
+const ANSWER_HOME = {
+  ru: "All Clean — клининг в Кишинёве и пригородах: квартиры, дома, офисы, окна. " +
+    "Генеральная уборка — от 45 лей за м², после ремонта — от 3700 лей за квартиру до 40 м², мойка окон — от 40 лей за м². " +
+    "Работаем ежедневно с 8:00 до 21:00. Если качество не устроит, сообщите в течение 24 часов — клинер приедет повторно бесплатно.",
+  ro: "All Clean face curățenie în Chișinău și suburbii: apartamente, case, birouri, geamuri. " +
+    "Curățenia generală — de la 45 lei/m², după renovare — de la 3700 lei pentru un apartament de până la 40 m², spălarea geamurilor — de la 40 lei/m². " +
+    "Lucrăm zilnic între 8:00 și 21:00. Dacă nu sunteți mulțumit, anunțați-ne în 24 de ore și trimitem gratuit un curățător din nou.",
+};
+const NAMES = { "floor-restoration": { ru: "Реставрация полов", ro: "Restaurare pardoseli" } };
+const T = {
+  ru: { in: "в Кишинёве", sub: " и пригородах", m2: "м²", item: "за предмет", hours: "Работаем ежедневно с 8:00 до 21:00.",
+    guar: "Если качество не устроит, сообщите в течение 24 часов — клинер приедет повторно бесплатно.",
+    calc: "Точную сумму покажет калькулятор на этой странице.", visit: "Стоимость — после осмотра.", from: "от", to: "до", cur: "лей", inc: "Что входит:" },
+  ro: { in: "în Chișinău", sub: " și suburbii", m2: "m²", item: "per obiect", hours: "Lucrăm zilnic între 8:00 și 21:00.",
+    guar: "Dacă nu sunteți mulțumit de calitate, anunțați-ne în 24 de ore și trimitem gratuit un curățător din nou.",
+    calc: "Prețul exact îl arată calculatorul de pe această pagină.", visit: "Prețul — după evaluare.", from: "de la", to: "la", cur: "lei", inc: "Ce include:" },
+};
+const firstSentence = (s) => (s.match(/^.*?[.!?](?=\s|$)/) || [s])[0];
+function serviceAnswer(html, lang, slug) {
+  const t = T[lang];
+  const p = PRICES.find((x) => x.slug === slug) || (NAMES[slug] && { slug, ...NAMES[slug] });
+  if (!p) return "";
+  const text = plainText(html.replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, ""));
+  const price = pagePrice(html);
+  let priceText = "";
+  if (price && p.min === price.min && (lang === "ru" ? p.pru : p.pro) && price.unit === (p.unit === "m2" ? "m2" : p.unit ? "item" : "")) {
+    priceText = (lang === "ru" ? p.pru : p.pro).map((s) => (/— \d/.test(s) ? s.replace(/— (\d)/, `— ${t.from} $1`)
+      : /^\d+–\d+/.test(s) ? s.replace(/^(\d+)–(\d+)/, `${t.from} $1 ${t.to} $2`) : `${t.from} ${s}`)).join(", ") + ".";
+  } else if (price) {
+    priceText = `${t.from} ${price.min}${price.max ? ` ${t.to} ${price.max}` : ""} ${t.cur}${price.unit === "m2" ? "/" + t.m2 : price.unit ? " " + t.item : ""}.`;
+  }
+  // «Что входит» — первая фраза ответа на такой вопрос в FAQ самой страницы.
+  let inc = "";
+  for (const item of html.split('class="expandable-single').slice(1)) {
+    const m = item.match(/class="text-size-large text_body-bold"[^>]*>([\s\S]*?)<\/div>[\s\S]*?<p class="faq-paragraph"[^>]*>([\s\S]*?)<\/p>/);
+    if (m && /Что входит|Ce include|Ce intră/i.test(plainText(m[1]))) { inc = firstSentence(plainText(m[2])); break; }
+  }
+  // Длинный перечень — первые четыре пункта: абзац-ответ должен остаться в 40–60 слов.
+  if (inc.split(/\s+/).length > 18) inc = inc.replace(/[.!?]$/, "").split(", ").slice(0, 4).join(", ") + ".";
+  const parts = [
+    `${p[lang]} ${t.in}${/пригород|suburbi/i.test(text) ? t.sub : ""}${priceText ? ": " + priceText : "."}`,
+    inc,
+    /ежедневно с 8:00 до 21:00|zilnic între 8:00 și 21:00/.test(text) ? t.hours : "",
+    /в течение 24 часов — бесплатно|în 24 de ore — trimitem gratuit/.test(text) ? t.guar : "",
+    priceText ? t.calc : (/после осмотра|după evaluare|după inspecție/i.test(html) ? t.visit : t.calc),
+  ];
+  // Не длиннее 60 слов: сначала уходит фраза про калькулятор, потом «что входит».
+  const words = () => parts.join(" ").split(/\s+/).filter((w) => w && !/^[—–]$/.test(w)).length;
+  if (words() > 60 && priceText) parts[4] = "";
+  if (words() > 60) parts[1] = "";
+  return parts.filter(Boolean).join(" ");
+}
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+function answerFirst(html, lang) {
+  if (html.includes('data-lg-gen="answer"')) return html;
+  const url = pageUrl(html);
+  const slug = (url.match(/\/services\/([a-z-]+)$/) || [])[1];
+  const home = /^https:\/\/allclean\.md\/(?:ru)?$/.test(url);
+  if (!home && !slug) return html;
+  const text = home ? ANSWER_HOME[lang] : serviceAnswer(html, lang, slug);
+  if (!text) return html;
+  const m = html.match(/<div\b[^>]*class="master_hero-home[^"]*"[^>]*>/);
+  const end = m && closeOf(html, m.index, "div");
+  if (!end) return html;
+  // Короткие предлоги и тире не остаются в конце строки — как в заголовках.
+  const typo = esc(text).replace(/ (—|–) /g, "&nbsp;$1 ")
+    .replace(/(^|\s)(в|и|с|к|о|у|а|на|по|за|из|до|не|от|для|în|la|de|cu|pe|și|a|o|un|din|nu) /giu, "$1$2&nbsp;");
+  const block = '<div class="lg-answer" data-lg-gen="answer" style="max-width:56rem;padding:2rem 0 1.5rem">' +
+    `<p class="text-size-large margin-0">${typo}</p></div>`;
+  bump("seo:answer", 1);
+  return html.slice(0, end[1]) + block + html.slice(end[1]);
+}
+
+// Уборка после ремонта: цены пакетов были только в FAQ — теперь и в первом экране, под подзаголовком.
+function packagePrices(html, lang) {
+  if (html.includes('data-lg-gen="prices"') || !/\/services\/post-construction"/.test(html.match(/<link rel="canonical" href="[^"]+"/)?.[0] || "")) return html;
+  const p = PRICES.find((x) => x.slug === "post-construction");
+  const price = pagePrice(html);
+  if (!price || price.min !== p.min) return html;   // клиент поменял цены — старые не показываем
+  const list = (lang === "ru" ? p.pru : p.pro).slice(0, 3).map((s) => s.replace(/— (\d)/, (lang === "ru" ? "— от " : "— de la ") + "$1")).join(" · ");
+  return swapRe(html, "seo:package-prices", /(<[a-z0-9]+\b[^>]*class="[^"]*hero-home_sub[^"]*"[^>]*>[\s\S]*?<\/(?:h2|p|div)>)/,
+    `$1<p class="text-size-large text_body-bold margin-0" data-lg-gen="prices">${esc(list)}</p>`);
+}
+
 /** Все правки одной страницы. `lang` — 'ru' или 'ro'. */
 export function applySeoFixes(html, lang) {
   let out = trailingSlash(html);
@@ -403,6 +526,11 @@ export function applySeoFixes(html, lang) {
   out = h1Clean(out);
   out = jsonld(out);
   out = footerMap(out);
+  out = pricingH1(out);
+  out = homeDesc(out);
+  out = calcHeadings(out);
+  out = packagePrices(out, lang === "ru" ? "ru" : "ro");
+  out = answerFirst(out, lang === "ru" ? "ru" : "ro");
   out = thanks(out);
   out = antispam(out);
   out = consentBanner(out);
