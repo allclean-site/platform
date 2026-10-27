@@ -10,7 +10,7 @@ import type { ImportedPage } from "./reassemble";
 import { applyOverrides, type PageOverrides } from "./realStore";
 import { resolveShared, isPatchValue } from "./sharedBlocks";
 import { applyMedia, type MediaRule } from "./renderCore.js";
-import { withBlogCards, type BlogCardArticle } from "../../scripts/blog-cards.mjs";
+import { withBlogCards, withRelatedArticles, type BlogCardArticle, type RelatedArticle } from "../../scripts/blog-cards.mjs";
 
 /**
  * A page's overrides with the shared header/footer edits folded in — each resolved against THIS
@@ -42,12 +42,14 @@ export function pageOverrides(p: ImportedPage, own: PageOverrides, shared: PageO
   return out;
 }
 
-/** Blocks as the canvas shows them: overrides, then the site's photo rules, then blog cards. */
-export function canvasBlocks(p: ImportedPage, ov: PageOverrides, rules: MediaRule[], cards: BlogCardArticle[]) {
+/** Blocks as the canvas shows them: overrides, then the site's photo rules, then blog cards and,
+ *  on a service page, its «Полезные статьи» block — the same calls build-site.mjs makes. */
+export function canvasBlocks(p: ImportedPage, ov: PageOverrides, rules: MediaRule[], cards: BlogCardArticle[], related: RelatedArticle[] = []) {
   return applyOverrides(p.blocks, ov).map((b) => {
     let html = b.content.html;
     if (rules.length) html = applyMedia(html, rules);
     if (cards.length) html = withBlogCards(html, cards, p.lang);
+    if (related.length) html = withRelatedArticles(html, related, p.lang);
     return html === b.content.html ? b : { ...b, content: { ...b.content, html } };
   });
 }

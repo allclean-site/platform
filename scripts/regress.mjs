@@ -28,7 +28,7 @@ import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applySitePrivacy } from "./site-privacy.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
-import { withBlogCards } from "./blog-cards.mjs";
+import { withBlogCards, withRelatedArticles } from "./blog-cards.mjs";
 import {
   applyOverrides, relaxLegacyChains, withSiteRuntime, wrapBlockForEdit, overridesCss, EDITOR_ONLY_CSS,
   applyMedia, decodeMedia, MEDIA_KEY, withMobileVideo, withLocaleLinks, withTemplateText, withResponsiveCaps,
@@ -81,7 +81,8 @@ function canvasTwin(p, pageOv, pageBp, media) {
   // Список блога: сборка добавляет в сетку карточки статей, опубликованных из кабинета.
   // Без этого сверка показывала на /blog и /ru/blog по девять расхождений — ровно одну карточку.
   const карточки = (p.slug === "/blog" && blogCards.ro) || (p.slug === "/ru/blog" && blogCards.ru) || null;
-  const сБлогом = (html) => (карточки && карточки.length ? withBlogCards(html, карточки, p.lang) : html);
+  const связанные = (blogCards.related && blogCards.related[p.slug]) || [];
+  const сБлогом = (html) => withRelatedArticles(карточки && карточки.length ? withBlogCards(html, карточки, p.lang) : html, связанные, p.lang);
   const юр = LEGAL_PAGES.find((x) => x.slug === p.slug);
   const сЮр = (b) => (юр && b.content.region === "main"
     ? { ...b, content: { ...b.content, html: renderLegalMain(юр) } } : b);

@@ -35,8 +35,9 @@ import { seoReport, assertSeoApplied } from "./seo-fixes.mjs";
 import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { optimizeImages } from "./optimize-images.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
-import { withBlogCards } from "./blog-cards.mjs";
-import { markdownToHtml } from "../src/engine/blog/markdown.js";
+import { withBlogCards, withRelatedArticles, relatedArticles } from "./blog-cards.mjs";
+import { markdownToHtml, sanitizeArticleHtml } from "../src/engine/blog/markdown.js";
+import { authorName, withAuthor } from "../src/engine/blog/article-pipeline.js";
 
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");
@@ -91,9 +92,9 @@ const escHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt
 const escAttr = (s) => escHtml(s).replace(/"/g, "&quot;");
 
 /** Тело статьи → HTML тем же разборщиком, что превью в кабинете (src/engine/blog/markdown.js).
- *  Тело, уже написанное HTML (старые статьи), идёт как есть. */
+ *  Тело, уже написанное HTML (старые статьи), проходит очистку по списку тегов (аудит QA, A7). */
 function mdToHtml(md) {
-  if (/<(p|h[1-6]|ul|ol|div|figure)[ >]/i.test(md)) return md; // already HTML
+  if (/<(p|h[1-6]|ul|ol|div|figure)[ >]/i.test(md)) return sanitizeArticleHtml(md);
   return markdownToHtml(md);
 }
 
@@ -108,7 +109,7 @@ function buildSec0(a, dateStr) {
   // «Коротко» и автор — как в превью кабинета: там они видны, а на сайт раньше не выходили.
   const tk = ((a.meta && a.meta.takeaways) || []).filter((t) => String(t || "").trim());
   const tkHtml = tk.length ? `<p><strong>${a.locale === "ro" ? "Pe scurt" : "Коротко"}</strong></p><ul>${tk.map((t) => `<li>${escHtml(t)}</li>`).join("")}</ul>` : "";
-  const by = a.meta && a.meta.author ? " · " + escHtml(a.meta.author) : "";
+  const by = authorName(a.meta) ? " · " + escHtml(authorName(a.meta)) : "";
   const faqHtml = faq.length ? `<div class="wrap_6-center" ${D}><div class="wrap_faq-block" style="opacity:1" ${D}><div class="headline_faq-block" ${D}><h2 class="heading-style-h4 margin-0" ${D}>${escHtml(faqTitle)}</h2></div><div class="faq-block blog-faq" ${D}>${faq.map((f) => `<div class="expandable-single" ${D}><div class="expandable-top" ${D}><h3 class="heading-style-h6 margin-0" ${D}>${escHtml(f.question)}</h3></div><div class="expandable-content" ${D}><p>${escHtml(f.answer)}</p></div></div>`).join("")}</div></div></div>` : "";
   return `<section class="section_hero-article" ${D}><div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}${by}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${tkHtml}${mdToHtml(a.body || "")}</div></div>${faqHtml}</div></div></div></section>`;
 }
@@ -149,7 +150,8 @@ export function buildHead(prefix, a, roSlug, ruSlug) {
         return open + JSON.stringify(o) + close;
       } catch { return whole; }
     }
-    return open + JSON.stringify(a.jsonld || {}) + close;                          // Article/@graph — этой статьи
+    // Article/@graph — этой статьи; автор по подписи (человек или компания), «<» не закрывает script.
+    return open + JSON.stringify(withAuthor(a.jsonld || {}, a.meta)).replace(/</g, "\\u003c") + close;
   });
 
   // og:image и twitter:image — обложка статьи; у образца они указывают на его собственную.
@@ -170,7 +172,8 @@ async function generateArticles(written, media = []) {
   if (process.env.MOCK_ARTICLES) { arts = JSON.parse(process.env.MOCK_ARTICLES); } // test hook
   else if (!URL || !KEY) { console.log("[build] blog: no Supabase creds — skipping article generation"); return { urls: [], newByLocale: {} }; }
   else try {
-    const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/articles?select=group_id,locale,slug,title,excerpt,body,cover_url,seo_title,seo_description,meta,jsonld,created_at&project_id=eq.${PROJECT_ID}&status=eq.published`,
+    // select=* — чтобы сборка не падала, пока в базе нет новых столбцов (publish_at), и наоборот.
+    const r = await fetch(`${URL.replace(/\/$/, "")}/rest/v1/articles?select=*&project_id=eq.${PROJECT_ID}&status=eq.published`,
       { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
     // Пропустить статьи нельзя: страницы блога генерируются на каждой сборке, и «пропустили» значит
     // «удалили с сайта все опубликованные из кабинета статьи».
@@ -182,6 +185,11 @@ async function generateArticles(written, media = []) {
     process.exitCode = 1;
     throw e;
   }
+
+  // На сайт — только опубликованное. Запрос уже фильтрует статус, но черновик на проверке (review),
+  // одобренная до своей даты (approved) и отклонённая не должны попасть сюда ни при каком сбое
+  // фильтра. Проверка: scripts/check-article-pipeline.mjs --build.
+  arts = arts.filter((a) => a && a.status === "published");
 
   // group_id → { ro?, ru? } for hreflang pairing
   const byGroup = new Map();
@@ -201,7 +209,7 @@ async function generateArticles(written, media = []) {
     if (written.has(path)) { skipped++; continue; } // keep the original rich mirror page if it exists
     const pair = byGroup.get(a.group_id) || {};
     const tpl = a.locale === "ru" ? ruTpl : roTpl;
-    const dateStr = new Date(a.created_at || Date.now()).toLocaleDateString(a.locale === "ru" ? "ru-RU" : "ro-RO", { day: "numeric", month: "long", year: "numeric" });
+    const dateStr = new Date(a.publish_at || a.created_at || Date.now()).toLocaleDateString(a.locale === "ru" ? "ru-RU" : "ro-RO", { day: "numeric", month: "long", year: "numeric" });
     const page = {
       ...tpl,
       prefix: buildHead(tpl.prefix, a, pair.ro?.slug, pair.ru?.slug),
@@ -223,7 +231,7 @@ async function generateArticles(written, media = []) {
     made++;
   }
   console.log(`[build] blog: ${arts.length} published articles — ${made} pages generated, ${skipped} kept from mirror`);
-  return { urls: newUrls, newByLocale };
+  return { urls: newUrls, newByLocale, published: arts };
 }
 
 /** Карточки новых статей в начало сетки списка блога. Разметка — в scripts/blog-cards.mjs,
@@ -451,12 +459,23 @@ async function main() {
 
   // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept)
   // and add their cards to the /blog and /ru/blog index grids.
-  const { urls: articleUrls, newByLocale } = await generateArticles(written, media);
+  const { urls: articleUrls, newByLocale, published } = await generateArticles(written, media);
   await injectCards("blog/index.html", newByLocale.ro || [], "ro");
   await injectCards("ru/blog/index.html", newByLocale.ru || [], "ru");
+  // «Полезные статьи» на страницах услуг: до трёх статей этой услуги (meta.service_page).
+  const related = {};
+  for (const p of idx.pages) {
+    const list = relatedArticles(p.slug, p.lang, published || []);
+    if (!list.length) continue;
+    const file = join(OUT, slugToFile(p.slug));
+    if (!existsSync(file)) continue;
+    await writeFile(file, withRelatedArticles(await readFile(file, "utf8"), list, p.lang));
+    related[p.slug] = list;
+  }
+  if (Object.keys(related).length) console.log(`[build] blog: «Полезные статьи» на ${Object.keys(related).length} стр. услуг`);
   // Слепок карточек рядом со сборкой: ворота строят двойник холста из него и сверяют список
-  // блога с живым, а не «с точностью до одной статьи».
-  await writeFile(join(OUT, "__blog-cards.json"), JSON.stringify(newByLocale));
+  // блога с живым, а не «с точностью до одной статьи». related — те же блоки на страницах услуг.
+  await writeFile(join(OUT, "__blog-cards.json"), JSON.stringify({ ...newByLocale, related }));
 
   await write404();
 
