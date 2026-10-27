@@ -1205,7 +1205,9 @@ export function withHeadingText(html, lang) {
   const re = new RegExp("(^|\\s|&nbsp;|[(«„\"])(" + ПРЕДЛОГИ[lang === "ru" ? "ru" : "ro"] + ") (?=[^\\s<&])", "giu");
   const INLINE = /^<\/?(span|strong|em|b|i|a|u|mark)\b/i;
   return html.replace(/(<h([1-3])\b[^>]*>)([\s\S]*?)(<\/h\2>)/gi, (whole, open, lvl, inner, close) => {
-    inner = inner.replace(/(<\/(?:div|p)>)(?=<(?:div|p)\b)/gi, "$1 ");
+    inner = inner
+      .replace(/(<\/(?:div|p)>|<br\s*\/?>)(?=[^\s<]|<(?:div|p)\b)/gi, "$1 ")
+      .replace(/([^\s>]|<\/(?:span|strong|em|b|i|a|u)>)(?=<(?:div|p|br)\b)/gi, "$1 ");
     const parts = inner.split(/(<[^>]+>)/);
     for (let i = 0; i < parts.length; i += 2) {
       let t = parts[i], prev;
