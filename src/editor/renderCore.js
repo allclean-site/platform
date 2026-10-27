@@ -325,6 +325,8 @@ export const SITE_FIXES =
     TAP_SEL.split(",").map((s) => s + "::after").join(",") + "{content:\"\";position:absolute;" +
       "left:50%;top:50%;transform:translate(-50%,-50%);width:100%;min-width:24px;height:24px;}" +
   "}" +
+  // Пока открыто меню на телефоне, страница под ним не прокручивается.
+  "@media screen and (max-width:991px){html:not(#lgcmsx):has(.w-nav-button.w--open){overflow:hidden;}}" +
   // Ссылка в верхней плашке и «Отзыв в Google» и на десктопе ростом 19–20px: им тот же слой.
   "@media screen and (min-width:992px){" +
     TAP_WIDE + "{position:relative;}" +
