@@ -57,7 +57,20 @@ export function downscale(file: File): Promise<{ blob: Blob; ext: string; type: 
         const png = file.type === "image/png";
         const type = png ? "image/png" : "image/jpeg";
         c.toBlob(
-          (blob) => (blob ? resolve({ blob, ext: png ? "png" : "jpg", type }) : reject(new Error("toBlob failed"))),
+          (blob) => {
+            if (!blob) return reject(new Error("toBlob failed"));
+            // Фото, сохранённое как PNG, и после уменьшения весит 4–8 МБ: в base64 это больше 4,5 МБ,
+            // Vercel отвечает на загрузку 413, и фото молча вставлялось в страницу data-адресом (а с ним
+            // падали черновик и публикация). Тяжёлый PNG перекодируем в JPEG на белом фоне — у таких
+            // файлов прозрачности не бывает, а у значков и схем PNG остаётся лёгким и не трогается.
+            if (!png || blob.size <= 1.5 * 1048576) return resolve({ blob, ext: png ? "png" : "jpg", type });
+            const j = document.createElement("canvas");
+            j.width = c.width; j.height = c.height;
+            const jx = j.getContext("2d");
+            if (!jx) return reject(new Error("no canvas ctx"));
+            jx.fillStyle = "#fff"; jx.fillRect(0, 0, j.width, j.height); jx.drawImage(c, 0, 0);
+            j.toBlob((jb) => (jb ? resolve({ blob: jb, ext: "jpg", type: "image/jpeg" }) : reject(new Error("toBlob failed"))), "image/jpeg", 0.82);
+          },
           type,
           0.82
         );

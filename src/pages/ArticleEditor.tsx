@@ -70,7 +70,9 @@ export function ArticleEditor() {
   const setTags = (val: string) => set({ meta: { ...a.meta, tags: val.split(",").map((s) => s.trim()).filter(Boolean) } });
   const setFaq = (faq: ArticleFaq[]) => set({ meta: { ...a.meta, faq } });
   const setTakeaways = (takeaways: string[]) => set({ meta: { ...a.meta, takeaways } });
-  const uploadCover = async () => { setUploading(true); const { url } = await pickAndUploadImage(); if (url) set({ coverUrl: url }); setUploading(false); };
+  // Причину «загружено локально» показываем: такая обложка — data-адрес в статье, и в og:image
+  // соцсети его не возьмут; молча это выглядело как успешная загрузка.
+  const uploadCover = async () => { setUploading(true); const { url, note } = await pickAndUploadImage(); if (url) set({ coverUrl: url }); if (note) setErr(note); setUploading(false); };
 
   // Switch language tab. If that version doesn't exist yet, create a blank linked one so the author can
   // write the original in EITHER language (RU or RO) — translation is optional and directional.
@@ -102,12 +104,29 @@ export function ArticleEditor() {
   };
 
   const doPublish = async () => {
+    const ready = Object.values(vers).filter((v) => v.title?.trim());
+    // Статья без текста вышла бы на сайт одним заголовком; без заголовка сервер отвечал по-английски.
+    const empty = ready.filter((v) => !v.body?.trim()).map((v) => LOC_LABEL[v.locale]);
+    // Фото, оставшееся data-адресом (хранилище не приняло загрузку), раздувает запрос за 4,5 МБ
+    // и попадает в og:image, где соцсети его не берут.
+    const inline = ready.filter((v) => (v.coverUrl || "").startsWith("data:") || /\]\(data:/.test(v.body || "")).map((v) => LOC_LABEL[v.locale]);
+    if (!ready.length || empty.length || inline.length) {
+      setPubState("error");
+      setPubMsg(!ready.length ? "Заполните заголовок статьи."
+        : empty.length ? `Нет текста статьи: ${empty.join(", ")}.`
+        : `Фото не загружено на сайт (${inline.join(", ")}) — загрузите его заново, когда связь с сайтом восстановится.`);
+      return;
+    }
     setPubState("publishing"); setPubMsg("");
-    // Fill slug/excerpt/SEO, mark published locally, then push both versions to the live site.
-    const enriched = Object.values(vers).filter((v) => v.title?.trim()).map((v) => enrich({ ...v, status: "published" as const, datePublished: v.datePublished || new Date().toISOString() }));
-    enriched.forEach(publishArticle);
-    setVers((v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, { ...x, status: "published" as const }])));
+    // Fill slug/excerpt/SEO, then push both versions to the live site.
+    const enriched = ready.map((v) => enrich({ ...v, status: "published" as const, datePublished: v.datePublished || new Date().toISOString() }));
     const r = await publishArticlesToSite(enriched);
+    // «Опубликовано» в кабинете — только когда сайт принял статью. Раньше метка ставилась до ответа,
+    // и при ошибке (занятый адрес, нет связи) список показывал опубликованной статью, которой нет на сайте.
+    if (r.ok) {
+      enriched.forEach(publishArticle);
+      setVers((v) => ({ ...v, ...Object.fromEntries(enriched.map((x) => [x.locale, x])) }));
+    }
     setPubState(r.ok ? "done" : "error"); setPubMsg(r.message);
   };
 

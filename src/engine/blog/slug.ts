@@ -5,6 +5,9 @@ const MAP: Record<string, string> = {
   л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "c",
   ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
   ă: "a", â: "a", î: "i", ș: "s", ț: "t",
+  // Те же буквы с седилью: с молдавской раскладки «ş/ţ» приходят именно так, и без них
+  // «Curăţenie» превращалась в «cura-enie».
+  ş: "s", ţ: "t",
 };
 
 export function slugify(s: string): string {
@@ -16,6 +19,7 @@ export function slugify(s: string): string {
       .join("")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
-      .slice(0, 70) || "statya"
+      .slice(0, 70)
+      .replace(/-+$/, "") || "statya"   // обрезка по 70 могла оставить дефис в конце адреса
   );
 }

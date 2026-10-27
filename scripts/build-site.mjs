@@ -36,6 +36,7 @@ import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { optimizeImages } from "./optimize-images.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import { withBlogCards } from "./blog-cards.mjs";
+import { markdownToHtml } from "../src/engine/blog/markdown.js";
 
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");
@@ -89,33 +90,11 @@ const RU_TEMPLATE = "ru__blog__generalnaya-i-podderzhivayushchaya-uborka-chem-ot
 const escHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const escAttr = (s) => escHtml(s).replace(/"/g, "&quot;");
 
-/** Minimal Markdown → HTML (used only when the body is authored as Markdown; passes HTML through). */
+/** Тело статьи → HTML тем же разборщиком, что превью в кабинете (src/engine/blog/markdown.js).
+ *  Тело, уже написанное HTML (старые статьи), идёт как есть. */
 function mdToHtml(md) {
   if (/<(p|h[1-6]|ul|ol|div|figure)[ >]/i.test(md)) return md; // already HTML
-  const inline = (s) => escHtml(s)
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => `<a href="${u.replace(/^javascript:/i, "")}">${t}</a>`);
-  let html = "", list = null;
-  const close = () => { if (list) { html += `</${list}>`; list = null; } };
-  for (const raw of String(md || "").split(/\r?\n/)) {
-    const t = raw.trim();
-    if (!t) { close(); continue; }
-    let m;
-    if ((m = t.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/))) {
-      close();
-      const u = /^(https?:\/\/|\/|data:image\/)/i.test(m[2]) ? m[2] : "";
-      if (u) { const cap = m[1].trim(); html += `<figure class="blog-figure"><img src="${escAttr(u)}" alt="${escAttr(cap)}" loading="lazy">${cap ? `<figcaption>${inline(cap)}</figcaption>` : ""}</figure>`; }
-      continue;
-    }
-    if (/^(---|\*\*\*|___)$/.test(t)) { close(); html += "<hr>"; continue; }
-    if ((m = t.match(/^(#{1,6})\s+(.*)/))) { close(); const lv = Math.min(6, m[1].length); html += `<h${lv}>${inline(m[2])}</h${lv}>`; continue; }
-    if ((m = t.match(/^[-*]\s+(.*)/))) { if (list !== "ul") { close(); list = "ul"; html += "<ul>"; } html += `<li>${inline(m[1])}</li>`; continue; }
-    if ((m = t.match(/^\d+\.\s+(.*)/))) { if (list !== "ol") { close(); list = "ol"; html += "<ol>"; } html += `<li>${inline(m[1])}</li>`; continue; }
-    close(); html += `<p>${inline(t)}</p>`;
-  }
-  close();
-  return html;
+  return markdownToHtml(md);
 }
 
 const artUrl = (locale, slug) => (locale === "ro" ? `${SITE}/blog/${slug}` : `${SITE}/${locale}/blog/${slug}`);
@@ -123,11 +102,15 @@ const artPath = (locale, slug) => (locale === "ro" ? `blog/${slug}/index.html` :
 
 const D = "data-astro-cid-zcwx364o";
 function buildSec0(a, dateStr) {
-  const cover = a.cover_url ? `<div class="image-wrap_hero-article" ${D}><img src="${escAttr(a.cover_url)}" loading="eager" alt="${escAttr(a.cover_alt || a.title)}" sizes="100vw" class="image_cover" ${D}></div>` : "";
+  const cover = a.cover_url ? `<div class="image-wrap_hero-article" ${D}><img src="${escAttr(a.cover_url)}" loading="eager" alt="${escAttr(a.cover_alt || a.meta?.coverAlt || a.title)}" sizes="100vw" class="image_cover" ${D}></div>` : "";
   const faq = (a.meta && a.meta.faq) || [];
   const faqTitle = a.locale === "ro" ? "Întrebări frecvente" : "Часто задаваемые вопросы";
+  // «Коротко» и автор — как в превью кабинета: там они видны, а на сайт раньше не выходили.
+  const tk = ((a.meta && a.meta.takeaways) || []).filter((t) => String(t || "").trim());
+  const tkHtml = tk.length ? `<p><strong>${a.locale === "ro" ? "Pe scurt" : "Коротко"}</strong></p><ul>${tk.map((t) => `<li>${escHtml(t)}</li>`).join("")}</ul>` : "";
+  const by = a.meta && a.meta.author ? " · " + escHtml(a.meta.author) : "";
   const faqHtml = faq.length ? `<div class="wrap_6-center" ${D}><div class="wrap_faq-block" style="opacity:1" ${D}><div class="headline_faq-block" ${D}><h2 class="heading-style-h4 margin-0" ${D}>${escHtml(faqTitle)}</h2></div><div class="faq-block blog-faq" ${D}>${faq.map((f) => `<div class="expandable-single" ${D}><div class="expandable-top" ${D}><h3 class="heading-style-h6 margin-0" ${D}>${escHtml(f.question)}</h3></div><div class="expandable-content" ${D}><p>${escHtml(f.answer)}</p></div></div>`).join("")}</div></div></div>` : "";
-  return `<section class="section_hero-article" ${D}><div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${mdToHtml(a.body || "")}</div></div>${faqHtml}</div></div></div></section>`;
+  return `<section class="section_hero-article" ${D}><div class="padding-global" ${D}><div class="w-layout-blockcontainer container-large w-container" ${D}><div class="headline_article" ${D}><div class="label-large" ${D}>${escHtml(dateStr)}${by}</div><h1 ${D}>${escHtml(a.title)}</h1></div>${cover}<div class="master_body-article" ${D}><div class="wrap_6-center" ${D}><div class="body_article w-richtext" ${D}>${tkHtml}${mdToHtml(a.body || "")}</div></div>${faqHtml}</div></div></div></section>`;
 }
 
 /** Rebuild the template <head> for this article (title/desc/canonical/og/hreflang/JSON-LD). */
@@ -210,6 +193,10 @@ async function generateArticles(written, media = []) {
   const newByLocale = { ro: [], ru: [] };
   let made = 0, skipped = 0;
   for (const a of arts) {
+    // Адрес — это путь файла сборки: строка из базы с пробелом или «../» уехала бы мимо out/.
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(a.slug || "") || !["ro", "ru"].includes(a.locale)) {
+      console.warn(`[build] blog: пропущена статья с недопустимым адресом «${a.locale}/${a.slug}»`); skipped++; continue;
+    }
     const path = artPath(a.locale, a.slug);
     if (written.has(path)) { skipped++; continue; } // keep the original rich mirror page if it exists
     const pair = byGroup.get(a.group_id) || {};
@@ -229,7 +216,9 @@ async function generateArticles(written, media = []) {
     const dest = join(OUT, path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, doc);
-    written.add(path); newUrls.push(artUrl(a.locale, a.slug));
+    // Пара языков — для hreflang в карте сайта, как у страниц из зеркала.
+    const alt = (l) => (pair[l] && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair[l].slug || "") ? artUrl(l, pair[l].slug) : null);
+    written.add(path); newUrls.push({ loc: artUrl(a.locale, a.slug), ro: alt("ro"), ru: alt("ru") });
     (newByLocale[a.locale] || (newByLocale[a.locale] = [])).push(a);
     made++;
   }
@@ -506,7 +495,10 @@ async function main() {
     const xdef = alts[idx.defaultLocale] ? `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${alts[idx.defaultLocale]}"/>` : "";
     return `<url><loc>${SITE}${p.slug}</loc>${lastmod(p.id)}${links}${xdef}</url>`;
   }).join("");
-  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u}</loc>${lastmod()}</url>`).join("");
+  // Статьи из кабинета — с парой языков, как страницы зеркала: без неё поиск не связывал RO и RU версии.
+  const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u.loc}</loc>${lastmod()}` +
+    (u.ro && u.ru ? `<xhtml:link rel="alternate" hreflang="ro-MD" href="${u.ro}"/><xhtml:link rel="alternate" hreflang="ru-MD" href="${u.ru}"/>` +
+      `<xhtml:link rel="alternate" hreflang="x-default" href="${u.ro}"/>` : "") + "</url>").join("");
   // Страницы cookie появились после снятия зеркала, в _pages.json их нет — вносим руками,
   // иначе они не попадут в карту сайта и останутся невидимыми для поиска.
   const cookieXml = LEGAL_PAGES.filter((p) => p.group === "cookies").map((p) => {
