@@ -18,38 +18,15 @@ const uid = () => "a" + Math.random().toString(36).slice(2, 9);
 const newGroupId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uid());
 const nowISO = () => new Date().toISOString();
 
-function seed(): Article[] {
-  const mk = (title: string, body: string, tags: string[], daysAgo: number): Article => {
-    const a = enrich({
-      id: uid(), group: uid(), locale: "ru", slug: "", title, body,
-      author: "Команда AllClean", status: "published",
-      datePublished: new Date(Date.now() - daysAgo * 864e5).toISOString(),
-      dateModified: new Date(Date.now() - daysAgo * 864e5).toISOString(),
-    });
-    a.meta = { tags };
-    return a;
-  };
-  return [
-    mk(
-      "Как подготовить квартиру к генеральной уборке",
-      "## Зачем готовиться\nНебольшая подготовка ускоряет уборку и повышает результат.\n\n### Шаги\n- Уберите мелкие вещи с поверхностей\n- Освободите доступ к окнам\n- Отметьте проблемные зоны для клинера\n\nПрофессиональная бригада сделает остальное — от кухни до санузла.",
-      ["Уборка", "Советы"], 2,
-    ),
-    mk(
-      "Сколько стоит уборка после ремонта в Кишинёве",
-      "## Что влияет на цену\nПлощадь, степень загрязнения и наличие строительной пыли.\n\n### Ориентиры\n- Квартира 60 м² — от 2 500 MDL\n- Дом 120 м² — от 4 500 MDL\n\nТочную стоимость посчитает наш калькулятор или менеджер.",
-      ["Цены", "После ремонта"], 6,
-    ),
-  ];
-}
-
 export function loadArticles(): Article[] {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) { const s = seed(); localStorage.setItem(KEY, JSON.stringify(s)); return s; }
+    // Без демо-статей: две выдуманные записи с меткой «Опубликовано» стояли в блоге клиента,
+    // хотя на сайте их нет.
+    if (!raw) return [];
     return JSON.parse(raw) as Article[];
   } catch {
-    return seed();
+    return [];
   }
 }
 
