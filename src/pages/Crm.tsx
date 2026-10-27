@@ -328,7 +328,8 @@ function LeadSubmission({ detail, createdAt, onPhoto }: { detail: LeadDetail; cr
           </div>
         </div>
       )}
-      {detail.sourceUrl && (
+      {/* Адрес пишет кто угодно (anon-ключ): ссылкой — только http(s), не javascript: */}
+      {/^https?:\/\//i.test(detail.sourceUrl || "") && (
         <a className="crm-lead__src" href={detail.sourceUrl} target="_blank" rel="noopener">
           <ExternalLink size={12} /> Страница заявки
         </a>
