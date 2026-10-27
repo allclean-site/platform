@@ -34,6 +34,7 @@ import { applySitePrivacy, report as privacyReport, assertApplied as assertPriva
 import { seoReport, assertSeoApplied } from "./seo-fixes.mjs";
 import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { optimizeImages } from "./optimize-images.mjs";
+import { externalizeCalc } from "./calc-external.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import { withBlogCards } from "./blog-cards.mjs";
 import { markdownToHtml } from "../src/engine/blog/markdown.js";
@@ -471,6 +472,8 @@ async function main() {
   console.log("[build] localize-cdn: " + (await localizeCdnFiles()));
   // Затем картинки: фото из хранилища на свой домен, WebP, размеры, lazy (scripts/optimize-images.mjs).
   console.log("[build] images: " + (await optimizeImages()));
+  // Скрипт калькуляторов — один кешируемый файл вместо копии в каждом (scripts/calc-external.mjs).
+  console.log("[build] calc: " + (await externalizeCalc()));
 
   // auto-SEO: sitemap.xml (all pages + hreflang alternates) + robots.txt
   const byGroup = new Map();
