@@ -203,10 +203,49 @@ function visibleFaq(html) {
   return out;
 }
 const pageUrl = (html) => (html.match(/<link rel="canonical" href="([^"]+)"/) || [])[1] || "";
-function offerFor(url) {
+// Цена «от» — из ВИДИМОГО текста самой страницы: подзаголовок первого экрана и ответы FAQ.
+// Раньше offers брались из таблицы PRICES, и правка цены клиентом на странице расходилась с
+// разметкой. Берётся единица первой найденной цены (м², предмет или за объект) и наименьшая
+// цена в этой единице. Нет цены в тексте — PRICES (счётчик ld:offers-fallback).
+const PRICE_RE = /(?:от|de la)\s+(\d[\d\s]*?)(?:\s+(?:до|la|și)\s+(\d[\d\s]*?))?\s+(?:лей|lei)(?:\s*(?:\/|за|pe|per)\s*(м²|m²|m2|предмет|obiect))?/gi;
+export function pagePrice(html) {
+  const texts = [];
+  const sub = html.match(/<[a-z0-9]+\b[^>]*class="[^"]*hero-home_sub[^"]*"[^>]*>([\s\S]*?)<\/(?:h2|p|div)>/);
+  if (sub) texts.push(plainText(sub[1]));
+  for (const m of html.matchAll(/<p class="faq-paragraph"[^>]*>([\s\S]*?)<\/p>/g)) texts.push(plainText(m[1]));
+  const all = [];
+  for (const t of texts) for (const m of t.matchAll(PRICE_RE)) {
+    const u = (m[3] || "").toLowerCase();
+    all.push({ min: +m[1].replace(/\s/g, ""), max: m[2] ? +m[2].replace(/\s/g, "") : null, unit: /м²|m²|m2/.test(u) ? "m2" : u ? "item" : "" });
+  }
+  if (!all.length) return null;
+  const same = all.filter((x) => x.unit === all[0].unit);
+  const min = Math.min(...same.map((x) => x.min));
+  const max = Math.max(0, ...same.map((x) => x.max || 0));
+  return { min, max: max > min ? max : null, unit: all[0].unit };
+}
+// Найденные цены страниц — для сверки с llms.txt при сборке (checkLlms).
+export const derivedPrices = new Map();
+/** Цена страницы должна встречаться в llms.txt в строке со ссылкой на эту страницу. */
+export function checkLlms(llms) {
+  const miss = [];
+  for (const [url, p] of derivedPrices) {
+    const line = llms.split("\n").find((l) => l.includes("(" + url + ")"));
+    if (line && !new RegExp("\\b" + p.min + "\\b").test(line)) miss.push(url.replace(SITE, "") + " " + p.min);
+  }
+  return miss;
+}
+function offerFor(url, html) {
   const slug = (url.match(/\/services\/([a-z-]+)$/) || [])[1];
-  const p = PRICES.find((x) => x.slug === slug && x.min);
-  if (!p) return null;
+  if (!slug) return null;
+  let p = pagePrice(html);
+  if (p) derivedPrices.set(url, p);
+  else {
+    const q = PRICES.find((x) => x.slug === slug && x.min);
+    if (!q) return null;
+    p = { min: q.min, max: q.max || null, unit: q.unit || "" };
+    bump("ld:offers-fallback", 1);
+  }
   const spec = { "@type": p.unit ? "UnitPriceSpecification" : "PriceSpecification", minPrice: p.min, priceCurrency: "MDL" };
   if (p.max) spec.maxPrice = p.max;
   if (p.unit) spec.unitCode = p.unit === "m2" ? "MTK" : "C62";
@@ -227,7 +266,7 @@ function jsonld(html) {
         if (faq.length) { n.mainEntity = faq; touched = true; bump("ld:faq-sync", 1); }
       }
       if (n["@type"] === "Service") {
-        const offer = offerFor(n.url || url);
+        const offer = offerFor(n.url || url, html);
         if (offer) { n.offers = offer; bump("ld:offers", 1); }
         n.provider = { "@id": ORG_ID };
         touched = true; bump("ld:provider", 1);

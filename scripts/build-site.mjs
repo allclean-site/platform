@@ -31,7 +31,7 @@ import {
 // запись, закрытые фотографии, реквизиты в подвале). Применяются к готовому HTML, чтобы
 // зеркало осталось снимком; см. комментарий в самом модуле.
 import { applySitePrivacy, report as privacyReport, assertApplied as assertPrivacy } from "./site-privacy.mjs";
-import { seoReport, assertSeoApplied } from "./seo-fixes.mjs";
+import { seoReport, assertSeoApplied, checkLlms } from "./seo-fixes.mjs";
 import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { optimizeImages } from "./optimize-images.mjs";
 import { externalizeCalc } from "./calc-external.mjs";
@@ -454,6 +454,9 @@ async function main() {
   assertPrivacy();
   console.log(`[build] seo-fixes: ${seoReport()}`);
   assertSeoApplied();
+  // Цены в разметке берутся со страниц; llms.txt написан руками и должен говорить то же.
+  const llmsMiss = checkLlms(await readFile(join(ASSETS, "llms.txt"), "utf8"));
+  if (llmsMiss.length) console.warn("[build] ВНИМАНИЕ: в llms.txt другая цена, чем на странице: " + llmsMiss.join(", "));
 
   // Blog: generate pages for articles published from the cabinet (new ones; existing mirror pages kept)
   // and add their cards to the /blog and /ru/blog index grids.
