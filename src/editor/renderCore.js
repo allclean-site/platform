@@ -274,7 +274,11 @@ export const SITE_FIXES =
   // при прокрутке, окно становится выше, и блок, заданный в vh, прыгает прямо под пальцем. `dvh`
   // считает по текущему окну и прыжок убирает. Браузер, который `dvh` не знает, просто пропустит
   // эти правила и останется на прежних `vh` — вид не меняется нигде.
-  "@media screen and (max-width:991px){.master_hero-home:not(#lgcmsx){height:calc(88*var(--lg-dvh));}}" +
+  // Высота — нижняя граница, а колонка текста не сжимается: в окне ниже ~760px (320×568, 375×667)
+  // текст с кнопками не влезал в 88dvh, колонка с overflow:hidden сжималась и срезала вторую
+  // кнопку и конец абзаца. Теперь карточка растёт под содержимое; где влезает — всё как было.
+  "@media screen and (max-width:991px){.master_hero-home:not(#lgcmsx){height:auto;min-height:calc(88*var(--lg-dvh));}" +
+    ".master_hero-home>.left_hero-home:not(#lgcmsx){flex-shrink:0;}}" +
   // Во весь экран — только от 992px. На телефоне карточка героя «О нас» ростом в экран держала
   // фото и заголовок по центру, а сверху и снизу оставалось по ~200px пустоты.
   "@media screen and (min-width:992px){.master_hero-about:not(#lgcmsx){min-height:calc(100*var(--lg-dvh));}}" +
