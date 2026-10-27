@@ -11,6 +11,7 @@ import { getArticle, getGroup, upsertArticle, publishArticle, enrich, newCounter
 import { markdownToHtml } from "../engine/blog/markdown";
 import { translateArticle, translateConfigured } from "../blog/translateClient";
 import { publishArticlesToSite } from "../blog/publishArticleClient";
+import { saveForReview } from "../blog/reviewClient";
 import { pickAndUploadImage } from "../blog/uploadClient";
 import { ArticleBody } from "./ArticleBody";
 import { AutoTextarea } from "../components/AutoTextarea";
@@ -131,13 +132,22 @@ export function ArticleEditor() {
   };
 
   const status = Object.values(vers).some((v) => v.status === "published") ? "published" : "draft";
+  // Черновик с проверки: правка уходит обратно в базу, одобряют его в списке блога.
+  const reviewVers = Object.values(vers).filter((v) => v.reviewId && v.status !== "published");
+  const sendToReview = async () => {
+    setErr("Сохраняю на проверку…");
+    const rs = await Promise.all(reviewVers.map(saveForReview));
+    const bad = rs.find((r) => !r.ok);
+    const errs = rs.flatMap((r) => r.data?.checks?.errors || []);
+    setErr(bad ? `Не сохранено: ${bad.error}` : errs.length ? `Сохранено, но проверка нашла: ${errs.join("; ")}` : "Сохранено на проверку. Одобрить можно в списке блога.");
+  };
   const bothReady = LOCALES.every((l) => vers[l]?.title?.trim());
 
   return (
     <div className="art-ed">
       <div className="art-ed__bar glass">
         <button className="art-ed__back" onClick={() => nav("/app/blog")}><ArrowLeft size={16} /> Блог</button>
-        <span className={"art-badge art-badge--" + status}>{status === "published" ? "Опубликовано" : "Черновик"}</span>
+        <span className={"art-badge art-badge--" + status}>{status === "published" ? "Опубликовано" : reviewVers.length ? "На проверке" : "Черновик"}</span>
         {/* Locale tabs */}
         <div className="art-langs">
           {LOCALES.map((l) => {
@@ -157,6 +167,7 @@ export function ArticleEditor() {
           {translating ? <><Loader2 size={15} className="art-spin" /> Перевожу…</> : <><Languages size={15} /> Перевести на {LOC_LABEL[other(active)].toLowerCase()}</>}
         </button>
         <span className="art-ed__save">{saved ? <><Check size={14} /> сохранено</> : "сохраняю…"}</span>
+        {reviewVers.length > 0 && <button className="btn-ghost" onClick={sendToReview}><Check size={15} /> Сохранить на проверку</button>}
         <button className="btn-primary" onClick={() => setShowPub(true)}><Send size={15} /> Опубликовать</button>
       </div>
 

@@ -53,6 +53,8 @@ export interface Article {
   /** true when produced by translateArticle (shows a subtle "auto-translated" note). */
   autoTranslated?: boolean;
   sourceLocale?: Locale;
+  /** Локальная копия черновика с проверки: id строки articles в базе (src/blog/reviewClient.ts). */
+  reviewId?: string;
 }
 
 /** What a raw, just-authored article carries before enrichment. */

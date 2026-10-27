@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Plus, Type, Heading2, Heading3, List, ListOrdered, Quote, Image as ImageIcon, Minus,
-  ArrowUp, ArrowDown, Trash2, GripVertical, Bold, Italic, Link2, Upload, Loader2, X,
+  ArrowUp, ArrowDown, Trash2, GripVertical, Bold, Italic, Link2, Upload, Loader2, X, Table,
 } from "lucide-react";
 import {
   type Block, type BlockType, newBlock, mdToBlocks, blocksToMd, inlineMdToHtml, htmlToInlineMd,
@@ -25,6 +25,7 @@ const ADD_MENU: { type: BlockType; icon: React.ElementType; label: string }[] = 
   { type: "ul", icon: List, label: "Список" },
   { type: "ol", icon: ListOrdered, label: "Нумерованный" },
   { type: "quote", icon: Quote, label: "Цитата" },
+  { type: "table", icon: Table, label: "Таблица" },
   { type: "hr", icon: Minus, label: "Разделитель" },
 ];
 
@@ -93,7 +94,7 @@ export function ArticleBody({ value, onChange }: Props) {
       const p = newBlock("p");
       commit([...next.slice(0, at), { ...b, url: url || "" }, p, ...next.slice(at + 1)]);
       pendingFocus.current = { id: p.id, atStart: true };
-    } else if (type === "hr") {
+    } else if (type === "hr" || type === "table") {
       commit(next);
     } else {
       commit(next);
@@ -181,7 +182,7 @@ export function ArticleBody({ value, onChange }: Props) {
         if (i > 0) {
           const prev = blocks[i - 1];
           const next = blocks.filter((b) => b.id !== block.id);
-          if (prev.type !== "img" && prev.type !== "hr") pendingFocus.current = { id: prev.id, atStart: false };
+          if (prev.type !== "img" && prev.type !== "hr" && prev.type !== "table") pendingFocus.current = { id: prev.id, atStart: false };
           commit(next);
         }
       }
@@ -271,6 +272,13 @@ function BlockContent({
   onExitList: (afterMd: string) => void;
 }) {
   if (block.type === "hr") return <hr className="abody__hr" />;
+
+  if (block.type === "table") {
+    return (
+      <textarea className="abody__table" spellCheck={false} value={block.text || ""} aria-label="Таблица"
+        rows={Math.max(3, (block.text || "").split("\n").length)} onChange={(e) => onText(e.target.value)} />
+    );
+  }
 
   if (block.type === "img") return <ImageBlock block={block} onImg={onImg} />;
 
