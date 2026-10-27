@@ -45,6 +45,9 @@ async function signLeadPhotos(lead) {
   return { ...lead, notes: JSON.stringify({ ...json, photos: signed }) };
 }
 
+// Подробности ответа базы — в лог функции, клиенту короткое сообщение.
+async function fail(what, r) { console.error(what, r.status, (await r.text()).slice(0, 300)); return `${what} (${r.status})`; }
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -63,12 +66,14 @@ export default async function handler(req, res) {
   if (!EDIT_KEY) return res.status(500).json({ error: "server not configured (EDIT_KEY)" });
   if (String(body.editKey || "").trim() !== EDIT_KEY) return res.status(401).json({ error: "unauthorized" });
 
-  const limit = Math.min(1000, Math.max(1, body.limit || 300));
+  // «zz» давало limit=NaN прямо в запрос к базе.
+  const n = parseInt(body.limit, 10);
+  const limit = Number.isFinite(n) ? Math.min(1000, Math.max(1, n)) : 300;
   // No `order` in the query so we don't depend on a specific timestamp column existing; the CRM sorts
   // client-side. select=* returns every column the row has.
   const url = `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_leads?select=*&limit=${limit}`;
   const r = await fetch(url, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
-  if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()) });
+  if (!r.ok) return res.status(502).json({ error: await fail("read failed", r) });
   const leads = await r.json();
   const withPhotos = Array.isArray(leads) ? await Promise.all(leads.map(signLeadPhotos)) : leads;
   return res.status(200).json({ ok: true, leads: withPhotos });

@@ -522,6 +522,9 @@ async function main() {
   await writeFile(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   console.log(`[build] sitemap.xml (${idx.pages.length} urls) + robots.txt`);
 
+  // Слепки для ворот (правки и карточки блога, 1,7 МБ) ворота читают с диска; на сайт их не кладём.
+  if (process.env.VERCEL) for (const n of ["__edits.json", "__blog-cards.json"]) await rm(join(OUT, n), { force: true });
+
   const size = (await stat(join(OUT, "index.html"))).size;
   console.log(`[build] done → ${OUT} (home ${size}b, default locale ${idx.defaultLocale})`);
 }

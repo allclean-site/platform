@@ -12,6 +12,9 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DEPLOY_HOOK = process.env.DEPLOY_HOOK;
 const EDIT_KEY = (process.env.EDIT_KEY || "").trim(); // trim: pasted env vars often carry a trailing newline
 
+// Подробности ответа базы — в лог функции, клиенту короткое сообщение.
+async function fail(what, r) { console.error(what, r.status, (await r.text()).slice(0, 300)); return `${what} (${r.status})`; }
+
 export default async function handler(req, res) {
   // CORS — the cabinet lives on a different origin than the site.
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -125,7 +128,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify(rows),
     });
-    if (!r.ok) return res.status(502).json({ error: "save failed: " + (await r.text()) });
+    if (!r.ok) return res.status(502).json({ error: await fail("save failed", r) });
   }
 
   // Record what we just shipped, so this publish becomes a point the client can come back to.
