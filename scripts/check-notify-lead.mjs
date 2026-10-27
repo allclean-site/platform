@@ -50,4 +50,19 @@ assert.match(buildMessage({ locale: "ru", service: "Калькулятор: ба
 // Разметка Telegram не ломается чужими угловыми скобками.
 assert.match(buildMessage({ locale: "ru", name: "<b>x</b>" }, "+373 79 955 044"), /&lt;b&gt;x&lt;\/b&gt;/);
 
-console.log("[check-notify-lead] ок: калькулятор, форма записи, незнакомый слаг, экранирование");
+// Сам обработчик, а не только сборка текста: с 29.09 по 27.10 он ссылался на несуществующую
+// переменную, catch глушил ошибку, клиент получал 200, а в Telegram не уходило ничего.
+process.env.TELEGRAM_BOT_TOKEN = "test-token";
+process.env.TELEGRAM_CHAT_ID = "1";
+const { default: handler } = await import("../api/notify-lead.js?handler");
+const sent = [];
+globalThis.fetch = async (url, opts) => { sent.push({ url: String(url), body: JSON.parse(opts.body) }); return { ok: true }; };
+let reply;
+const res = { setHeader() {}, status(c) { return { json: (b) => { reply = { c, b }; }, end() {} }; } };
+await handler({ method: "POST", headers: { origin: "https://allclean.md" },
+  body: { name: "Мария", locale: "ru", service: "Генеральная уборка", phone: "+373 79 955 044" } }, res);
+assert.deepEqual(reply, { c: 200, b: { ok: true, notified: true } }, "обработчик не отправил уведомление: " + JSON.stringify(reply));
+assert.equal(sent.length, 1, "в Telegram ничего не ушло");
+assert.match(sent[0].body.text, /Генеральная уборка/, "в Telegram ушёл не тот текст");
+
+console.log("[check-notify-lead] ок: калькулятор, форма записи, незнакомый слаг, экранирование, отправка обработчиком");

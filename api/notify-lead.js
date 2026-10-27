@@ -157,7 +157,7 @@ export default async function handler(req, res) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: CHAT,
-        text: lines.join("\n"),
+        text,
         parse_mode: "HTML",
         disable_web_page_preview: true,
       }),
