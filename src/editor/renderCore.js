@@ -257,7 +257,7 @@ export const SITE_FIXES =
   "@media (prefers-reduced-motion:reduce){" +
     ".marquee_services:not(#lgcmsx){animation:none;}" +
     ".marquee_services>.marquee-wrap_services+.marquee-wrap_services:not(#lgcmsx){display:none;}" +
-    ".marquee:not(#lgcmsx):has(>.marquee_services){overflow-x:auto;overscroll-behavior-x:contain;}" +
+    ".marquee.home-marquee:not(#lgcmsx){overflow-x:auto;overscroll-behavior-x:contain;}" +
   "}" +
   "@media screen and (min-width:768px) and (prefers-reduced-motion:reduce){" +
     ".marquee-thirds>.marquee-vertical:not(#lgcmsx){animation:none;}" +
@@ -325,8 +325,10 @@ export const SITE_FIXES =
     TAP_SEL.split(",").map((s) => s + "::after").join(",") + "{content:\"\";position:absolute;" +
       "left:50%;top:50%;transform:translate(-50%,-50%);width:100%;min-width:24px;height:24px;}" +
   "}" +
-  // Пока открыто меню на телефоне, страница под ним не прокручивается.
-  "@media screen and (max-width:991px){html:not(#lgcmsx):has(.w-nav-button.w--open){overflow:hidden;}}" +
+  // Пока открыто меню на телефоне, страница под ним не прокручивается. Класс ставит MENU_LOCK:
+  // html:has(.w--open) делал то же без скрипта, но пересчитывал стили всей страницы на каждую
+  // смену класса при загрузке (+0,9 с блокировки потока при CPU ×4).
+  "@media screen and (max-width:991px){html.lg-menu-open:not(#lgcmsx){overflow:hidden;}}" +
   // Ссылка в верхней плашке и «Отзыв в Google» и на десктопе ростом 19–20px: им тот же слой.
   "@media screen and (min-width:992px){" +
     TAP_WIDE + "{position:relative;}" +
@@ -680,7 +682,13 @@ function жёсткиеШирины(html) {
 // Слайдеры Webflow листаются сами по data-autoplay, который движок читает при запуске. Кто попросил
 // систему не двигать, получает слайдер без автопрокрутки (стрелки и свайп остаются). Только на
 // самом сайте: в холсте атрибут ушёл бы в правку блока и выключил автопрокрутку всем.
-export const REDUCED_MOTION = "(function(){if(window.top!==window||!window.matchMedia||!matchMedia('(prefers-reduced-motion: reduce)').matches)return;" +
+// Открытое меню Webflow — класс w--open у кнопки; повторяем его классом lg-menu-open на <html>.
+export const MENU_LOCK = "(function(){function arm(){var b=document.querySelector('.w-nav-button');if(!b||!window.MutationObserver)return;" +
+  "new MutationObserver(function(){document.documentElement.classList.toggle('lg-menu-open',b.classList.contains('w--open'));})" +
+  ".observe(b,{attributes:true,attributeFilter:['class']});}" +
+  "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arm);else arm();})();";
+
+export const REDUCED_MOTION ="(function(){if(window.top!==window||!window.matchMedia||!matchMedia('(prefers-reduced-motion: reduce)').matches)return;" +
   "document.addEventListener('DOMContentLoaded',function(){var s=document.querySelectorAll('.w-slider[data-autoplay=\"true\"]');" +
   "for(var i=0;i<s.length;i++)s[i].setAttribute('data-autoplay','false');});})();";
 
@@ -1020,6 +1028,7 @@ export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
     '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>" +
     '<script id="lgcms-motion">' + REDUCED_MOTION + "</scr" + "ipt>" +
+    '<script id="lgcms-menulock">' + MENU_LOCK + "</scr" + "ipt>" +
     '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>" +
     '<script id="lgcms-sliderfill">' + SLIDER_FILL + "</scr" + "ipt>" +
     '<script id="lgcms-formfix">' + FORM_FIX + "</scr" + "ipt>" +
