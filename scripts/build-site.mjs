@@ -36,6 +36,7 @@ import { localizeCdnFiles } from "./localize-cdn.mjs";
 import { optimizeImages } from "./optimize-images.mjs";
 import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import { withBlogCards } from "./blog-cards.mjs";
+import { markdownToHtml } from "../src/engine/blog/markdown.js";
 
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");
@@ -89,33 +90,11 @@ const RU_TEMPLATE = "ru__blog__generalnaya-i-podderzhivayushchaya-uborka-chem-ot
 const escHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const escAttr = (s) => escHtml(s).replace(/"/g, "&quot;");
 
-/** Minimal Markdown → HTML (used only when the body is authored as Markdown; passes HTML through). */
+/** Тело статьи → HTML тем же разборщиком, что превью в кабинете (src/engine/blog/markdown.js).
+ *  Тело, уже написанное HTML (старые статьи), идёт как есть. */
 function mdToHtml(md) {
   if (/<(p|h[1-6]|ul|ol|div|figure)[ >]/i.test(md)) return md; // already HTML
-  const inline = (s) => escHtml(s)
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => `<a href="${u.replace(/^javascript:/i, "")}">${t}</a>`);
-  let html = "", list = null;
-  const close = () => { if (list) { html += `</${list}>`; list = null; } };
-  for (const raw of String(md || "").split(/\r?\n/)) {
-    const t = raw.trim();
-    if (!t) { close(); continue; }
-    let m;
-    if ((m = t.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/))) {
-      close();
-      const u = /^(https?:\/\/|\/|data:image\/)/i.test(m[2]) ? m[2] : "";
-      if (u) { const cap = m[1].trim(); html += `<figure class="blog-figure"><img src="${escAttr(u)}" alt="${escAttr(cap)}" loading="lazy">${cap ? `<figcaption>${inline(cap)}</figcaption>` : ""}</figure>`; }
-      continue;
-    }
-    if (/^(---|\*\*\*|___)$/.test(t)) { close(); html += "<hr>"; continue; }
-    if ((m = t.match(/^(#{1,6})\s+(.*)/))) { close(); const lv = Math.min(6, m[1].length); html += `<h${lv}>${inline(m[2])}</h${lv}>`; continue; }
-    if ((m = t.match(/^[-*]\s+(.*)/))) { if (list !== "ul") { close(); list = "ul"; html += "<ul>"; } html += `<li>${inline(m[1])}</li>`; continue; }
-    if ((m = t.match(/^\d+\.\s+(.*)/))) { if (list !== "ol") { close(); list = "ol"; html += "<ol>"; } html += `<li>${inline(m[1])}</li>`; continue; }
-    close(); html += `<p>${inline(t)}</p>`;
-  }
-  close();
-  return html;
+  return markdownToHtml(md);
 }
 
 const artUrl = (locale, slug) => (locale === "ro" ? `${SITE}/blog/${slug}` : `${SITE}/${locale}/blog/${slug}`);

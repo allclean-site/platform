@@ -7,10 +7,14 @@
  * exported article stays clean and indexable.
  */
 
-import { esc } from "../lib/html";
+// Один разборщик на кабинет и сборку сайта (scripts/build-site.mjs импортирует этот файл): у сборки
+// был свой, и «цитата» из редактора выходила на сайт строкой «> текст», а строки абзаца — отдельными
+// абзацами. Поэтому файл на чистом JS (как renderCore.js), типы — в markdown.d.ts.
+const ESCAPE = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ESCAPE[c]);
 
 /** Inline formatting on already-escaped text. Order matters (code before emphasis). */
-function inline(text: string): string {
+function inline(text) {
   return text
     // `code`
     .replace(/`([^`]+)`/g, (_m, c) => `<code>${c}</code>`)
@@ -26,12 +30,12 @@ function inline(text: string): string {
     .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
 }
 
-export function markdownToHtml(md: string): string {
+export function markdownToHtml(md) {
   const lines = (md || "").replace(/\r\n?/g, "\n").split("\n");
-  const out: string[] = [];
+  const out = [];
   let i = 0;
 
-  const flushList = (tag: "ul" | "ol", items: string[]) =>
+  const flushList = (tag, items) =>
     out.push(`<${tag}>${items.map((t) => `<li>${inline(esc(t))}</li>`).join("")}</${tag}>`);
 
   while (i < lines.length) {
@@ -66,7 +70,7 @@ export function markdownToHtml(md: string): string {
 
     // blockquote
     if (/^>\s?/.test(line)) {
-      const buf: string[] = [];
+      const buf = [];
       while (i < lines.length && /^>\s?/.test(lines[i])) { buf.push(lines[i].replace(/^>\s?/, "")); i++; }
       out.push(`<blockquote><p>${inline(esc(buf.join(" ")))}</p></blockquote>`);
       continue;
@@ -74,7 +78,7 @@ export function markdownToHtml(md: string): string {
 
     // unordered list
     if (/^[-*]\s+/.test(line)) {
-      const items: string[] = [];
+      const items = [];
       while (i < lines.length && /^[-*]\s+/.test(lines[i])) { items.push(lines[i].replace(/^[-*]\s+/, "")); i++; }
       flushList("ul", items);
       continue;
@@ -82,14 +86,14 @@ export function markdownToHtml(md: string): string {
 
     // ordered list
     if (/^\d+\.\s+/.test(line)) {
-      const items: string[] = [];
+      const items = [];
       while (i < lines.length && /^\d+\.\s+/.test(lines[i])) { items.push(lines[i].replace(/^\d+\.\s+/, "")); i++; }
       flushList("ol", items);
       continue;
     }
 
     // paragraph (gather until blank / block start)
-    const buf: string[] = [line];
+    const buf = [line];
     i++;
     while (
       i < lines.length &&
@@ -104,7 +108,7 @@ export function markdownToHtml(md: string): string {
 }
 
 /** Plain-text of a Markdown body (for excerpts / meta descriptions). */
-export function markdownToText(md: string): string {
+export function markdownToText(md) {
   return (md || "")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
