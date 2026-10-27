@@ -102,12 +102,24 @@ export function ArticleEditor() {
   };
 
   const doPublish = async () => {
+    const ready = Object.values(vers).filter((v) => v.title?.trim());
+    // Статья без текста вышла бы на сайт одним заголовком; без заголовка сервер отвечал по-английски.
+    const empty = ready.filter((v) => !v.body?.trim()).map((v) => LOC_LABEL[v.locale]);
+    if (!ready.length || empty.length) {
+      setPubState("error");
+      setPubMsg(!ready.length ? "Заполните заголовок статьи." : `Нет текста статьи: ${empty.join(", ")}.`);
+      return;
+    }
     setPubState("publishing"); setPubMsg("");
-    // Fill slug/excerpt/SEO, mark published locally, then push both versions to the live site.
-    const enriched = Object.values(vers).filter((v) => v.title?.trim()).map((v) => enrich({ ...v, status: "published" as const, datePublished: v.datePublished || new Date().toISOString() }));
-    enriched.forEach(publishArticle);
-    setVers((v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, { ...x, status: "published" as const }])));
+    // Fill slug/excerpt/SEO, then push both versions to the live site.
+    const enriched = ready.map((v) => enrich({ ...v, status: "published" as const, datePublished: v.datePublished || new Date().toISOString() }));
     const r = await publishArticlesToSite(enriched);
+    // «Опубликовано» в кабинете — только когда сайт принял статью. Раньше метка ставилась до ответа,
+    // и при ошибке (занятый адрес, нет связи) список показывал опубликованной статью, которой нет на сайте.
+    if (r.ok) {
+      enriched.forEach(publishArticle);
+      setVers((v) => ({ ...v, ...Object.fromEntries(enriched.map((x) => [x.locale, x])) }));
+    }
     setPubState(r.ok ? "done" : "error"); setPubMsg(r.message);
   };
 
