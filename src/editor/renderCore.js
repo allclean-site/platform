@@ -1183,7 +1183,44 @@ export function withTemplateText(html, lang) {
   out = out.replace(/\nLead Cleaner(<br>)?<\/div>/g, lang === "ru"
     ? "\nСтарший клинер и владелец All Clean</div>"
     : "\nCurățător principal și proprietar All Clean</div>");
-  return out;
+  return withHeadingText(out, lang);
+}
+
+/**
+ * Заголовки h1–h3: короткий предлог или союз не остаётся в конце строки («ЦЕНЫ ДЛЯ / КАЖДОГО»,
+ * «RĂSPUNSURI LA / ÎNTREBĂRILE») — после него неразрывный пробел, как уже стоит в «О&nbsp;нас».
+ * Только слова до трёх букв (и «для»): длинное слово, сцепленное с соседом, на телефоне
+ * разрывалось бы посередине.
+ * И второе: заголовок из нескольких блоков (<div>ГЕНЕРАЛЬНАЯ</div><div>УБОРКА</div>) программы,
+ * читающие текст без вёрстки, получали слитно — «ГЕНЕРАЛЬНАЯУБОРКА». Между соседними блоками
+ * ставим пробел: между блоками он не отображается, вид не меняется.
+ * Идемпотентно: сохранённый из холста заголовок уже с &nbsp; и пробелами, второй проход их не множит.
+ */
+const ПРЕДЛОГИ = {
+  ru: "в|во|и|с|со|к|ко|о|об|у|а|на|по|за|из|до|не|ни|от|без|при|для|что",
+  ro: "în|la|de|cu|pe|și|din|a|o|un|nu|sau|al|ai",
+};
+export function withHeadingText(html, lang) {
+  if (!html || !/<h[1-3]\b/i.test(html)) return html;
+  const re = new RegExp("(^|\\s|&nbsp;|[(«„\"])(" + ПРЕДЛОГИ[lang === "ru" ? "ru" : "ro"] + ") (?=[^\\s<&])", "giu");
+  const INLINE = /^<\/?(span|strong|em|b|i|a|u|mark)\b/i;
+  return html.replace(/(<h([1-3])\b[^>]*>)([\s\S]*?)(<\/h\2>)/gi, (whole, open, lvl, inner, close) => {
+    inner = inner.replace(/(<\/(?:div|p)>)(?=<(?:div|p)\b)/gi, "$1 ");
+    const parts = inner.split(/(<[^>]+>)/);
+    for (let i = 0; i < parts.length; i += 2) {
+      let t = parts[i], prev;
+      do { prev = t; t = t.replace(re, "$1$2&nbsp;"); } while (t !== prev);
+      // Предлог в конце куска, а слово за ним после строчного тега: «в <span>Кишинёве</span>».
+      const end = t.match(new RegExp("(^|\\s|&nbsp;|[(«„\"])(" + ПРЕДЛОГИ[lang === "ru" ? "ru" : "ro"] + ") $", "iu"));
+      if (end) {
+        let j = i + 1;
+        while (j < parts.length && (parts[j] === "" || INLINE.test(parts[j]))) j++;
+        if (j < parts.length && j % 2 === 0 && /^[^\s<&]/.test(parts[j])) t = t.slice(0, -1) + "&nbsp;";
+      }
+      parts[i] = t;
+    }
+    return open + parts.join("") + close;
+  });
 }
 
 /** Put those repairs in the page head — same position for the publisher and the editing canvas. */
