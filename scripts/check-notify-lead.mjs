@@ -65,4 +65,14 @@ assert.deepEqual(reply, { c: 200, b: { ok: true, notified: true } }, "обраб
 assert.equal(sent.length, 1, "в Telegram ничего не ушло");
 assert.match(sent[0].body.text, /Генеральная уборка/, "в Telegram ушёл не тот текст");
 
+// Без Origin и Referer (скрипт, не браузер) и с кривым Referer — отказ, а не 500 и не Telegram.
+const lead = { name: "x", phone: "+373 79 955 044" };
+for (const headers of [{}, { referer: "not-a-url" }, { origin: "https://evil.example" }]) {
+  await handler({ method: "POST", headers, body: lead }, res);
+  assert.equal(reply.c, 403, "пропущен запрос с заголовками " + JSON.stringify(headers));
+}
+await handler({ method: "POST", headers: { referer: "https://allclean.md/ru/pricing" }, body: lead }, res);
+assert.equal(reply.c, 200, "отклонён запрос с Referer сайта");
+assert.equal(sent.length, 2, "лишние отправки в Telegram");
+
 console.log("[check-notify-lead] ок: калькулятор, форма записи, незнакомый слаг, экранирование, отправка обработчиком");

@@ -263,6 +263,29 @@ function thanks(html) {
   return swapRe(html, "thanks:redirect", /<\/body>/, THANKS + "</body>");
 }
 
+// ── 6а. Антиспам форм ────────────────────────────────────────────────────────────────
+// Скрытое поле-ловушка в форме записи и в каждом калькуляторе и минимум 3 с от загрузки до
+// отправки. Робот, заполнивший ловушку или отправивший мгновенно, получает отказ (400) без
+// единого запроса: заявка, фото и уведомление не уходят. Человеку отказ показывает ту же ошибку
+// с телефоном. Обёртка fetch ставится последней, то есть решает раньше «спасибо» и страховки.
+// Только на самом сайте: в холсте поле ушло бы в правку блока.
+const ANTISPAM_MARK = "lg-antispam";
+const ANTISPAM =
+  '<script>/*lg-antispam*/(function(){if(window.top!==window)return;var T0=Date.now();' +
+  'function hp(){var a=document.querySelectorAll(\'form[name="wf-form-Contact-Form"],.calc-wizard\');for(var i=0;i<a.length;i++){' +
+  'if(a[i].querySelector(".lg-hp"))continue;var x=document.createElement("input");x.type="text";x.name="company_site";x.className="lg-hp";' +
+  'x.tabIndex=-1;x.autocomplete="off";x.setAttribute("aria-hidden","true");x.style.cssText="position:absolute;left:-9999px;width:1px;height:1px;opacity:0";a[i].appendChild(x);}}' +
+  'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",hp);else hp();' +
+  'var f=window.fetch;window.fetch=function(u,o){var s=String(u);' +
+  'if(o&&String(o.method).toUpperCase()==="POST"&&/\\/rest\\/v1\\/site_leads|\\/storage\\/v1\\/object\\/calc-uploads\\/|\\/api\\/notify-lead/.test(s)){' +
+  'var bad=Date.now()-T0<3000,h=document.querySelectorAll(".lg-hp");for(var i=0;i<h.length;i++)if(h[i].value)bad=true;' +
+  'if(bad)return Promise.resolve(new Response("{}",{status:400,headers:{"content-type":"application/json"}}));}' +
+  'return f.apply(this,arguments);};})();</script>';
+function antispam(html) {
+  if (html.includes(ANTISPAM_MARK) || !/calc-wizard|wf-form-Contact-Form/.test(html)) return html;
+  return swapRe(html, "forms:antispam", /<\/body>/, ANTISPAM + "</body>");
+}
+
 // ── 7. Окно согласия и тег Google Ads ────────────────────────────────────────────────
 // Закон 195/2024 и обещание страницы /cookies: до «Принять» ни скрипта Google, ни cookie —
 // IP посетителя не уходит третьей стороне без согласия (как и с чужими CDN в site-privacy).
@@ -339,6 +362,7 @@ export function applySeoFixes(html, lang) {
   out = jsonld(out);
   out = footerMap(out);
   out = thanks(out);
+  out = antispam(out);
   out = consentBanner(out);
   return out;
 }
@@ -355,7 +379,7 @@ export function seoReport() {
 // убрал эти вопросы, и добавлять нечего. Ноль у них падал сборкой: публикация сообщала
 // «сайт пересобирается», а сайт навсегда оставался на прошлом деплое.
 export function assertSeoApplied() {
-  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "consent:banner",
+  const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "forms:antispam", "consent:banner",
     "ld:faq-sync", "ld:offers",
     "ld:provider", "ld:article", "footer:maps", "ads:contact-click"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
