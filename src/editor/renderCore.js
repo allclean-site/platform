@@ -96,9 +96,9 @@ export const SITE_FIXES =
     ".marquee-thirds>.marquee-vertical:nth-child(3){animation-duration:55s;}" +
   "}" +
   "@keyframes lgcms-marq{from{transform:translateY(0)}to{transform:translateY(min(0px,calc(840px - 100%)))}}" +
-  // Дрейф колонок отзывов тоже не гасим по системной настройке, и по той же причине: окно в
-  // 840px показывает лишь верх колонки, а встав, она прячет остальные отзывы насовсем.
-  // Останавливается под курсором и при заходе табом.
+  // Окно в 840px показывает лишь верх колонки: просто встав, она прятала бы остальные отзывы.
+  // Останавливается под курсором и при заходе табом; при системном «не двигать» стоит, а окно
+  // прокручивается (правило у ленты услуг).
   "@media screen and (min-width:768px){" +
     ".marquee-thirds:hover>.marquee-vertical,.marquee-thirds:focus-within>.marquee-vertical" +
       "{animation-play-state:paused;}" +
@@ -237,11 +237,9 @@ export const SITE_FIXES =
    * виден. Родителю !important не нужен — анимация в каскаде и так сильнее inline-стиля, который
    * скрипт продолжает писать.
    *
-   * Системное «не двигать» здесь НЕ слушаем, и это осознанно. В Windows галка «Эффекты анимации»
-   * выключена у многих, и браузер сообщает сайту reduce, хотя человек ничего про анимации не
-   * просил. Лента — единственный вход в восемь из одиннадцати услуг с главной, встав, она
-   * превращается в три карточки и тупик. Взамен даём то, чего требует WCAG 2.2.2 от движущегося
-   * дольше пяти секунд: остановку. Лента замирает под курсором и когда в неё заходят табом.
+   * Лента — единственный вход в восемь из одиннадцати услуг с главной: просто встав, она
+   * превращалась бы в три карточки и тупик. Поэтому при системном «не двигать» она стоит И
+   * листается (правило ниже), а в остальных случаях замирает под курсором и при заходе табом.
    */
   "@keyframes lgcms-marq-services{from{transform:translateX(0)}" +
     "to{transform:translateX(calc(-50% - var(--grid--column-gap,1rem)/2))}}" +
@@ -250,6 +248,18 @@ export const SITE_FIXES =
   ".marquee_services:not(#lgcmsx):hover,.marquee_services:not(#lgcmsx):focus-within" +
     "{animation-play-state:paused;}" +
   ".marquee_services>.marquee-wrap_services:not(#lgcmsx){transform:none !important;}" +
+  // Кто попросил систему не двигать (WCAG 2.2.2), получает ленту стоящей, но не тупик: вторая
+  // копия скрыта, а сама лента листается пальцем и колесом — до всех услуг можно дойти.
+  // Так же колонки отзывов: дрейф стоит, окно прокручивается.
+  "@media (prefers-reduced-motion:reduce){" +
+    ".marquee_services:not(#lgcmsx){animation:none;}" +
+    ".marquee_services>.marquee-wrap_services+.marquee-wrap_services:not(#lgcmsx){display:none;}" +
+    ".marquee:not(#lgcmsx):has(>.marquee_services){overflow-x:auto;overscroll-behavior-x:contain;}" +
+  "}" +
+  "@media screen and (min-width:768px) and (prefers-reduced-motion:reduce){" +
+    ".marquee-thirds>.marquee-vertical:not(#lgcmsx){animation:none;}" +
+    ".marquee-thirds:not(#lgcmsx){overflow-y:auto;}" +
+  "}" +
   // Тот же приём и там, где высоту текстовой колонке задаёт СОСЕД, а не её содержимое.
   // Карточка услуги в каталоге ростом с фотографию рядом: заголовок с описанием занимают 168px
   // из 420, и `space-between` оставлял между описанием и ссылкой «Подробнее» дыру в 252px —
@@ -643,9 +653,16 @@ function жёсткиеШирины(html) {
  *
  * A video with `controls` is the visitor's to drive and is left alone.
  */
+// Слайдеры Webflow листаются сами по data-autoplay, который движок читает при запуске. Кто попросил
+// систему не двигать, получает слайдер без автопрокрутки (стрелки и свайп остаются). Только на
+// самом сайте: в холсте атрибут ушёл бы в правку блока и выключил автопрокрутку всем.
+export const REDUCED_MOTION = "(function(){if(window.top!==window||!window.matchMedia||!matchMedia('(prefers-reduced-motion: reduce)').matches)return;" +
+  "document.addEventListener('DOMContentLoaded',function(){var s=document.querySelectorAll('.w-slider[data-autoplay=\"true\"]');" +
+  "for(var i=0;i<s.length;i++)s[i].setAttribute('data-autoplay','false');});})();";
+
 export const VIDEO_BOOT = [
   "(function(){",
-  "var Q='video';",
+  "var Q='video',RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;",
   "function variants(v){var w=v.closest?v.closest('[data-video-urls]'):null;var a=w&&w.getAttribute('data-video-urls');if(!a)return[];var out=[],p=a.split(','),i;for(i=0;i<p.length;i++){var s=p[i].replace(/^\\s+|\\s+$/g,'');if(s)out.push(s);}return out;}",
   "function mime(u){var e=(u.split('?')[0].split('.').pop()||'').toLowerCase();return (e==='mp4'||e==='webm'||e==='ogg')?'video/'+e:'';}",
   "function heal(v){",
@@ -659,10 +676,14 @@ export const VIDEO_BOOT = [
   "for(i=srcs.length-1;i>=0;i--){srcs[i].parentNode.removeChild(srcs[i]);}",
   "for(i=0;i<list.length;i++){var n=document.createElement('source');n.setAttribute('src',list[i]);var m=mime(list[i]);if(m)n.setAttribute('type',m);v.appendChild(n);}",
   "return true;}",
-  "function go(v){try{v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p['catch'])p['catch'](function(){});}catch(e){}}",
+  "function go(v){if(RM)return;try{v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p['catch'])p['catch'](function(){});}catch(e){}}",
   "function each(fn){var v=document.querySelectorAll(Q),i;for(i=0;i<v.length;i++){if(!v[i].hasAttribute('controls'))fn(v[i]);}}",
   "function resume(){each(function(v){if(v.paused&&!document.hidden)go(v);});}",
   "function arm(v){",
+  // Системное «не двигать»: ролик стоит на постере. pause снимает встроенный autoplay, а запуск
+  // чужим скриптом страницы (на главных есть свой «play всем video[autoplay]») гасится сразу.
+  // До метки data-lg-vboot: она бывает сохранена в правке блока, и тогда arm выходил бы раньше.
+  "if(RM){try{v.pause();}catch(e){}if(!v.lgRM){v.lgRM=1;v.addEventListener('play',function(){v.pause();});}return;}",
   "if(v.getAttribute('data-lg-vboot'))return;v.setAttribute('data-lg-vboot','1');",
   "v.setAttribute('muted','');v.setAttribute('playsinline','');v.setAttribute('webkit-playsinline','');v.setAttribute('autoplay','');",
   "if(!v.hasAttribute('preload'))v.setAttribute('preload','auto');",
@@ -974,6 +995,7 @@ export function withResponsiveCaps(html) {
 export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
     '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>" +
+    '<script id="lgcms-motion">' + REDUCED_MOTION + "</scr" + "ipt>" +
     '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>" +
     '<script id="lgcms-sliderfill">' + SLIDER_FILL + "</scr" + "ipt>" +
     '<script id="lgcms-formfix">' + FORM_FIX + "</scr" + "ipt>" +
