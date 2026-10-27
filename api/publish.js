@@ -158,9 +158,8 @@ export default async function handler(req, res) {
   } catch { /* history is a convenience — never block the publish on it */ }
 
   // ---- make it live ------------------------------------------------------------------------------
-  // Pages are rendered on demand by /api/page from these very rows, so an edit is live the moment it
-  // is stored. All that is left is to warm the edge cache for the pages that changed, which is a
-  // second of work instead of a full rebuild-and-redeploy of the whole site.
+  // Страницы отдаёт статическая сборка: правка видна после пересборки (хук ниже). Прогрев только
+  // освежает кеш края для изменённых страниц. Рендера по запросу (/api/page) больше нет.
   const h = req.headers || {};
   const host = h["x-forwarded-host"] || h.host;
   const origin = host ? `https://${host}` : "";
