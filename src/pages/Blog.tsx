@@ -92,7 +92,7 @@ export function Blog() {
 
 /**
  * «На проверке»: черновики конвейера из базы. Без «Одобрить» статья на сайт не попадает; после
- * одобрения её публикует расписание в назначенный день (api/publish-scheduled.js).
+ * одобрения её публикует расписание в назначенный день (api/_publish-scheduled.js).
  */
 function ReviewSection({ onEdit }: { onEdit: (id: string) => void }) {
   const [rows, setRows] = useState<ReviewRow[]>([]);

@@ -1,7 +1,7 @@
 /**
  * Конвейер статей: очередь тем, проверка черновика, автор в разметке, слоты публикации.
  *
- * Общий модуль для api/draft-article.js, api/articles-review.js, api/publish-scheduled.js,
+ * Общий модуль для api/_draft-article.js, api/_articles-review.js, api/_publish-scheduled.js,
  * api/publish-article.js, сборки сайта и самопроверок. Чистый JS без зависимостей.
  */
 

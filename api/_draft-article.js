@@ -1,6 +1,6 @@
 // Черновик статьи из очереди тем (Vercel serverless).
 //   POST { editKey, queueId?, dryRun? }      — вручную из кабинета или консоли
-//   GET  Authorization: Bearer <CRON_SECRET> — по расписанию (vercel.json → crons), только при ARTICLE_CRON=1
+//   GET  Authorization: Bearer <CRON_SECRET> — по расписанию (vercel.json → crons, /api/articles?task=draft), только при ARTICLE_CRON=1
 //
 // Берёт следующую тему из content_queue (или заданную), собирает бриф из паспорта фактов
 // (data/allclean-facts.json), пишет статью на языке темы (не переводом), проверяет её

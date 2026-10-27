@@ -1,6 +1,6 @@
 /**
  * Конвейер статей: черновик → проверка → одобрение → публикация по графику. Настоящие обработчики
- * api/draft-article.js, api/articles-review.js, api/publish-scheduled.js, api/publish-article.js поверх
+ * api/articles.js (_draft-article, _articles-review, _publish-scheduled), api/publish-article.js поверх
  * поддельного Supabase в памяти; ответ модели подделан потоком SSE, Telegram/IndexNow/хук сборки
  * только записываются. Наружу не уходит ничего.
  *
@@ -182,19 +182,28 @@ db.articles.push({ id: randomUUID(), project_id: PROJECT_ID, group_id: randomUUI
   slug: "curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele", title: "Curățenia generală și cea de menținere", meta: {} });
 
 // расписание без ARTICLE_CRON ничего не делает; чужой ключ — 401; без ключа сервер не работает
-assert.equal((await call("draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" } })).body.skipped !== undefined, true);
-assert.equal((await call("publish-scheduled", { method: "GET", headers: { authorization: "Bearer cron-s" } })).body.skipped !== undefined, true);
-assert.equal((await call("draft-article", { body: { editKey: "bad" } })).code, 401);
-assert.equal((await call("articles-review", { body: { editKey: "bad", op: "list" } })).code, 401);
-assert.equal((await call("publish-scheduled", { method: "GET" })).code, 405, "GET без секрета расписания");
+assert.equal((await call("_draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" } })).body.skipped !== undefined, true);
+assert.equal((await call("_publish-scheduled", { method: "GET", headers: { authorization: "Bearer cron-s" } })).body.skipped !== undefined, true);
+assert.equal((await call("_draft-article", { body: { editKey: "bad" } })).code, 401);
+assert.equal((await call("_articles-review", { body: { editKey: "bad", op: "list" } })).code, 401);
+assert.equal((await call("_publish-scheduled", { method: "GET" })).code, 405, "GET без секрета расписания");
 assert.equal(modelCalls.length, 0);
+
+// Бесплатный тариф Vercel клиента: не больше 12 функций на выкат, 13-я роняет выкат обоих проектов
+// (27.10: сайт и кабинет не выкатились). Файлы с «_» функциями не считаются.
+const fns = readdirSync(join(process.cwd(), "api")).filter((f) => /\.js$/.test(f) && !f.startsWith("_"));
+assert.ok(fns.length <= 12, `в api/ ${fns.length} функций, на Hobby можно 12: ${fns.join(", ")}`);
+const route = (await import("../api/articles.js")).default;
+const routed = { code: 0 };
+await route({ method: "GET", headers: {}, query: { task: "publish" } }, { setHeader() {}, status(c) { routed.code = c; return { json() {}, end() {} }; } });
+assert.equal(routed.code, 405, "?task=publish без секрета расписания должен попасть в публикацию по графику");
 
 // черновик по расписанию: первая версия с выдуманной цифрой → модель исправляет → review
 process.env.ARTICLE_CRON = "1";
 const out = (a) => ({ title: a.title, slug: a.slug, seo_title: a.seo_title, seo_description: a.seo_description, excerpt: a.excerpt, body: a.body,
   faq: a.meta.faq, takeaways: a.meta.takeaways, tags: a.meta.tags, sources: a.meta.sources });
 modelOutputs = [out({ ...base, body: base.body.replace("до 7 часов", "до 6 часов") }), out(base)];
-const d = await call("draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" } });
+const d = await call("_draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" } });
 assert.equal(d.code, 200, JSON.stringify(d.body));
 assert.deepEqual(d.body.checks.errors, []);
 assert.equal(modelCalls.length, 2, "одна попытка исправить");
@@ -212,36 +221,36 @@ assert.match(JSON.parse(tg.body).text, /Статья ждёт проверки \
 // пара O08 пишется в ту же группу (hreflang)
 const ro = ARTS.find((a) => a.meta.queue.id === "O08");
 modelOutputs = [out(ro)];
-const d2 = await call("draft-article", { body: { queueId: "O08" } });
+const d2 = await call("_draft-article", { body: { queueId: "O08" } });
 assert.equal(d2.code, 200, JSON.stringify(d2.body));
 assert.equal(d2.body.group, drafted.group_id, "пара RO/RU в одной группе");
-assert.equal((await call("draft-article", { body: {} })).body.idle, true, "очередь пуста");
+assert.equal((await call("_draft-article", { body: {} })).body.idle, true, "очередь пуста");
 
 // «На проверке»: список, правка, одобрение, отклонение
-const listR = await call("articles-review", { body: { op: "list" } });
+const listR = await call("_articles-review", { body: { op: "list" } });
 assert.equal(listR.body.articles.length, 2);
 const ruId = drafted.id, roId = db.articles.find((a) => a.meta?.queue?.id === "O08").id;
 assert.ok(listR.body.suggested[ruId]);
-const bad = await call("articles-review", { body: { op: "save", id: ruId, article: { body: drafted.body + "\n\nЛучший сервис." } } });
+const bad = await call("_articles-review", { body: { op: "save", id: ruId, article: { body: drafted.body + "\n\nЛучший сервис." } } });
 assert.ok(bad.body.checks.errors.some((e) => /лучший/.test(e)));
-assert.equal((await call("articles-review", { body: { op: "approve", id: ruId } })).code, 422, "с ошибками не одобрить");
-assert.equal((await call("articles-review", { body: { op: "save", id: ruId, article: { body: base.body } } })).body.checks.errors.length, 0);
-assert.equal((await call("articles-review", { body: { op: "approve", id: ruId, publishAt: "2020-01-01T05:00:00Z" } })).code, 400, "дата в прошлом");
-const ap = await call("articles-review", { body: { op: "approve", id: ruId, publishAt: "2099-11-03T05:00:00.000Z" } });
+assert.equal((await call("_articles-review", { body: { op: "approve", id: ruId } })).code, 422, "с ошибками не одобрить");
+assert.equal((await call("_articles-review", { body: { op: "save", id: ruId, article: { body: base.body } } })).body.checks.errors.length, 0);
+assert.equal((await call("_articles-review", { body: { op: "approve", id: ruId, publishAt: "2020-01-01T05:00:00Z" } })).code, 400, "дата в прошлом");
+const ap = await call("_articles-review", { body: { op: "approve", id: ruId, publishAt: "2099-11-03T05:00:00.000Z" } });
 assert.equal(ap.code, 200, JSON.stringify(ap.body));
 assert.equal(db.articles.find((a) => a.id === ruId).status, "approved");
 assert.equal(db.content_queue.find((q) => q.id === "R03").status, "approved");
-const rj = await call("articles-review", { body: { op: "reject", id: roId, note: "Слишком общо" } });
+const rj = await call("_articles-review", { body: { op: "reject", id: roId, note: "Слишком общо" } });
 assert.equal(rj.code, 200);
 assert.equal(db.content_queue.find((q) => q.id === "O08").last_note, "Слишком общо");
 
 // публикация по графику: дата не наступила — ничего; наступила — одна RU, rejected не трогается
 external.length = 0;
-assert.equal((await call("publish-scheduled", { method: "GET", headers: { authorization: "Bearer cron-s" } })).body.published, 0);
+assert.equal((await call("_publish-scheduled", { method: "GET", headers: { authorization: "Bearer cron-s" } })).body.published, 0);
 db.articles.find((a) => a.id === ruId).publish_at = new Date(Date.now() - 60e3).toISOString();
 const extra = { ...db.articles.find((a) => a.id === ruId), id: randomUUID(), group_id: randomUUID(), slug: "vtoraya", title: "Вторая?", publish_at: new Date(Date.now() - 30e3).toISOString() };
 db.articles.push(extra);
-const ps = await call("publish-scheduled", { method: "GET", headers: { authorization: "Bearer cron-s" } });
+const ps = await call("_publish-scheduled", { method: "GET", headers: { authorization: "Bearer cron-s" } });
 assert.equal(ps.code, 200, JSON.stringify(ps.body));
 assert.equal(ps.body.published, 1, "не больше одной статьи на язык в день");
 const pub = db.articles.find((a) => a.id === ruId);

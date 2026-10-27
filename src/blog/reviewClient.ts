@@ -1,6 +1,6 @@
 /**
  * Статьи на проверке: черновики конвейера лежат в базе (articles, status review/approved/rejected),
- * а не в браузере — владелец видит их с любого устройства. Всё через /api/articles-review (EDIT_KEY).
+ * а не в браузере — владелец видит их с любого устройства. Всё через /api/articles (EDIT_KEY).
  */
 
 import { postSiteApi } from "../editor/siteApi";
@@ -23,13 +23,13 @@ export interface ReviewRow {
 export const slotIso = (day: string) => `${day}T05:00:00.000Z`;
 
 export async function loadReview(): Promise<{ ok: boolean; rows: ReviewRow[]; suggested: Record<string, string>; error: string }> {
-  const r = await postSiteApi<{ articles?: ReviewRow[]; suggested?: Record<string, string> }>("articles-review", { op: "list" });
+  const r = await postSiteApi<{ articles?: ReviewRow[]; suggested?: Record<string, string> }>("articles", { op: "list" });
   if (!r.ok) return { ok: false, rows: [], suggested: {}, error: r.offline ? "Нет связи с сайтом." : r.error || `Ошибка ${r.status}` };
   return { ok: true, rows: r.data?.articles || [], suggested: r.data?.suggested || {}, error: "" };
 }
 
 export async function reviewOp(op: "approve" | "unapprove" | "reject" | "save", payload: Record<string, unknown>) {
-  const r = await postSiteApi<{ publish_at?: string; checks?: ReviewChecks; error?: string }>("articles-review", { op, ...payload });
+  const r = await postSiteApi<{ publish_at?: string; checks?: ReviewChecks; error?: string }>("articles", { op, ...payload });
   return { ok: r.ok, data: r.data, error: r.ok ? "" : r.offline ? "Нет связи с сайтом." : r.error || `Ошибка ${r.status}` };
 }
 
