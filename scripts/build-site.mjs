@@ -284,7 +284,12 @@ async function write404() {
     // страница не должна попасть в поиск и не должна объявлять себя копией главной
     .replace(/<link\b[^>]*rel="canonical"[^>]*>/gi, '<meta name="robots" content="noindex">')
     .replace(/<link\b[^>]*rel="alternate"[^>]*>/gi, "")
-    .replace(/<meta\b[^>]*property="og:(url|title)"[^>]*>/gi, "");
+    .replace(/<meta\b[^>]*property="og:(url|title)"[^>]*>/gi, "")
+    // От главной ей не нужны постер видео (preload впустую, предупреждение в консоли), разметка
+    // компании и скрипты видео, лент, слайдера и форм — на странице их нет.
+    .replace(/<link rel="preload" as="image"[^>]*>/gi, "")
+    .replace(/<script type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<script id="lgcms-(?:video|marquee|sliderfill|formfix)">[\s\S]*?<\/script>/gi, "");
   await writeFile(join(OUT, "404.html"), html);
   console.log("[build] 404.html из оболочки главной");
 }
