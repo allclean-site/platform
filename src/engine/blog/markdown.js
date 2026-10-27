@@ -137,7 +137,8 @@ export function sanitizeArticleHtml(html) {
   return String(html || "")
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(DROP_WITH_CONTENT, "")
-    .replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>|<|>/g, (whole, tag, attrs) => {
+    // Атрибуты в кавычках могут содержать «>»: тег заканчивается только вне кавычек.
+    .replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>|<|>/g, (whole, tag, attrs) => {
       if (!tag) return whole === "<" ? "&lt;" : "&gt;";
       const name = tag.toLowerCase();
       if (!ALLOWED[name]) return "";

@@ -38,6 +38,7 @@ import { LEGAL_PAGES, renderLegalMain } from "./legal-pages.mjs";
 import { withBlogCards, withRelatedArticles, relatedArticles } from "./blog-cards.mjs";
 import { markdownToHtml, sanitizeArticleHtml } from "../src/engine/blog/markdown.js";
 import { authorName, withAuthor } from "../src/engine/blog/article-pipeline.js";
+import { jsonLd as articleJsonLd } from "../api/publish-article.js";
 
 // ---- build --------------------------------------------------------------------------------------
 const slugToFile = (slug) => (slug === "/" ? "index.html" : slug.replace(/^\//, "") + "/index.html");
@@ -131,7 +132,13 @@ export function buildHead(prefix, a, roSlug, ruSlug) {
     .replace(/(og:url"\s+content=")[^"]*(")/, `$1${url}$2`)
     .replace(/(hreflang="ru-MD"\s+href=")[^"]*(")/, `$1${ruUrl}$2`)
     .replace(/(hreflang="ro-MD"\s+href=")[^"]*(")/, `$1${roUrl}$2`)
-    .replace(/(hreflang="x-default"\s+href=")[^"]*(")/, `$1${roUrl}$2`);
+    .replace(/(hreflang="x-default"\s+href=")[^"]*(")/, `$1${roSlug ? roUrl : url}$2`);
+  // Статья без пары на другом языке (черновики конвейера пишутся по одному языку): ссылка на
+  // «вторую версию» указывала бы на саму статью с чужим языком. Такую строку убираем.
+  if (!roSlug || !ruSlug) {
+    const other = a.locale === "ro" ? "ru" : "ro";
+    h = h.replace(new RegExp(`<link\\b[^>]*hreflang="${other}-MD"[^>]*>\\s*`, "g"), "");
+  }
 
   // Разметка для поиска. В шапке статьи-образца ТРИ блока ld+json: карточка компании, сама статья
   // (@graph с Article и FAQPage) и хлебные крошки. Замена без флага g попадала в первый — то есть
@@ -210,9 +217,12 @@ async function generateArticles(written, media = []) {
     const pair = byGroup.get(a.group_id) || {};
     const tpl = a.locale === "ru" ? ruTpl : roTpl;
     const dateStr = new Date(a.publish_at || a.created_at || Date.now()).toLocaleDateString(a.locale === "ru" ? "ru-RU" : "ro-RO", { day: "numeric", month: "long", year: "numeric" });
+    // Разметку пишет публикация (api/publish-article.js); у строки без неё — та же функция здесь.
+    const ld = a.jsonld && Object.keys(a.jsonld).length ? a.jsonld : articleJsonLd({ title: a.title, seoDescription: a.seo_description,
+      excerpt: a.excerpt, locale: a.locale, slug: a.slug, coverUrl: a.cover_url, datePublished: a.publish_at || a.created_at, meta: a.meta });
     const page = {
       ...tpl,
-      prefix: buildHead(tpl.prefix, a, pair.ro?.slug, pair.ru?.slug),
+      prefix: buildHead(tpl.prefix, { ...a, jsonld: ld }, pair.ro?.slug, pair.ru?.slug),
       blocks: tpl.blocks.map((b) => (b.content.region === "main" ? { ...b, content: { ...b.content, html: buildSec0(a, dateStr) } } : b)),
     };
     // Через exportPageHtml, как и все остальные страницы. Раньше статьи собирались мимо него —
@@ -220,13 +230,20 @@ async function generateArticles(written, media = []) {
     // ссылок, без имён у иконок соцсетей, без запуска фонового видео и лент. Обход студии
     // показывал на них ссылки без имени, мелкий текст и мелкие цели нажатия — и это было не
     // «наследие шаблона», а просто пропущенный шаг сборки.
-    const doc = applySitePrivacy(exportPageHtml(page, undefined, undefined, { media }), a.locale);
+    // Переключатель языка вёл на пару статьи-образца — чужую статью. Теперь на свою пару, а без неё
+    // на список блога другого языка. Адрес абсолютный, как у образца.
+    const other = a.locale === "ro" ? "ru" : "ro";
+    const toggle = pair[other] && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair[other].slug || "") ? artUrl(other, pair[other].slug)
+      : other === "ro" ? `${SITE}/blog` : `${SITE}/ru/blog`;
+    const doc = applySitePrivacy(exportPageHtml(page, undefined, undefined, { media }), a.locale)
+      .replace(/(<a\b[^>]*class="[^"]*lang-toggle[^"]*"[^>]*href=")[^"]*(")/g, `$1${toggle}$2`)
+      .replace(/(<a\b[^>]*href=")[^"]*("[^>]*class="[^"]*lang-toggle[^"]*")/g, `$1${toggle}$2`);
     const dest = join(OUT, path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, doc);
     // Пара языков — для hreflang в карте сайта, как у страниц из зеркала.
     const alt = (l) => (pair[l] && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair[l].slug || "") ? artUrl(l, pair[l].slug) : null);
-    written.add(path); newUrls.push({ loc: artUrl(a.locale, a.slug), ro: alt("ro"), ru: alt("ru") });
+    written.add(path); newUrls.push({ loc: artUrl(a.locale, a.slug), locale: a.locale, ro: alt("ro"), ru: alt("ru") });
     (newByLocale[a.locale] || (newByLocale[a.locale] = [])).push(a);
     made++;
   }
@@ -517,7 +534,8 @@ async function main() {
   // Статьи из кабинета — с парой языков, как страницы зеркала: без неё поиск не связывал RO и RU версии.
   const artUrlsXml = (articleUrls || []).map((u) => `<url><loc>${u.loc}</loc>${lastmod()}` +
     (u.ro && u.ru ? `<xhtml:link rel="alternate" hreflang="ro-MD" href="${u.ro}"/><xhtml:link rel="alternate" hreflang="ru-MD" href="${u.ru}"/>` +
-      `<xhtml:link rel="alternate" hreflang="x-default" href="${u.ro}"/>` : "") + "</url>").join("");
+      `<xhtml:link rel="alternate" hreflang="x-default" href="${u.ro}"/>`
+      : `<xhtml:link rel="alternate" hreflang="${u.locale}-MD" href="${u.loc}"/><xhtml:link rel="alternate" hreflang="x-default" href="${u.loc}"/>`) + "</url>").join("");
   // Страницы cookie появились после снятия зеркала, в _pages.json их нет — вносим руками,
   // иначе они не попадут в карту сайта и останутся невидимыми для поиска.
   const cookieXml = LEGAL_PAGES.filter((p) => p.group === "cookies").map((p) => {

@@ -165,7 +165,7 @@ async function draftWithModel(brief, item, group, arts) {
     if (msg.stop_reason === "max_tokens") throw new Error("ответ модели оборвался (max_tokens)");
     const text = (msg.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
     let out;
-    try { out = JSON.parse(text); } catch { throw new Error("модель вернула не JSON"); }
+    try { out = JSON.parse(text); } catch { throw new Error(`модель вернула не JSON (${msg.stop_reason}): ${text.slice(0, 120)}`); }
     art = articleFromDraft(out, item, group);
     checks = checkArticle(art, ctx);
     if (!checks.errors.length) break;
