@@ -50,11 +50,19 @@ export async function externalizeCalc() {
 
   const fns = bodies.map((b) => "function(P){const SUPABASE_URL=P.u,SUPABASE_KEY=P.k,PROJECT_ID=P.p,locale=P.l,slug=P.s,t=P.t," +
     "totalSteps=P.n,detailsStep=P.d,uid=P.id,PHOTO_ALT=P.a;\n" + b + "\n}");
-  // Каждый калькулятор запускается своей задачей: десять подряд давали одну долгую задачу
-  // и блокировали поток на старте страницы (TBT).
+  // Видимые калькуляторы запускаются каждый своей задачей (десять подряд — одна долгая задача,
+  // TBT); спрятанные в переключателе (display:none) — когда их панель показали.
   const js = "(function(){var T=[" + fns.join(",\n") + "];\n" +
     "function one(s){if(s.lgDone)return;s.lgDone=1;try{var P=JSON.parse(s.textContent);T[P.v](P);}catch(e){console.error('calc',e);}}\n" +
-    "function run(){var s=[].slice.call(document.querySelectorAll('script[data-lg-calc]'));(function next(){var x=s.shift();if(!x)return;one(x);setTimeout(next,0);})();}\n" +
+    "function run(){var now=[],io=window.IntersectionObserver&&new IntersectionObserver(function(es){es.forEach(function(e){" +
+    "if(e.target.getClientRects().length){io.unobserve(e.target);one(e.target.lgS);}});},{rootMargin:'2000px 0px'});\n" +
+    "[].forEach.call(document.querySelectorAll('script[data-lg-calc]'),function(x){var w=null;try{w=document.getElementById(JSON.parse(x.textContent).id);}catch(e){}" +
+    "if(io&&w&&!w.getClientRects().length){w.lgS=x;io.observe(w);}else now.push(x);});\n" +
+    "setTimeout(function next(){var x=now.shift();if(!x)return;one(x);setTimeout(next,0);},0);\n" +
+    // Нажатие на вкладку переключателя запускает её калькулятор сразу, до показа панели.
+    "function tab(e){var c=e.target&&e.target.closest&&e.target.closest('.cp-chip[data-slug]');if(!c)return;" +
+    "var w=document.getElementById('cp-'+c.getAttribute('data-slug'));if(w&&w.lgS)one(w.lgS);}\n" +
+    "document.addEventListener('pointerdown',tab,true);document.addEventListener('click',tab,true);}\n" +
     "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();})();\n";
   const name = `/js/calc/${createHash("sha1").update(js).digest("hex").slice(0, 10)}.js`;
   await mkdir(join(OUT, "js", "calc"), { recursive: true });
