@@ -7,6 +7,15 @@
 import { postSiteApi, siteApiConfigured } from "../editor/siteApi";
 import type { Article } from "../engine/blog/types";
 
+/** Снять обе языковые версии статьи с сайта (статус draft в базе + пересборка). */
+export async function unpublishArticleGroup(group: string): Promise<{ ok: boolean; message: string }> {
+  if (!siteApiConfigured()) return { ok: false, message: "Публикация не настроена (Настройки → Публикация)." };
+  const r = await postSiteApi<{ rebuild?: boolean }>("publish-article", { op: "unpublish", group });
+  if (r.offline) return { ok: false, message: "Не удалось связаться с сайтом — статья не снята. Попробуйте ещё раз." };
+  if (!r.ok) return { ok: false, message: r.error ? `Статья не снята с сайта: ${r.error}` : `Статья не снята с сайта (ошибка ${r.status}).` };
+  return { ok: true, message: "Статья снята с сайта — исчезнет после пересборки (1–2 минуты)." };
+}
+
 export async function publishArticlesToSite(articles: Article[]): Promise<{ ok: boolean; message: string; urls?: string[] }> {
   if (!siteApiConfigured()) return { ok: false, message: "Публикация не настроена (Настройки → Публикация)." };
   const r = await postSiteApi<{ urls?: string[]; rebuild?: boolean; published?: number }>("publish-article", { articles });

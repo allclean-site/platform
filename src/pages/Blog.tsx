@@ -8,9 +8,11 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Newspaper, Pencil, Trash2, Calendar } from "lucide-react";
 import { loadArticles, removeArticle, newArticle, upsertArticle } from "../blog/store";
 import type { Article } from "../engine/blog/types";
+import { unpublishArticleGroup } from "../blog/publishArticleClient";
 import "./blog.css";
 
 const LOC_SHORT: Record<string, string> = { ro: "RO", ru: "RU" };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function Blog() {
   const nav = useNavigate();
@@ -27,8 +29,19 @@ export function Blog() {
   }, [list]);
 
   const create = () => { const a = newArticle("ro"); upsertArticle(a); nav(`/app/blog/${a.id}`); };
-  const del = (main: Article, ids: string[]) => {
-    if (!window.confirm(`Удалить статью «${main.title || "без названия"}» (все языковые версии)?`)) return;
+  const del = async (main: Article, ids: string[]) => {
+    // На сайт уходят только группы с uuid (newGroupId); у старых локальных черновиков его нет.
+    const onSite = list.some((a) => a.group === main.group && a.status === "published") && UUID.test(main.group);
+    const name = main.title || "без названия";
+    if (!window.confirm(onSite
+      ? `Удалить статью «${name}»? Она будет снята с сайта (обе языковые версии).`
+      : `Удалить статью «${name}» (все языковые версии)?`)) return;
+    // Сначала снять с сайта: раньше удаление стирало статью только из браузера, а страница
+    // оставалась на сайте, и убрать её из кабинета было уже нечем.
+    if (onSite) {
+      const r = await unpublishArticleGroup(main.group);
+      if (!r.ok) { window.alert(r.message); return; }
+    }
     let next = list; for (const id of ids) next = removeArticle(id); setList(next);
   };
 

@@ -71,6 +71,21 @@ export default async function handler(req, res) {
     }
   }
 
+  // Снять статью с сайта (обе языковые версии). Удаление в кабинете раньше стирало её только из
+  // браузера: страница оставалась на сайте, а убрать её из кабинета было уже нечем.
+  if (body.op === "unpublish") {
+    if (!body.group) return res.status(400).json({ error: "group required" });
+    const r = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/articles?project_id=eq.${PROJECT_ID}&group_id=eq.${encodeURIComponent(body.group)}`, {
+      method: "PATCH",
+      headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "content-type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ status: "draft", updated_at: new Date().toISOString() }),
+    });
+    if (!r.ok) return res.status(502).json({ error: "unpublish failed: " + (await r.text()).slice(0, 200) });
+    let rebuild = false;
+    if (DEPLOY_HOOK) { await fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {}); rebuild = true; }
+    return res.status(200).json({ ok: true, rebuild });
+  }
+
   const arts = (body.articles || []).filter((a) => a && a.slug && a.title);
   if (!arts.length) return res.status(400).json({ error: "Нет статьи с заголовком и адресом (slug)." });
 

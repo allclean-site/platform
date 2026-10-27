@@ -51,4 +51,10 @@ assert.equal(ok.code, 200, JSON.stringify(ok.body));
 // та же группа может переопубликовать свой адрес
 assert.equal((await call({ articles: [art({ slug: "curatenia-de-primavara" })] })).code, 200);
 
-console.log("[check-article-publish] ок: адрес проверяется, повтор адреса не проходит");
+// снятие с сайта: обе версии группы → draft, чужие группы не трогает
+assert.equal((await call({ op: "unpublish", group: "g-new" })).code, 200);
+assert.ok(rows.filter((r) => r.group_id === "g-new").every((r) => r.status === "draft"));
+assert.equal(rows.find((r) => r.group_id === "g-old").status, "published");
+assert.equal((await call({ op: "unpublish" })).code, 400, "без группы");
+
+console.log("[check-article-publish] ок: адрес проверяется, повтор адреса не проходит, снятие с сайта");
