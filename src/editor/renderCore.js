@@ -71,6 +71,9 @@ const TAP_SEL = [
   "a.cta_tertiary", ".card_testimonial-marquee a", ".marquee_testimonials a",
 ].map((s) => s + ":not(#lgcmsx)").join(",");
 
+const TAP_WIDE = ["a.link-banner", ".card_testimonial-marquee a", ".marquee_testimonials a"]
+  .map((s) => s + ":not(#lgcmsx)").join(",");
+
 export const SITE_FIXES =
   "@media screen and (max-width:991px){.right_home-features{min-width:0}}" +
   ".page-wrapper{overflow-x:clip;}" +
@@ -320,6 +323,12 @@ export const SITE_FIXES =
   "@media screen and (max-width:991px){" +
     TAP_SEL + "{position:relative;}" +
     TAP_SEL.split(",").map((s) => s + "::after").join(",") + "{content:\"\";position:absolute;" +
+      "left:50%;top:50%;transform:translate(-50%,-50%);width:100%;min-width:24px;height:24px;}" +
+  "}" +
+  // Ссылка в верхней плашке и «Отзыв в Google» и на десктопе ростом 19–20px: им тот же слой.
+  "@media screen and (min-width:992px){" +
+    TAP_WIDE + "{position:relative;}" +
+    TAP_WIDE.split(",").map((s) => s + "::after").join(",") + "{content:\"\";position:absolute;" +
       "left:50%;top:50%;transform:translate(-50%,-50%);width:100%;min-width:24px;height:24px;}" +
   "}" +
   ".card_scroll-service .content_nav-service:not(#lgcmsx){background-image:linear-gradient(180deg,rgba(12,41,89,0) 55%,rgba(12,41,89,.82) 100%);}" +
