@@ -4,6 +4,8 @@
 // Writes with the service_role key (server only), then fires the Deploy Hook so build-site.mjs
 // regenerates the blog pages from these rows. Gated by EDIT_KEY. CORS *.
 
+import { authorNode } from "../src/engine/blog/article-pipeline.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DEPLOY_HOOK = process.env.DEPLOY_HOOK;
@@ -15,7 +17,7 @@ const INDEXNOW_KEY = "5a7bbce9d63a74005f4e33ec5e31389a"; // key file served at /
 const artUrl = (locale, slug) => (locale === "ro" ? `${SITE}/blog/${slug}` : `${SITE}/${locale}/blog/${slug}`);
 
 /** Ping IndexNow so Bing/Yandex re-crawl the new/updated article URLs immediately. */
-async function pingIndexNow(urls) {
+export async function pingIndexNow(urls) {
   if (!urls.length) return;
   try {
     await fetch("https://api.indexnow.org/indexnow", {
@@ -26,11 +28,12 @@ async function pingIndexNow(urls) {
   } catch { /* best-effort */ }
 }
 
-function jsonLd(a) {
+export function jsonLd(a) {
   const graph = [{
     "@type": "Article", headline: a.title, description: a.seoDescription || a.excerpt || "",
     inLanguage: a.locale, image: a.coverUrl || undefined, datePublished: a.datePublished, dateModified: new Date().toISOString(),
-    author: { "@type": "Organization", name: a.author || "All Clean", url: SITE },
+    // Человек, если в подписи имя; «Echipa All Clean» и пустая подпись — компания.
+    author: authorNode({ ...(a.meta || {}), author: a.author || (a.meta && a.meta.author) }),
     publisher: { "@type": "Organization", name: "All Clean", url: SITE },
     mainEntityOfPage: { "@type": "WebPage", "@id": artUrl(a.locale, a.slug) },
   }];
@@ -61,7 +64,7 @@ export default async function handler(req, res) {
   // Отдаём только поля карточки — тело статьи здесь никому не нужно.
   if (body.op === "list") {
     const url = `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/articles` +
-      `?select=group_id,locale,slug,title,cover_url,created_at&project_id=eq.${PROJECT_ID}&status=eq.published`;
+      `?select=group_id,locale,slug,title,cover_url,created_at,publish_at,meta&project_id=eq.${PROJECT_ID}&status=eq.published`;
     try {
       const r = await fetch(url, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
       if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()) });

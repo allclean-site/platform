@@ -187,6 +187,15 @@ export function checkArticle(a, ctx) {
   return { errors: [...new Set(errors)], warnings: [...new Set(warnings)] };
 }
 
+const TRANSLIT = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y", к: "k", л: "l", м: "m",
+  н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "c", ч: "ch", ш: "sh", щ: "sch",
+  ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya", ă: "a", â: "a", î: "i", ș: "s", ş: "s", ț: "t", ţ: "t",
+};
+/** Адрес статьи: транслит, латиница, цифры, дефис (как src/engine/blog/slug.ts в кабинете). */
+export const toSlug = (s) => String(s || "").toLowerCase().split("").map((c) => TRANSLIT[c] ?? c).join("")
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70).replace(/-+$/, "");
+
 // ---- разметка: автор ----------------------------------------------------------------------------
 
 /** Автор статьи для Article: человек, если в meta.author имя, иначе компания. */
@@ -202,6 +211,13 @@ export function authorNode(meta) {
   const url = p.url || (meta && meta.authorUrl);
   return { "@type": "Person", name: String(name).slice(0, 120), ...(job ? { jobTitle: String(job) } : {}),
     ...(url && /^https:\/\//.test(url) ? { url } : {}), worksFor: { "@id": `${SITE}/#org` } };
+}
+
+/** Разметка статьи из базы с автором по meta: старые строки несут Organization даже при имени в подписи. */
+export function withAuthor(jsonld, meta) {
+  if (!jsonld || typeof jsonld !== "object") return jsonld;
+  const fix = (n) => (n && n["@type"] === "Article" ? { ...n, author: authorNode(meta) } : n);
+  return jsonld["@graph"] ? { ...jsonld, "@graph": jsonld["@graph"].map(fix) } : fix(jsonld);
 }
 
 /** Подпись под заголовком: имя из meta.author (строка или { name }). */
