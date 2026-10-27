@@ -26,6 +26,13 @@ const STORAGE = /^https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public
 const RASTER = /\.(jpe?g|png)$/i;
 const WH_CSS = '<style id="lg-img-wh">img:where([data-wh]){width:auto;height:auto}</style>';
 
+// Фото лент ниже первого экрана не спорят с первым экраном за сеть, но успевают до прокрутки.
+const NEAR = '<script id="lg-near">(function(){function go(b){var l=b.querySelectorAll("img[data-lg-near]");for(var i=0;i<l.length;i++){l[i].loading="eager";l[i].removeAttribute("data-lg-near");}}' +
+  'function arm(){var im=document.querySelectorAll("img[data-lg-near]");if(!im.length)return;if(!window.IntersectionObserver)return go(document);' +
+  'var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){io.unobserve(e.target);go(e.target);}});},{rootMargin:"1000px 0px"});' +
+  'var seen=[];for(var i=0;i<im.length;i++){var s=im[i].closest("section")||document.body;if(seen.indexOf(s)<0){seen.push(s);io.observe(s);}}}' +
+  'if(document.readyState==="complete")arm();else window.addEventListener("load",arm);})();</script>';
+
 const exists = (p) => access(p).then(() => true, () => false);
 
 async function walk(dir) {
@@ -140,6 +147,9 @@ export async function optimizeImages() {
         const below = !inHero && !inTrack(pos);
         if (below && !/\sloading=/.test(t)) t = t.replace(/^<img\b/i, '<img loading="lazy"');
         if (below && !/\sdecoding=/.test(t)) t = t.replace(/^<img\b/i, '<img decoding="async"');
+        // Ленты ниже первой секции: lazy с меткой, а грузит их скрипт NEAR после load, когда секция
+        // в 1000px от экрана, — все карточки сразу, чтобы ни одна не проехала пустой.
+        if (!inHero && inTrack(pos) && !/\sloading=/.test(t)) t = t.replace(/^<img\b/i, '<img loading="lazy" decoding="async" data-lg-near');
         if (inHero && !heroVideo && !hiDone && e && RASTER.test(src.split(/[?#]/)[0]) && !/\sfetchpriority=/.test(t)) {
           t = t.replace(/^<img\b/i, '<img fetchpriority="high"').replace(/\sloading="lazy"/, "");
           hiDone = true;
@@ -149,6 +159,7 @@ export async function optimizeImages() {
       });
     });
     out = out.replace(/(<video\b[^>]*\spreload=")auto(")/gi, "$1metadata$2");
+    if (out.includes("data-lg-near") && !out.includes('id="lg-near"')) out = out.replace(/<\/body>(?![\s\S]*<\/body>)/, NEAR + "</body>");
     if (out.includes("data-wh") && !out.includes('id="lg-img-wh"')) out = out.replace("</head>", WH_CSS + "</head>");
     if (out !== html) await writeFile(f, out);
   }
