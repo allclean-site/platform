@@ -989,12 +989,18 @@ export function siteRuntimeTags() {
  * загрузке, поэтому он должен стоять первым и попасть в разметку на сборке, а не дописываться
  * скриптом: к моменту работы скрипта загрузка уже началась бы.
  */
+// Правка клиента на /ru оставила у ролика два одинаковых hero.webm без телефонного варианта, и
+// телефон качал 1,9 МБ. Список источников героя теперь собирается заново, что бы ни лежало в правке;
+// чужое видео (другой файл) не трогаем.
+const HERO_SOURCES =
+  '<source src="/video/hero-mobile.mp4" type="video/mp4" media="(max-width:767px)">' +
+  '<source src="/video/hero.mp4" type="video/mp4"><source src="/video/hero.webm" type="video/webm">';
 export function withMobileVideo(html) {
-  if (!html || html.indexOf("/video/hero.mp4") < 0) return html;
-  if (html.indexOf("/video/hero-mobile.mp4") >= 0) return html;   // уже добавлено — второй раз не нужно
-  return html.replace(/<source\b([^>]*src="[^"]*\/video\/hero\.mp4"[^>]*)>/gi, (whole) => {
-    if (/hero-mobile/.test(whole)) return whole;
-    return '<source src="/video/hero-mobile.mp4" type="video/mp4" media="(max-width:767px)">' + whole;
+  if (!html || !/\/video\/hero\.(?:mp4|webm)"/.test(html)) return html;
+  return html.replace(/(<video\b[^>]*>)((?:\s*<source\b[^>]*>(?:\s*<\/source>)?)+)/gi, (whole, open, srcs) => {
+    const list = srcs.match(/src="[^"]*"/g) || [];
+    if (!list.length || !list.every((s) => /\/video\/hero(?:-mobile)?\.(?:mp4|webm)"$/.test(s))) return whole;
+    return open + HERO_SOURCES;
   });
 }
 
