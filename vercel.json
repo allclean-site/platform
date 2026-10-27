@@ -1,6 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
+  "crons": [
+    { "path": "/api/publish-scheduled", "schedule": "0 6 * * *" },
+    { "path": "/api/draft-article", "schedule": "0 4 * * 1,4" }
+  ],
+  "functions": {
+    "api/draft-article.js": { "maxDuration": 300 }
+  },
   "redirects": [
     {
       "source": "/Servicii{/}?",
