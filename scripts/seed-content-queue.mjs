@@ -1,5 +1,5 @@
 /**
- * Очередь тем из content-plan.csv → таблица content_queue (после scripts/supabase-articles-pipeline.sql).
+ * Очередь тем из content-plan.csv → таблица content_queue (после allclean-marketing/sql/supabase-articles-pipeline.sql).
  *
  *   node --env-file=.env.local scripts/seed-content-queue.mjs [путь к csv] [--dry]
  *

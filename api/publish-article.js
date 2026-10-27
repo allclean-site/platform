@@ -64,11 +64,15 @@ export default async function handler(req, res) {
   // Отдаём только поля карточки — тело статьи здесь никому не нужно.
   if (body.op === "list") {
     const url = `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/articles` +
-      `?select=group_id,locale,slug,title,cover_url,created_at,publish_at,meta&project_id=eq.${PROJECT_ID}&status=eq.published`;
+      `?select=*&project_id=eq.${PROJECT_ID}&status=eq.published`;
     try {
       const r = await fetch(url, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
       if (!r.ok) return res.status(502).json({ error: "read failed: " + (await r.text()) });
-      return res.status(200).json({ ok: true, articles: await r.json() });
+      // select=* и поля карточки здесь — как в build-site.mjs: до миграции столбца publish_at нет,
+      // а явный select с ним ронял бы список.
+      const articles = (await r.json()).map(({ group_id, locale, slug, title, cover_url, created_at, publish_at, meta }) =>
+        ({ group_id, locale, slug, title, cover_url, created_at, publish_at, meta }));
+      return res.status(200).json({ ok: true, articles });
     } catch (e) {
       return res.status(502).json({ error: "read failed: " + String(e) });
     }

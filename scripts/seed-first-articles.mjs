@@ -3,7 +3,7 @@
  *
  *   node --env-file=.env.local scripts/seed-first-articles.mjs [--dry]
  *
- * Запускать после scripts/supabase-articles-pipeline.sql и scripts/seed-content-queue.mjs.
+ * Запускать после allclean-marketing/sql/supabase-articles-pipeline.sql и scripts/seed-content-queue.mjs.
  * Каждая статья сначала проходит ту же проверку, что черновики конвейера (checkArticle). Строки,
  * которые уже есть в базе (та же группа и язык), не трогаются: повторный запуск не вернёт
  * опубликованную статью на проверку. На сайт статьи выходят только после «Одобрить» в кабинете.
