@@ -2,12 +2,23 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "crons": [
-    { "path": "/api/articles?task=publish", "schedule": "0 6 * * *" },
-    { "path": "/api/articles?task=draft&run=1", "schedule": "0 4 * * 1,4" },
-    { "path": "/api/articles?task=draft&run=2", "schedule": "0 5 * * 1,4" }
+    {
+      "path": "/api/articles?task=publish",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/articles?task=draft&run=1",
+      "schedule": "0 4 * * 1,4"
+    },
+    {
+      "path": "/api/articles?task=draft&run=2",
+      "schedule": "0 5 * * 1,4"
+    }
   ],
   "functions": {
-    "api/articles.js": { "maxDuration": 300 }
+    "api/articles.js": {
+      "maxDuration": 300
+    }
   },
   "redirects": [
     {
@@ -278,6 +289,116 @@
     {
       "source": "/ru/blog/generalnaya-uborka-i-tekushchaya-uborka-razlichiya{/}?",
       "destination": "/ru/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya",
+      "permanent": true
+    },
+    {
+      "source": "/ro{/}?",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/ro/:path+{/}?",
+      "destination": "/:path+",
+      "permanent": true
+    },
+    {
+      "source": "/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya{/}?",
+      "destination": "/ru/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya",
+      "permanent": true
+    },
+    {
+      "source": "/CONTACT{/}?",
+      "destination": "/about",
+      "permanent": true
+    },
+    {
+      "source": "/Contact{/}?",
+      "destination": "/about",
+      "permanent": true
+    },
+    {
+      "source": "/ru/Contact{/}?",
+      "destination": "/ru/about",
+      "permanent": true
+    },
+    {
+      "source": "/%D0%9A%D0%9E%D0%9D%D0%A2%D0%90%D0%9A%D0%A2%D0%AB{/}?",
+      "destination": "/about",
+      "permanent": true
+    },
+    {
+      "source": "/ru/%D0%9A%D0%9E%D0%9D%D0%A2%D0%90%D0%9A%D0%A2%D0%AB{/}?",
+      "destination": "/ru/about",
+      "permanent": true
+    },
+    {
+      "source": "/DESPRE-NOI{/}?",
+      "destination": "/about",
+      "permanent": true
+    },
+    {
+      "source": "/ru/%D0%9E-%D0%9D%D0%90%D0%A1{/}?",
+      "destination": "/ru/about",
+      "permanent": true
+    },
+    {
+      "source": "/SERVICII{/}?",
+      "destination": "/services",
+      "permanent": true
+    },
+    {
+      "source": "/%D0%A3%D0%A1%D0%9B%D0%A3%D0%93%D0%98{/}?",
+      "destination": "/services",
+      "permanent": true
+    },
+    {
+      "source": "/ru/%D0%A3%D0%A1%D0%9B%D0%A3%D0%93%D0%98{/}?",
+      "destination": "/ru/services",
+      "permanent": true
+    },
+    {
+      "source": "/Allclean-%C3%AEn-regiunea-Buiucani{/}?",
+      "destination": "/services/post-construction",
+      "permanent": true
+    },
+    {
+      "source": "/Cur%C4%83%C8%9Benie-%C3%AEnainte-de-na%C8%99tere{/}?",
+      "destination": "/services/home-cleaning",
+      "permanent": true
+    },
+    {
+      "source": "/Cur%C4%83%C8%9Benie-impecabil%C4%83-cur%C4%83%C8%9Benie-de-%C3%AEnalt%C4%83-calitate{/}?",
+      "destination": "/services/home-cleaning",
+      "permanent": true
+    },
+    {
+      "source": "/Cur%C4%83%C8%9Benie-pentru-confortul-p%C4%83rin%C8%9Bilor{/}?",
+      "destination": "/services/home-cleaning",
+      "permanent": true
+    },
+    {
+      "source": "/Curatarea-profesionala-a-covoarelor/mochetei{/}?",
+      "destination": "/services/carpet",
+      "permanent": true
+    },
+    {
+      "source": "/Curatenie-in-apartamente{/}?",
+      "destination": "/services/home-cleaning",
+      "permanent": true
+    },
+    {
+      "source": "/curatenia-complexa-a-apartamentelor-din-sectorul-centru-al-chisinaului-de-la-allclean{/}?",
+      "destination": "/services/home-cleaning",
+      "permanent": true
+    },
+    {
+      "source": "/curatenie-ideala-inainte-de-nastere-un-spatiu-curat-si-sigur-pentru-bebelus{/}?",
+      "destination": "/services/home-cleaning",
+      "permanent": true
+    },
+    {
+      "source": "/ru/idealinaya-uborka-pered-rozhdeniem-chistoe-i-bezopasnoe-prostranstvo-dlya-malysha{/}?",
+      "destination": "/ru/services/home-cleaning",
       "permanent": true
     },
     {
