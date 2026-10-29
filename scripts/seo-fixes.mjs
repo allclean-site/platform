@@ -66,7 +66,12 @@ function favicon(html) {
 
 // ── 4а. Адрес в подвале → профиль в Google Картах ──────────────────────────────────────
 const MAPS = "https://www.google.com/maps?cid=12753551464754354058";
+// Подвал, сохранённый из кабинета, уже несёт ссылку: её не пропускаем, а ставим текущий адрес
+// (та же заморозка, что у реквизитов в site-privacy.mjs).
 function footerMap(html) {
+  html = swapRe(html, "footer:maps",
+    /(<div class="label-small tone-medium"[^>]*>(?:Adresă|Адрес)<\/div>\s*<div class="text-size-large text_body-bold"[^>]*>\s*<a href=")https:\/\/www\.google\.com\/maps[^"]*(")/g,
+    `$1${MAPS}$2`);
   return swapRe(html, "footer:maps",
     /(<div class="label-small tone-medium"[^>]*>(?:Adresă|Адрес)<\/div>\s*<div class="text-size-large text_body-bold"[^>]*>)(?!\s*<a\b)([\s\S]*?)(<\/div>)/g,
     `$1<a href="${MAPS}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;text-underline-offset:3px">$2</a>$3`);

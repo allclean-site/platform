@@ -21,6 +21,7 @@ import { join, dirname } from "node:path";
 import { closeOf } from "./seo-fixes.mjs";
 
 const OUT = "out";
+const SITE = "https://allclean.md";
 const CACHE = join("node_modules", ".cache", "lg-media"); // скачанное из хранилища между сборками
 const STORAGE = /^https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/(article-images\/[^"'\s?#]+)$/i;
 const RASTER = /\.(jpe?g|png)$/i;
@@ -66,6 +67,8 @@ export async function optimizeImages() {
     return list;
   };
   for (const html of pages.values()) outsideScripts(html, (part) => { for (const t of part.match(/<img\b[^>]*>/gi) || []) srcsOf(t).forEach((u) => urls.add(u)); return part; });
+  // …и фото хранилища вне <img>: вторая картинка статьи стоит только в её разметке.
+  for (const html of pages.values()) for (const m of html.matchAll(/https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/article-images\/[^"'\s?#)\\]+/gi)) urls.add(m[0]);
 
   // адрес → { url: новый адрес, w, h }
   const map = new Map();
@@ -110,8 +113,8 @@ export async function optimizeImages() {
         }
       } catch (e) { console.warn(`[images] не разобрал ${u}: ${e.message}`); }
     }
-    // Исходник из хранилища кладём рядом в любом случае: на него может ссылаться srcset.
-    if (sb && entry.url === rel) { await mkdir(dirname(join(OUT, rel)), { recursive: true }); await writeFile(join(OUT, rel), buf); }
+    // Исходник из хранилища кладём рядом в любом случае: на него ссылаются srcset, og:image и разметка.
+    if (sb) { entry.storage = rel; await mkdir(dirname(join(OUT, rel)), { recursive: true }); await writeFile(join(OUT, rel), buf); }
     map.set(u, entry);
   }
 
@@ -158,6 +161,9 @@ export async function optimizeImages() {
         return t;
       });
     });
+    // og:image, twitter:image и image в разметке статьи вели в хранилище: «private, no-cache», чужой
+    // домен для поиска по картинкам. Там нужен полный адрес и JPEG как есть — его и отдаём со своего.
+    for (const [u, e] of map) if (e.storage && out.includes(u)) out = out.split(u).join(SITE + e.storage);
     out = out.replace(/(<video\b[^>]*\spreload=")auto(")/gi, "$1metadata$2");
     if (out.includes("data-lg-near") && !out.includes('id="lg-near"')) out = out.replace(/<\/body>(?![\s\S]*<\/body>)/, NEAR + "</body>");
     if (out.includes("data-wh") && !out.includes('id="lg-img-wh"')) out = out.replace("</head>", WH_CSS + "</head>");

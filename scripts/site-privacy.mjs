@@ -127,8 +127,10 @@ const OPERATOR_RO = "„ALL CLEAN COMPANY” SRL · IDNO 1020600014361 · mun. C
 // строку реквизитов перед ней.
 const FOOTER_END = '</section> <div class="ultra-master">';
 
+// Правка подвала в кабинете сохраняет его целиком, вместе с уже вставленной строкой: дальше она
+// ехала замороженной копией, и новые реквизиты до таких страниц не доходили. Поэтому строку не
+// пропускаем, а ЗАМЕНЯЕМ текущей (внутри неё только <a>, вложенных <div> нет).
 function footer(html, lang) {
-  if (html.includes("ac-requisites")) return html;
   const text = lang === "ru" ? OPERATOR_RU : OPERATOR_RO;
   const cookies = lang === "ru"
     ? '<a href="/ru/cookies" style="color:inherit">Cookie</a>'
@@ -138,6 +140,8 @@ function footer(html, lang) {
     'font-size:.78rem;line-height:1.7;color:rgba(255,255,255,.55)">' +
     text + " · " + cookies +
     ' · <a href="mailto:info@allclean.md" style="color:inherit">info@allclean.md</a></div>';
+  const old = /<div class="ac-requisites"[^>]*>[\s\S]*?<\/div>/;
+  if (old.test(html)) return swapRe(html, "footer:requisites", old, block);
   return swap(html, "footer:requisites", FOOTER_END, block + FOOTER_END);
 }
 

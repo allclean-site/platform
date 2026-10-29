@@ -68,4 +68,19 @@ const alien = resolveShared("<section><p>совсем другая вёрстк�
 assert.ok(alien.missed > 0, "непоместившийся патч посчитан");
 
 rmSync(tmp, { recursive: true, force: true });
+
+// ---- 4. подвал, сохранённый из кабинета, не замораживает вставки слоя (EDITOR_QA 27.10, п. 4) -----
+// Правка подвала уносит в базу уже обработанный HTML: реквизиты, ссылку на Карты, пункты услуг.
+// Слой обязан обновить их до текущих, а не пропустить, и не удвоить.
+const { applySitePrivacy } = await import(pathToFileURL(join(ROOT, "scripts", "site-privacy.mjs")).href);
+const ftPage = JSON.parse(readFileSync(join(MIRROR, "index.json"), "utf8"));
+const footerHtml = ftPage.blocks.find((b) => b.id === "sec-footer").content.html;
+const once = applySitePrivacy(footerHtml + ' <div class="ultra-master"></div>', "ro");
+const frozen = once.replace(/IDNO \d+/, "IDNO 0000000000000").replace(/maps\?cid=\d+/, "maps?cid=1");
+const again = applySitePrivacy(frozen, "ro");
+assert.ok(again.includes("IDNO 1020600014361") && !again.includes("IDNO 0000000000000"), "реквизиты обновлены, а не заморожены");
+assert.ok(again.includes("maps?cid=12753551464754354058") && !again.includes("maps?cid=1\""), "ссылка на Карты обновлена");
+for (const [what, re] of [["реквизиты", /class="ac-requisites"/g], ["Карты", /google\.com\/maps\?cid=/g], ["паркет", /href="\/services\/parquet"/g]]) {
+  assert.equal((again.match(re) || []).length, (once.match(re) || []).length, `${what}: повторный проход не удваивает`);
+}
 console.log("shared-blocks: PASS");
