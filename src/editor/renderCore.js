@@ -240,9 +240,10 @@ export const SITE_FIXES =
    * виден. Родителю !important не нужен — анимация в каскаде и так сильнее inline-стиля, который
    * скрипт продолжает писать.
    *
-   * Лента — единственный вход в восемь из одиннадцати услуг с главной: просто встав, она
-   * превращалась бы в три карточки и тупик. Поэтому при системном «не двигать» она стоит И
-   * листается (правило ниже), а в остальных случаях замирает под курсором и при заходе табом.
+   * Лента — единственный вход в восемь из одиннадцати услуг с главной, поэтому едет ВСЕГДА, в том
+   * числе при системном «не двигать»: стоило ей там встать, как чужой inline-сдвиг Webflow
+   * (translate(-50%) и дальше) уводил ряд за левый край — пустое место вместо услуг (29.10, Chrome
+   * с выключенной в Windows анимацией). Замирает под курсором и при заходе табом.
    */
   "@keyframes lgcms-marq-services{from{transform:translateX(0)}" +
     "to{transform:translateX(calc(-50% - var(--grid--column-gap,1rem)/2))}}" +
@@ -251,14 +252,7 @@ export const SITE_FIXES =
   ".marquee_services:not(#lgcmsx):hover,.marquee_services:not(#lgcmsx):focus-within" +
     "{animation-play-state:paused;}" +
   ".marquee_services>.marquee-wrap_services:not(#lgcmsx){transform:none !important;}" +
-  // Кто попросил систему не двигать (WCAG 2.2.2), получает ленту стоящей, но не тупик: вторая
-  // копия скрыта, а сама лента листается пальцем и колесом — до всех услуг можно дойти.
-  // Так же колонки отзывов: дрейф стоит, окно прокручивается.
-  "@media (prefers-reduced-motion:reduce){" +
-    ".marquee_services:not(#lgcmsx){animation:none;}" +
-    ".marquee_services>.marquee-wrap_services+.marquee-wrap_services:not(#lgcmsx){display:none;}" +
-    ".marquee.home-marquee:not(#lgcmsx){overflow-x:auto;overscroll-behavior-x:contain;}" +
-  "}" +
+  // Кто попросил систему не двигать, получает колонки отзывов стоящими: дрейф стоит, окно прокручивается.
   "@media screen and (min-width:768px) and (prefers-reduced-motion:reduce){" +
     ".marquee-thirds>.marquee-vertical:not(#lgcmsx){animation:none;}" +
     ".marquee-thirds:not(#lgcmsx){overflow-y:auto;}" +
@@ -688,10 +682,6 @@ export const MENU_LOCK = "(function(){function arm(){var b=document.querySelecto
   ".observe(b,{attributes:true,attributeFilter:['class']});}" +
   "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arm);else arm();})();";
 
-export const REDUCED_MOTION ="(function(){if(window.top!==window||!window.matchMedia||!matchMedia('(prefers-reduced-motion: reduce)').matches)return;" +
-  "document.addEventListener('DOMContentLoaded',function(){var s=document.querySelectorAll('.w-slider[data-autoplay=\"true\"]');" +
-  "for(var i=0;i<s.length;i++)s[i].setAttribute('data-autoplay','false');});})();";
-
 export const VIDEO_BOOT = [
   "(function(){",
   "var Q='video',RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;",
@@ -1027,7 +1017,6 @@ export function withResponsiveCaps(html) {
 export function siteRuntimeTags() {
   return '<style id="lgcms-fixes">' + SITE_FIXES + "</style>" +
     '<script id="lgcms-video">' + VIDEO_BOOT + "</scr" + "ipt>" +
-    '<script id="lgcms-motion">' + REDUCED_MOTION + "</scr" + "ipt>" +
     '<script id="lgcms-menulock">' + MENU_LOCK + "</scr" + "ipt>" +
     '<script id="lgcms-marquee">' + MARQUEE_FIX + "</scr" + "ipt>" +
     '<script id="lgcms-sliderfill">' + SLIDER_FILL + "</scr" + "ipt>" +

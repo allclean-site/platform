@@ -72,6 +72,30 @@ function footerMap(html) {
     `$1<a href="${MAPS}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;text-underline-offset:3px">$2</a>$3`);
 }
 
+// ── 4а′. Услуги в подвале ─────────────────────────────────────────────────────────────
+// Фасады, затопление, паркет и линолеум (12 страниц от 15.10) не стояли ни в меню, ни в подвале,
+// ни в каталоге — только на «Ценах». Google их нашёл, но так и не обошёл (GSC 28.10: «обнаружена,
+// не проиндексирована»). Дописываем в КОНЕЦ списка «Услуги»: пути правок клиента к прежним пунктам
+// (nth-of-type) не сдвигаются. Пункт, который клиент уже поставил сам, не дублируем.
+const FOOTER_MORE = {
+  ro: [["/services/facades", "Spălare fațade și&nbsp;vitrine"], ["/services/flood-cleanup", "Curățenie după inundație"],
+       ["/services/parquet", "Rașchetare parchet"], ["/services/linoleum", "Curățare linoleum"]],
+  ru: [["/ru/services/facades", "Мойка фасадов и&nbsp;витрин"], ["/ru/services/flood-cleanup", "Уборка после затопления"],
+       ["/ru/services/parquet", "Циклевка паркета"], ["/ru/services/linoleum", "Чистка линолеума"]],
+};
+function footerServices(html, lang) {
+  const at = html.search(/<div class="services-footer w-dyn-list">\s*<div role="list"/);
+  if (at < 0) return html;
+  const list = html.indexOf('<div role="list"', at), end = closeOf(html, list, "div");
+  if (!end) return html;
+  const items = FOOTER_MORE[lang].filter(([href]) => !html.slice(list, end[0]).includes(`href="${href}"`))
+    .map(([href, text]) => `<div role="listitem" class="w-dyn-item"> <a href="${href}" class="link_underline-animated w-inline-block">` +
+      `<div href="#" class="link-footer"> ${text} </div> <div class="link-underline_bottom-line small"> <div class="link-underline_fill-line"></div></div></a> </div>`);
+  if (!items.length) return html;
+  bump("footer:services", items.length);
+  return html.slice(0, end[0]) + items.join(" ") + html.slice(end[0]);
+}
+
 // ── 4б. Постер видео первого экрана ───────────────────────────────────────────────────
 // Самый крупный элемент первого экрана — фоновое видео; пока оно не пошло, виден постер.
 // Браузер узнавал о постере только после 230 КБ встроенных стилей и скриптов Webflow, и на
@@ -526,6 +550,7 @@ export function applySeoFixes(html, lang) {
   out = h1Clean(out);
   out = jsonld(out);
   out = footerMap(out);
+  out = footerServices(out, lang === "ru" ? "ru" : "ro");
   out = pricingH1(out);
   out = homeDesc(out);
   out = calcHeadings(out);
