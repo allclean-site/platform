@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       const ids = [...new Set(rows.map(queueId).filter(Boolean))];
       const windows = ids.length ? await db(`content_queue?id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,window_from,window_to`).catch(() => []) : [];
       const win = Object.fromEntries(windows.map((w) => [w.id, w]));
-      // Предложенная дата: ближайший вторник или пятница без статьи этого языка, не раньше окна темы.
+      // Предложенная дата: ближайший день без статьи этого языка, не раньше окна темы.
       const taken = all.filter((a) => a.status === "approved" || a.status === "published");
       const suggested = {};
       for (const r of rows.filter((x) => x.status === "review")) {

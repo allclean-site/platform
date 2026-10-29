@@ -205,10 +205,14 @@ export default async function handler(req, res) {
       [item] = await db(`content_queue?${P}&id=eq.${encodeURIComponent(body.queueId)}&status=in.(queued,rejected,refresh)&limit=1`);
       if (!item) return res.status(404).json({ error: `тема ${body.queueId} не найдена или уже в работе` });
     } else {
-      // Сезонные темы раньше срока не пишем: окно начинается не позже чем через две недели.
+      // Сезонные темы («до 15.11.2026») раньше срока не пишем: окно начинается не позже чем через две
+      // недели. «нед. N» без даты — темп плана 4 статьи в неделю, а с 29.10 статьи выходят каждый день,
+      // так что такие темы окном не держим.
       const horizon = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
-      [item] = await db(`content_queue?${P}&status=eq.queued&attempts=lt.${MAX_ATTEMPTS}` +
-        `&or=(window_from.is.null,window_from.lte.${horizon})&order=priority.asc,window_from.asc.nullslast,id.asc&limit=1`);
+      // По расписанию run=1 пишет русскую тему, run=2 — румынскую: каждый день по статье на язык.
+      const lang = cron ? { 1: "ru", 2: "ro" }[req.query?.run] : null;
+      [item] = await db(`content_queue?${P}&status=eq.queued&attempts=lt.${MAX_ATTEMPTS}${lang ? `&locale=eq.${lang}` : ""}` +
+        `&or=(window_from.is.null,window_from.lte.${horizon},window_label.not.like.*до*)&order=priority.asc,window_from.asc.nullslast,id.asc&limit=1`);
       if (!item) return res.status(200).json({ ok: true, idle: true, message: "Очередь пуста: свободных тем нет." });
     }
     // Тему забираем атомарно: два запуска подряд не напишут её дважды.

@@ -66,7 +66,7 @@ assert.equal(queueRowFromPlan(csv[0]).service_page, "/ru/services/deep-cleaning"
 assert.equal(queueRowFromPlan(csv[0]).pair_id, "O08");
 const tue = new Date("2026-11-02T10:00:00Z"); // понедельник
 assert.equal(nextSlot("ru", [], tue), "2026-11-03T05:00:00.000Z");
-assert.equal(nextSlot("ru", [{ locale: "ru", publish_at: "2026-11-03T05:00:00Z" }], tue), "2026-11-06T05:00:00.000Z");
+assert.equal(nextSlot("ru", [{ locale: "ru", publish_at: "2026-11-03T05:00:00Z" }], tue), "2026-11-04T05:00:00.000Z", "выход каждый день");
 assert.equal(nextSlot("ro", [{ locale: "ru", publish_at: "2026-11-03T05:00:00Z" }], tue), "2026-11-03T05:00:00.000Z");
 const now = new Date("2026-11-06T06:00:00Z");
 const picks = duePicks([
@@ -104,8 +104,9 @@ function match(row, params) {
   for (const [k, v] of params) {
     if (["select", "order", "limit", "on_conflict"].includes(k)) continue;
     if (k === "or") {
-      const m = /window_from\.is\.null,window_from\.lte\.([\d-]+)/.exec(v);
-      if (m && row.window_from && row.window_from > m[1]) return false;
+      // как PostgREST: тема без окна, с наступившим окном или без даты в метке («нед. N»)
+      const m = /window_from\.is\.null,window_from\.lte\.([\d-]+)(,window_label\.not\.like\.\*до\*)?/.exec(v);
+      if (m && row.window_from && row.window_from > m[1] && !(m[2] && !/до/.test(row.window_label || ""))) return false;
       continue;
     }
     const [op, ...rest] = v.split("."); const val = rest.join(".");
@@ -165,11 +166,11 @@ globalThis.fetch = async (url, init = {}) => {
   return json(400, { error: "fake" });
 };
 
-const call = async (name, { body, headers = {}, method = "POST" } = {}) => {
+const call = async (name, { body, headers = {}, method = "POST", query = {} } = {}) => {
   const h = (await import(`../api/${name}.js`)).default;
   const out = { code: 0, body: null };
   const res = { setHeader() {}, status(c) { out.code = c; return res; }, json(b) { out.body = b; return res; }, end() { return res; } };
-  await h({ method, headers, body: body ? { editKey: "k", ...body } : undefined }, res);
+  await h({ method, headers, query, body: body ? { editKey: "k", ...body } : undefined }, res);
   return out;
 };
 
@@ -203,7 +204,9 @@ process.env.ARTICLE_CRON = "1";
 const out = (a) => ({ title: a.title, slug: a.slug, seo_title: a.seo_title, seo_description: a.seo_description, excerpt: a.excerpt, body: a.body,
   faq: a.meta.faq, takeaways: a.meta.takeaways, tags: a.meta.tags, sources: a.meta.sources });
 modelOutputs = [out({ ...base, body: base.body.replace("до 7 часов", "до 6 часов") }), out(base)];
-const d = await call("_draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" } });
+// окно «нед. N» без даты темп не держит: статьи выходят каждый день (29.10)
+Object.assign(db.content_queue.find((q) => q.id === "R03"), { window_label: "нед. 9", window_from: "2099-01-01" });
+const d = await call("_draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" }, query: { run: "1" } });
 assert.equal(d.code, 200, JSON.stringify(d.body));
 assert.deepEqual(d.body.checks.errors, []);
 assert.equal(modelCalls.length, 2, "одна попытка исправить");
@@ -218,6 +221,8 @@ assert.equal(db.content_queue.find((q) => q.id === "R03").status, "review");
 const tg = external.find((e) => e.url.includes("api.telegram.org"));
 assert.match(JSON.parse(tg.body).text, /Статья ждёт проверки \(RU\)/);
 
+// run=1 пишет только русские темы: осталась румынская O08 — русскому запуску делать нечего
+assert.equal((await call("_draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" }, query: { run: "1" } })).body.idle, true, "run=1 — только RU");
 // пара O08 пишется в ту же группу (hreflang)
 const ro = ARTS.find((a) => a.meta.queue.id === "O08");
 modelOutputs = [out(ro)];
@@ -261,6 +266,10 @@ assert.equal(extra.status, "approved", "вторая RU ждёт следующ�
 assert.equal(db.articles.find((a) => a.id === roId).status, "rejected");
 assert.equal(db.content_queue.find((q) => q.id === "R03").status, "published");
 assert.ok(external.some((e) => e.url.includes("indexnow")) && external.some((e) => e.url.includes("deploy-hook.test")), "IndexNow и пересборка");
+
+// сезонную тему («до даты») раньше чем за две недели до окна не пишем
+db.content_queue.push({ ...db.content_queue.find((q) => q.id === "R03"), id: "R99", status: "queued", attempts: 0, window_label: "до 10.03.2099", window_from: "2099-01-27" });
+assert.equal((await call("_draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" }, query: { run: "1" } })).body.idle, true, "сезонная тема ждёт окна");
 
 console.log("[check-article-pipeline] ок: проверка черновика, очистка HTML, график, «На проверке», публикация по расписанию");
 

@@ -63,7 +63,8 @@ export function queueRowFromPlan(r, projectId = PROJECT_ID) {
     cluster: r.cluster || null, intent: r.intent || null, query: r.target_query, title_hint: r.title || null,
     service_page: r.service_page ? pathOf(r.service_page) : null, question: r.aeo_question || null,
     facts_needed: r.facts_from_owner || null, window_label: r.publish_window || null,
-    window_from: w.from, window_to: w.to, pair_id: PAIR_OF[r.id] || null,
+    // Пара — из столбца pair (темы после первого плана) или из PAIRS.
+    window_from: w.from, window_to: w.to, pair_id: r.pair || PAIR_OF[r.id] || null,
   };
 }
 
@@ -228,8 +229,8 @@ export const authorName = (meta) => {
 
 // ---- график публикации --------------------------------------------------------------------------
 
-/** Дни выхода: вторник и пятница, 08:00 по Кишинёву зимой (05:00 UTC). Расписание сборки — 06:00 UTC. */
-export const SLOT_WEEKDAYS = [2, 5];
+/** Дни выхода: каждый день (с 29.10.2026, было вт и пт), 08:00 по Кишинёву зимой (05:00 UTC). Расписание сборки — 06:00 UTC. */
+export const SLOT_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 export const SLOT_HOUR_UTC = 5;
 
 /**
