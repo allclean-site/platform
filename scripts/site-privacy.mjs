@@ -11,6 +11,7 @@
 // Молча выкатить сайт без обязательной галочки согласия — ровно то, чего допускать нельзя.
 
 import { applySeoFixes } from "./seo-fixes.mjs";
+import { applyCalcPrices } from "./calc-prices.mjs";
 
 // Редакция политики конфиденциальности. Уходит в базу вместе с каждой заявкой: по ней
 // видно, на какой текст соглашался человек. Меняете политику — меняете и её.
@@ -180,6 +181,8 @@ export function applySitePrivacy(html, lang) {
   out = footer(out, lang);
   out = consentGuard(out);
   // SEO и кнопки связи — тем же слоем, чтобы холст кабинета совпадал с сайтом.
+  // Цены калькуляторов по прайсу клиента — до SEO-слоя: разметка цен читает уже исправленную страницу.
+  out = applyCalcPrices(out, lang === "ru" ? "ru" : "ro");
   out = applySeoFixes(out, lang);
   return out;
 }

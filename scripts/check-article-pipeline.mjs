@@ -32,7 +32,7 @@ const ctx = (a) => ({ facts, servicePath: a.meta.service_page, knownPaths: known
 for (const a of ARTS) assert.deepEqual(checkArticle(a, ctx(a)).errors, [], `статья ${a.slug} должна проходить проверку`);
 const base = ARTS.find((a) => a.meta.queue.id === "R03");
 const variant = (patch) => checkArticle({ ...base, group_id: "other", ...patch }, { ...ctx(base), existing: [] }).errors.join(" | ");
-assert.match(variant({ body: base.body.replace("до 7 часов", "до 6 часов") }), /числа не из паспорта фактов: 6/);
+assert.match(variant({ body: base.body.replace("до 7 часов", "до 11 часов") }), /числа не из паспорта фактов: 11/);
 assert.match(variant({ body: base.body + "\n\nМы лучший клининг." }), /«лучший»/);
 assert.match(variant({ body: base.body + "\n\nРаботаем 24/7." }), /24\/7/);
 assert.match(variant({ body: base.body + "\n\nТекст подготовлен нейросетью." }), /ИИ/);
@@ -203,7 +203,7 @@ assert.equal(routed.code, 405, "?task=publish без секрета распис
 process.env.ARTICLE_CRON = "1";
 const out = (a) => ({ title: a.title, slug: a.slug, seo_title: a.seo_title, seo_description: a.seo_description, excerpt: a.excerpt, body: a.body,
   faq: a.meta.faq, takeaways: a.meta.takeaways, tags: a.meta.tags, sources: a.meta.sources });
-modelOutputs = [out({ ...base, body: base.body.replace("до 7 часов", "до 6 часов") }), out(base)];
+modelOutputs = [out({ ...base, body: base.body.replace("до 7 часов", "до 11 часов") }), out(base)];
 // окно «нед. N» без даты темп не держит: статьи выходят каждый день (29.10)
 Object.assign(db.content_queue.find((q) => q.id === "R03"), { window_label: "нед. 9", window_from: "2099-01-01" });
 const d = await call("_draft-article", { method: "GET", headers: { authorization: "Bearer cron-s" }, query: { run: "1" } });
@@ -214,7 +214,7 @@ assert.equal(modelCalls[0].model, "claude-opus-5-5");
 assert.deepEqual(modelCalls[0].thinking, { type: "adaptive" });
 assert.equal(modelCalls[0].output_config.format.type, "json_schema");
 assert.equal(modelCalls[0].fallbacks, "default");
-assert.match(modelCalls[1].messages.at(-1).content, /числа не из паспорта фактов: 6/);
+assert.match(modelCalls[1].messages.at(-1).content, /числа не из паспорта фактов: 11/);
 const drafted = db.articles.find((a) => a.meta?.queue?.id === "R03");
 assert.equal(drafted.status, "review");
 assert.equal(db.content_queue.find((q) => q.id === "R03").status, "review");

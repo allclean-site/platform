@@ -537,7 +537,7 @@ export function priceTableHtml(lang) {
     `<p class="text-size-regular" style="margin:1.25rem 0 0;opacity:.75">${t.note}</p>` +
     `</div></div></div></section>`;
 }
-function priceList() {
+export function priceList() {
   for (const lang of ["ro", "ru"]) {
     const file = join(DIR, (lang === "ru" ? "ru__" : "") + "pricing.json");
     const page = JSON.parse(readFileSync(file, "utf8"));

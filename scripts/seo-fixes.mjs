@@ -187,13 +187,15 @@ export const PRICES = [
   { slug: "home-cleaning", ru: "Уборка квартир и домов", ro: "Curățenie apartamente și case" },
   { slug: "deep-cleaning", min: 45, unit: "m2", ru: "Генеральная уборка", ro: "Curățenie generală",
     pru: ["45 лей/м²"], pro: ["45 lei/m²"] },
-  { slug: "post-construction", min: 3700, ru: "Уборка после ремонта", ro: "Curățenie după renovare",
-    pru: ["до 40 м² — 3700 лей", "до 60 м² — 4700 лей", "до 90 м² — 5700 лей", "офисы — 35 лей/м²"],
-    pro: ["până la 40 m² — 3700 lei", "până la 60 m² — 4700 lei", "până la 90 m² — 5700 lei", "birouri — 35 lei/m²"] },
+  // Прайс клиента 29.10.2026: за м², окна после ремонта — вдвое дороже обычных.
+  { slug: "post-construction", min: 65, unit: "m2", ru: "Уборка после ремонта", ro: "Curățenie după renovare",
+    pru: ["без мебели — 65 лей/м²", "с мебелью — 100 лей/м²"],
+    pro: ["fără mobilă — 65 lei/m²", "cu mobilă — 100 lei/m²"] },
   { slug: "office", ru: "Уборка офисов", ro: "Curățenie birouri" },
-  { slug: "windows", min: 40, unit: "m2", ru: "Мойка окон", ro: "Spălarea geamurilor",
-    pru: ["внутри — 40 лей/м²", "снаружи — 45 лей/м²", "витражи — 40 лей/м²"],
-    pro: ["interior — 40 lei/m²", "exterior — 45 lei/m²", "vitralii — 40 lei/m²"] },
+  // Окно — за штуку (прайс 29.10.2026): изнутри / изнутри и снаружи.
+  { slug: "windows", min: 100, unit: "window", ru: "Мойка окон", ro: "Spălarea geamurilor",
+    pru: ["стандартное окно — 100 лей изнутри / 250 лей с двух сторон", "полупанорамное — 150 / 350 лей", "панорамное — 300 / 600 лей", "витражи — 40 лей/м²"],
+    pro: ["geam standard — 100 lei la interior / 250 lei pe ambele părți", "semipanoramic — 150 / 350 lei", "panoramic — 300 / 600 lei", "vitralii — 40 lei/m²"] },
   { slug: "facades", min: 35, unit: "m2", ru: "Мойка фасадов и витрин", ro: "Spălare fațade și vitrine",
     pru: ["стеклянные фасады — 35 лей/м²", "витражи — 40 лей/м²"],
     pro: ["fațade din sticlă — 35 lei/m²", "vitralii — 40 lei/m²"] },
@@ -236,7 +238,7 @@ const pageUrl = (html) => (html.match(/<link rel="canonical" href="([^"]+)"/) ||
 // Раньше offers брались из таблицы PRICES, и правка цены клиентом на странице расходилась с
 // разметкой. Берётся единица первой найденной цены (м², предмет или за объект) и наименьшая
 // цена в этой единице. Нет цены в тексте — PRICES (счётчик ld:offers-fallback).
-const PRICE_RE = /(?:от|de la)\s+(\d[\d\s]*?)(?:\s+(?:до|la|și)\s+(\d[\d\s]*?))?\s+(?:лей|lei)(?:\s*(?:\/|за|pe|per)\s*(м²|m²|m2|предмет|obiect))?/gi;
+const PRICE_RE = /(?:от|de la)\s+(\d[\d\s]*?)(?:\s+(?:до|la|și)\s+(\d[\d\s]*?))?\s+(?:лей|lei)(?:\s*(?:\/|за|pe|per)\s*(м²|m²|m2|предмет|obiect|окно|geam))?/gi;
 export function pagePrice(html) {
   const texts = [];
   const sub = html.match(/<[a-z0-9]+\b[^>]*class="[^"]*hero-home_sub[^"]*"[^>]*>([\s\S]*?)<\/(?:h2|p|div)>/);
@@ -440,9 +442,9 @@ function pricingH1(html) {
 // Главная: description с ценами — только вместо описания из шаблона (своё описание клиента сильнее).
 const HOME_DESC = [
   ["Serviciu profesional de curățenie în Chișinău: apartamente, case și birouri. Prețuri transparente, programare online.",
-    "Curățenie în Chișinău: generală de la 45 lei/m², după renovare de la 3700 lei, spălarea geamurilor de la 40 lei/m². Zilnic 8:00–21:00, calcul online."],
+    "Curățenie în Chișinău: generală de la 45 lei/m², după renovare de la 65 lei/m², spălarea geamurilor de la 100 lei per geam. Zilnic 8:00–21:00, calcul online."],
   ["Профессиональная клининговая служба в Кишинёве: уборка квартир, домов и офисов. Прозрачные цены, онлайн-запись.",
-    "Клининг в Кишинёве: генеральная уборка от 45 лей/м², после ремонта от 3700 лей, мойка окон от 40 лей/м². Ежедневно 8:00–21:00, расчёт онлайн."],
+    "Клининг в Кишинёве: генеральная уборка от 45 лей/м², после ремонта от 65 лей/м², мойка окон от 100 лей за окно. Ежедневно 8:00–21:00, расчёт онлайн."],
 ];
 function homeDesc(html) {
   for (const [was, now] of HOME_DESC) {
@@ -462,10 +464,10 @@ function calcHeadings(html) {
 // Ответ первым абзацем — сразу под карточкой первого экрана, внутри той же секции.
 const ANSWER_HOME = {
   ru: "All Clean — клининг в Кишинёве и пригородах: квартиры, дома, офисы, окна. " +
-    "Генеральная уборка — от 45 лей за м², после ремонта — от 3700 лей за квартиру до 40 м², мойка окон — от 40 лей за м². " +
+    "Генеральная уборка — от 45 лей за м², после ремонта — от 65 лей за м², мойка окон — от 100 лей за окно. " +
     "Работаем ежедневно с 8:00 до 21:00. Если качество не устроит, сообщите в течение 24 часов — клинер приедет повторно бесплатно.",
   ro: "All Clean face curățenie în Chișinău și suburbii: apartamente, case, birouri, geamuri. " +
-    "Curățenia generală — de la 45 lei/m², după renovare — de la 3700 lei pentru un apartament de până la 40 m², spălarea geamurilor — de la 40 lei/m². " +
+    "Curățenia generală — de la 45 lei/m², după renovare — de la 65 lei/m², spălarea geamurilor — de la 100 lei per geam. " +
     "Lucrăm zilnic între 8:00 și 21:00. Dacă nu sunteți mulțumit, anunțați-ne în 24 de ore și trimitem gratuit un curățător din nou.",
 };
 const NAMES = { "floor-restoration": { ru: "Реставрация полов", ro: "Restaurare pardoseli" } };

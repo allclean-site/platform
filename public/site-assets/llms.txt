@@ -13,8 +13,8 @@ Key facts:
 
 - [Генеральная уборка квартир и домов](https://allclean.md/ru/services/deep-cleaning): от 45 лей/м², до 7 часов на квартиру; кухня, санузлы, окна, люстры.
 - [Уборка квартир и домов](https://allclean.md/ru/services/home-cleaning): поддерживающая (3–5 часов), генеральная и после ремонта; расчёт в калькуляторе.
-- [Уборка после ремонта и строительства](https://allclean.md/ru/services/post-construction): до 40 м² от 3700 лей, до 60 м² от 4700 лей, до 90 м² от 5700 лей; офисы от 35 лей/м².
-- [Мойка окон, фасадов и витрин](https://allclean.md/ru/services/windows): окна внутри от 40 лей/м², снаружи от 45 лей/м², витражи от 40 лей/м², стеклянные фасады от 35 лей/м².
+- [Уборка после ремонта и строительства](https://allclean.md/ru/services/post-construction): без мебели от 65 лей/м², с мебелью от 100 лей/м²; окна после ремонта по двойной цене.
+- [Мойка окон, фасадов и витрин](https://allclean.md/ru/services/windows): стандартное окно от 100 лей за окно (изнутри и снаружи 250 лей), полупанорамное 150 / 350 лей, панорамное 300 / 600 лей; витражи от 40 лей/м², стеклянные фасады от 35 лей/м².
 - [Мойка фасадов и витрин](https://allclean.md/ru/services/facades): стеклянные фасады от 35 лей/м², витражи от 40 лей/м²; работы на высоте, автовышка при необходимости.
 - [Чистка ковров и ковролина](https://allclean.md/ru/services/carpet): ковролин от 45 лей/м², ковры от 55 лей/м².
 - [Химчистка мягкой мебели](https://allclean.md/ru/services/upholstery): диваны, кресла, стулья, матрасы; от 50 до 450 лей за предмет.
@@ -28,12 +28,21 @@ Key facts:
 - [Уборка складов и промышленных помещений](https://allclean.md/ru/services/warehouse): мойка, дезинфекция, обеспыливание металлоконструкций.
 - [Мойка и дезинфекция пищевых производств](https://allclean.md/ru/services/disinfection): по требованиям законодательства РМ.
 
+## Дополнительные услуги и надбавки (прайс 29.10.2026)
+
+- Этаж: 1–2 без надбавки, 3–5 +300 лей, 6–8 +500 лей, 9–12 +800 лей, 13–17 +1000 лей.
+- Поверхности: доступные 500 лей, все 1000 лей, все и мебель внутри 1800 лей.
+- Кухня: лёгкая уборка 500 лей, с кухонной техникой 1000 лей; глубокая уборка 1000 лей, с техникой 1800 лей.
+- Душевая кабина 750 лей, ванна 250 лей, кондиционер 350 лей.
+- Мойка посуды: немного 150 лей, много 400 лей. Глажка: немного 250 лей, много 450 лей.
+- Занавески: отпарить 350 лей; снять, постирать и повесить 750 лей.
+
 ## Servicii și prețuri (română)
 
 - [Curățenie generală](https://allclean.md/services/deep-cleaning): de la 45 lei/m².
 - [Curățenie apartamente și case](https://allclean.md/services/home-cleaning)
-- [Curățenie după renovare](https://allclean.md/services/post-construction): până la 40 m² de la 3700 lei, până la 60 m² de la 4700 lei, până la 90 m² de la 5700 lei.
-- [Spălare geamuri, fațade și vitrine](https://allclean.md/services/windows): de la 35–45 lei/m².
+- [Curățenie după renovare](https://allclean.md/services/post-construction): fără mobilă de la 65 lei/m², cu mobilă de la 100 lei/m²; geamurile după renovare la preț dublu.
+- [Spălare geamuri, fațade și vitrine](https://allclean.md/services/windows): geam standard de la 100 lei per geam (interior și exterior 250 lei), semipanoramic 150 / 350 lei, panoramic 300 / 600 lei; vitralii de la 40 lei/m².
 - [Spălare fațade și vitrine](https://allclean.md/services/facades): fațade din sticlă de la 35 lei/m², vitralii de la 40 lei/m².
 - [Curățare covoare și mochetă](https://allclean.md/services/carpet): mochetă de la 45 lei/m², covoare de la 55 lei/m².
 - [Curățare mobilă tapițată](https://allclean.md/services/upholstery): 50–450 lei per obiect.
