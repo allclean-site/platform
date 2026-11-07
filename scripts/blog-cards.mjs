@@ -43,12 +43,14 @@ export const serviceOfArticle = (a) => {
     .replace(/^https?:\/\/(www\.)?allclean\.md/, "").replace(/\/$/, "");
 };
 
-/** До трёх свежих опубликованных статей этой услуги на языке страницы. */
+/** До трёх свежих опубликованных статей этой услуги на языке страницы; на главной — три последние
+ *  статьи любой услуги: главную Google обходит чаще всего, и новые статьи находит через неё. */
 export function relatedArticles(pagePath, locale, arts) {
   const p = String(pagePath || "").replace(/\/$/, "");
-  if (!SERVICE_PAGE.test(p)) return [];
+  const home = p === "" || p === "/ru";
+  if (!home && !SERVICE_PAGE.test(p)) return [];
   const t = (a) => Date.parse(a.publish_at || a.created_at || 0) || 0;
-  return (arts || []).filter((a) => a.locale === locale && serviceOfArticle(a) === p && (!a.status || a.status === "published"))
+  return (arts || []).filter((a) => a.locale === locale && (home || serviceOfArticle(a) === p) && (!a.status || a.status === "published"))
     .sort((x, y) => t(y) - t(x)).slice(0, 3);
 }
 

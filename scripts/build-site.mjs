@@ -104,7 +104,10 @@ const artUrl = (locale, slug) => (locale === "ro" ? `${SITE}/blog/${slug}` : `${
 const artPath = (locale, slug) => (locale === "ro" ? `blog/${slug}/index.html` : `${locale}/blog/${slug}/index.html`);
 
 const D = "data-astro-cid-zcwx364o";
-const ARTICLE_TABLE_CSS = "<style>.article-table{overflow-x:auto;margin:1.25rem 0 1.75rem}.article-table table{width:100%;border-collapse:collapse}" +
+// Колонка статьи (.wrap_6-center) в flex-колонке по центру берёт ширину по содержимому, и широкая таблица
+// растягивала её шире экрана: на 390 px заголовки и абзацы уходили за край на 17 px, а прокрутка
+// таблицы так и не включалась. width:100% держит колонку в экране; на ПК её ограничивает max-width шаблона.
+const ARTICLE_TABLE_CSS = "<style>.master_body-article>.wrap_6-center{width:100%}.article-table{overflow-x:auto;margin:1.25rem 0 1.75rem}.article-table table{width:100%;border-collapse:collapse}" +
   ".article-table th,.article-table td{border-bottom:1px solid rgba(12,41,89,.14);padding:.65rem 1rem .65rem 0;text-align:left;vertical-align:top}" +
   ".article-table th{font-weight:600;opacity:.75}</style>";
 function buildSec0(a, dateStr) {
