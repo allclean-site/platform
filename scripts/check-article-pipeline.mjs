@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
-  checkArticle, duePicks, nextSlot, numbersIn, parseCsv, queueRowFromPlan, planWindow, authorNode, PROJECT_ID,
+  checkArticle, articlePath, duePicks, nextSlot, numbersIn, parseCsv, queueRowFromPlan, planWindow, authorNode, PROJECT_ID,
 } from "../src/engine/blog/article-pipeline.js";
 import { markdownToHtml, sanitizeArticleHtml } from "../src/engine/blog/markdown.js";
 import { withRelatedArticles, relatedArticles } from "./blog-cards.mjs";
@@ -25,7 +25,8 @@ const facts = JSON.parse(readFileSync(join(ROOT, "data", "allclean-facts.json"),
 const files = readdirSync(join(ROOT, "content", "articles")).filter((f) => f.endsWith(".json")).sort();
 const ARTS = files.map((f) => JSON.parse(readFileSync(join(ROOT, "content", "articles", f), "utf8")));
 const EXISTING = ["/ru/blog/generalnaya-i-podderzhivayushchaya-uborka-chem-otlichayutsya", "/blog/curatenia-generala-si-cea-de-mentinere-care-sunt-diferentele"];
-const known = new Set([...Object.keys(facts.pages.ru), ...Object.keys(facts.pages.ro), ...EXISTING]);
+// Статьи из content/articles уже на сайте (с 01.11.2026) — на них можно ссылаться из следующих.
+const known = new Set([...Object.keys(facts.pages.ru), ...Object.keys(facts.pages.ro), ...EXISTING, ...ARTS.map((a) => articlePath(a.locale, a.slug))]);
 const ctx = (a) => ({ facts, servicePath: a.meta.service_page, knownPaths: known, existing: ARTS });
 
 // ---- 1. проверка черновика ----------------------------------------------------------------------
