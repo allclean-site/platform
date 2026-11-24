@@ -331,6 +331,17 @@ const THANKS =
   'var dbg=(location.search.match(/[?&](gtm_debug=[^&]*)/)||[])[1];' +
   'var done=false,go=function(){if(done)return;done=true;location.href=(/^\\/ru(\\/|$)/.test(location.pathname)?"/ru":"")+"/thank-you"+(dbg?"?"+dbg:"");};' +
   'setTimeout(go,2500);r.then(go,go);}return r;};})();</script>';
+// ── 5а. Маска телефона ───────────────────────────────────────────────────────────────
+// В Молдове номер пишут «069 123 456». Маска калькулятора и формы записи срезала только «373»,
+// ноль оставался первой цифрой, а восьмая отрезалась: «+373 06 912 345» — менеджер получал чужой
+// номер (замер 25.11.2026). Срезаем ведущие нули до и после кода страны.
+function phoneMask(html) {
+  html = swapRe(html, "phone:calc-zero", /if \(d\.indexOf\('373'\) === 0\) d = d\.slice\(3\);/g,
+    "d = d.replace(/^0+/, ''); if (d.indexOf('373') === 0) d = d.slice(3); d = d.replace(/^0+/, '');");
+  return swapRe(html, "phone:book-zero", /e\.indexOf\("373"\)===0&&\(e=e\.slice\(3\)\),/g,
+    'e=e.replace(/^0+/,""),e.indexOf("373")===0&&(e=e.slice(3)),e=e.replace(/^0+/,""),');
+}
+
 function thanks(html) {
   if (html.includes(THANKS_MARK)) return html;
   return swapRe(html, "thanks:redirect", /<\/body>/, THANKS + "</body>");
@@ -564,6 +575,7 @@ export function applySeoFixes(html, lang) {
   out = calcHeadings(out);
   out = packagePrices(out, lang === "ru" ? "ru" : "ro");
   out = answerFirst(out, lang === "ru" ? "ru" : "ro");
+  out = phoneMask(out);
   out = thanks(out);
   out = antispam(out);
   out = consentBanner(out);
@@ -584,7 +596,7 @@ export function seoReport() {
 export function assertSeoApplied() {
   const required = ["slash:abs", "tel:plus", "tg:phone", "viber:chat", "social:facebook", "social:linkedin", "social:instagram", "favicon", "org:jsonld", "thanks:redirect", "forms:antispam", "consent:banner",
     "ld:faq-sync", "ld:offers",
-    "ld:provider", "ld:article", "footer:maps", "ads:contact-click"];
+    "ld:provider", "ld:article", "footer:maps", "ads:contact-click", "phone:calc-zero", "phone:book-zero"];
   const missing = required.filter((k) => !(counts.get(k) > 0));
   if (missing.length) {
     throw new Error("seo-fixes: не применились правки — " + missing.join(", ") +
